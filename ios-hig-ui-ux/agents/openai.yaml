@@ -1,0 +1,7 @@
+interface:
+  display_name: "iOS HIG UI/UX"
+  short_description: "Apple HIG 最新規範的 iOS UI/UX 交互最佳實踐指南"
+  default_prompt: "Use $ios-hig-ui-ux to review my iOS app's UI against the latest Apple HIG."
+
+policy:
+  allow_implicit_invocation: true
