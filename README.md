@@ -11,6 +11,7 @@ Leo Ho 自行撰寫與維護的 [Agent Skills](https://agentskills.io) 集合，
 | Skill                             | 說明                                                                    |
 |-----------------------------------|-------------------------------------------------------------------------|
 | [`ios-hig-ui-ux`](ios-hig-ui-ux/) | 依 Apple HIG（Liquid Glass 世代）設計、實作與審查 iOS/iPadOS App 的 UI/UX。 |
+| [`ios-dev-kit`](ios-dev-kit/)     | Leo Ho 個人的 Swift coding style、code formatting 排版與新檔案 file template 規範。 |
 
 ## 安裝
 
@@ -55,7 +56,8 @@ Use $ios-hig-ui-ux to review my iOS app's UI against the latest Apple HIG.
 <skill-name>/
 ├── SKILL.md            # 必要。frontmatter 含 name 與 description，本體為工作流程與 reference 導覽
 ├── agents/openai.yaml  # Codex 用的 interface / policy 中繼資料
-└── references/*.md     # 依主題拆分的細節，由 SKILL.md 按需引導 agent 載入
+├── references/*.md     # 依主題拆分的細節，由 SKILL.md 按需引導 agent 載入
+└── assets/             # 選用。樣板、範例等供 agent 直接複製的實體檔案
 ```
 
 `SKILL.md` 只放不可違反的規則、核心原則與「任務情境 → 讀哪份 reference」的導覽表，細節下放到 `references/`，讓 agent 只載入當前任務需要的內容。
