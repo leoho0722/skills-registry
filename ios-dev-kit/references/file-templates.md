@@ -29,6 +29,7 @@ Leo Ho 個人 Swift 檔案樣板規範，版本 2026-09。實體樣板放在 [`.
 | UI 測試（XCTest / XCUITest） | `tests/UITests.swift` | `<Screen>UITests.swift` |
 | 自訂格式化樣式（含業務規則的日期、金額、遮罩等） | `core/FormatStyle.swift` | `<Name>FormatStyle.swift` |
 | Service 的 Environment 注入清單（每個專案一份） | `core/EnvironmentValues+Services.swift` | 固定 `EnvironmentValues+Services.swift` |
+| 執行環境判斷（Preview / UI Test / 單元測試），每個專案一份 | `core/RuntimeEnvironment.swift` | 固定 `RuntimeEnvironment.swift` |
 
 子資料夾對應 `project-structure.md` 的分層：`presentation/`、`domain/`、`data/`、`core/`、`tests/`。建 Feature 模組時，依要建的層去對應子資料夾取樣板；跨 Feature 共用的基礎型別放 `core/`。
 
@@ -45,7 +46,6 @@ Leo Ho 個人 Swift 檔案樣板規範，版本 2026-09。實體樣板放在 [`.
 | `__VALUE_TYPE__` | 被格式化的輸入型別，例如 `Date`、`Decimal`、`String` |
 | `__OUTPUT_TYPE__` | 流程完成時交出的產出型別，例如 `Order`、`Account` |
 | `__RAW_TYPE__` | enum 的 raw type，依需求決定，例如 `String`、`Int` |
-| `__RAW_VALUE__` | 手寫 `init?(rawValue:)` 內比對用的 raw value 字面值，型別須與 `__RAW_TYPE__` 一致 |
 | `__FILE_NAME__` | 檔名（含 `.swift`） |
 | `__PROJECT__` | 專案／模組名稱 |
 | `__DATE__` | 建立日期，格式 `YYYY/MM/DD` |
@@ -235,14 +235,26 @@ func cancel()                      // 中途放棄，等同 finish(with: .cancel
 |---|---|
 | 值要與 API、資料庫或 UserDefaults 的字串對應 | `String` |
 | 值要與後端的數字代碼對應，或需要天然的排序 | `Int` |
-| 純粹在程式內分類，不需要任何外部表示 | 不加 raw type，同時刪掉 Init 區塊 |
+| 純粹在程式內分類，不需要任何外部表示 | 不加 raw type |
 
-不加 raw type 時 `Codable` 仍可自動合成，會以 case 名稱的字串編碼；若連 `Codable` 都不需要就一併拿掉。本體只放 cases 與 Init，computed properties 一律放 `// MARK: - Computed Properties` extension（enum 沒有 stored property，此為 `formatting.md` 分區順序的型別特例）。
+不加 raw type 時 `Codable` 仍可自動合成，會以 case 名稱的字串編碼；若連 `Codable` 都不需要就一併拿掉。本體只放 cases，computed properties 一律放 `// MARK: - Computed Properties` extension（enum 沒有 stored property，此為 `formatting.md` 分區順序的型別特例）。
 
-**Init 只在需要時才寫。** 樣板內手寫的 `init?(rawValue:)` 是給「raw value 與 case 名稱不一一對應」或需要容錯解析時用的；一般情況直接刪掉整個 Init 區塊，交由編譯器合成，避免新增 case 時漏改 switch。保留時 `__RAW_VALUE__` 要替換成與 raw type 同型別的字面值，`String` 填 `"example"`，`Int` 填 `0`。
+**樣板不含 init，`init?(rawValue:)` 交由編譯器合成。** 只有「raw value 與 case 名稱不一一對應」或需要容錯解析（例如未知值落到 `.unknown`）時才手寫，放在本體 cases 之後的 `// MARK: - Init` 區塊；手寫版必須列出所有 case，`default` 只允許 `return nil` 或 `self = .unknown`。
+
+```swift
+// MARK: - Init
+
+init?(rawValue: String) {
+    switch rawValue.lowercased() {
+    case "active": self = .active
+    case "inactive", "disabled": self = .inactive
+    default: return nil
+    }
+}
+```
 
 - **`CaseIterable` 預設加**，即使目前沒用到；它沒有成本，且 Picker、測試參數化幾乎一定會用到。
-- **switch 禁止 `default`**，每個 case 明確列出，新增 case 時讓編譯器指出所有需要更新的地方。唯一例外是手寫 `init?(rawValue:)` 的 `default: return nil`。
+- **switch 禁止 `default`**，每個 case 明確列出，新增 case 時讓編譯器指出所有需要更新的地方。唯一例外是手寫 `init?(rawValue:)` 的 `default`。
 
 ### domain/EnumWithAssociatedValue.swift
 
@@ -389,7 +401,7 @@ init(profileService: any ProfileServiceProtocol) {
 }
 ```
 
-`@Entry` 的預設值填 Preview stub 而非正式實作，這樣忘記在根部注入時 Preview 與測試不會意外打到真實 API；正式 App 一定要在根部覆寫。
+`@Entry` 的預設值填 Preview stub 而非正式實作，這樣忘記在根部注入時 Preview 與測試不會意外打到真實 API；正式 App 一定要在根部覆寫，忘記時 Preview stub init 內的 `assert` 會在 Debug 執行時中止（見 `data/Service+Preview.swift` 一節）。
 
 **Service 之間的依賴：只允許向下依賴基礎設施，禁止 Service 依賴同層 Service。**
 
@@ -422,6 +434,8 @@ Data 層的型別分兩種：
 
 給 `#Preview` 用的固定回傳實作，型別名稱固定 `Preview<Name>Service`。方法內只回傳寫死的假資料或立即 `return`，不記錄呼叫、不含邏輯。放在 `Preview Content/`，整檔以 `#if DEBUG` 包住。
 
+**init 內固定放一行 `assert(RuntimeEnvironment.allowsPreviewStub, ...)`**，正式 App 忘記在根部覆寫 `@Entry` 時，Debug 執行會立刻中止而非靜默使用 stub；Release 因 `assert` 被移除且整檔在 `#if DEBUG` 內，不受影響。`RuntimeEnvironment` 由 `core/RuntimeEnvironment.swift` 樣板建立，每個專案一份。
+
 ### tests/MockService.swift
 
 給單元測試用的記錄型實作，型別名稱固定 `Mock<Name>Service`。每個 protocol 方法對應三個屬性，命名固定：
@@ -450,6 +464,10 @@ Data 層的型別分兩種：
 每個專案只有一份，檔名固定，不使用 `__FILE_NAME__` 佔位符。內容是 `EnvironmentValues` 的 extension，每個 Service 一行 `@Entry`，型別為 protocol existential，預設值為 Preview stub。樣板內的示範 entry 替換成第一個實際 Service 後，之後新增 Service 時直接在此檔加一行並維持字母排序，不再從樣板複製。
 
 entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.environment(\.xxx, ...)`，這條規則寫在本節即可，不需要每行重複。
+
+### core/RuntimeEnvironment.swift
+
+每個專案一份，檔名固定。無 case 的 `enum` 作為命名空間，四個 static computed property 放 `// MARK: - Computed Properties` extension：`isPreview`（`XCODE_RUNNING_FOR_PREVIEWS`）、`isUITesting`（`-uiTesting` launch argument）、`isUnitTesting`（`XCTestConfigurationFilePath` / `XCTestBundlePath`）、`allowsPreviewStub`（前三者任一）。App 根部依 `isUITesting` 決定注入正式實作或 Preview stub；Preview stub 的 init 以 `allowsPreviewStub` 做 assert。不在此型別加入其他與環境無關的判斷。
 
 ### tests/Tests.swift
 

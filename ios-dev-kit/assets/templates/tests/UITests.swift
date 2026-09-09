@@ -19,6 +19,7 @@ final class __NAME__UITests: XCTestCase {
         try super.setUpWithError()
         continueAfterFailure = false
         app = XCUIApplication()
+        app.launchArguments = ["-uiTesting"]
         app.launch()
     }
 

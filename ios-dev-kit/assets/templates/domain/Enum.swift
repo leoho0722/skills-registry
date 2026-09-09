@@ -10,17 +10,6 @@ import Foundation
 enum __NAME__: __RAW_TYPE__, CaseIterable, Codable, Sendable {
 
     case example
-
-    // MARK: - Init
-
-    init?(rawValue: __RAW_TYPE__) {
-        switch rawValue {
-        case __RAW_VALUE__:
-            self = .example
-        default:
-            return nil
-        }
-    }
 }
 
 // MARK: - Computed Properties

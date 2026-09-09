@@ -16,7 +16,10 @@ struct Preview__NAME__Service: __NAME__ServiceProtocol {
     // MARK: - Init
 
     init() {
-
+        assert(
+            RuntimeEnvironment.allowsPreviewStub,
+            "Preview__NAME__Service 只能在 Preview、UI Test 或單元測試中使用，正式 App 請在根部注入正式實作"
+        )
     }
 }
 
