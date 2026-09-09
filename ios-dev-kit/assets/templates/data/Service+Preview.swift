@@ -9,7 +9,7 @@
 
 import Foundation
 
-struct Preview__NAME__Service: __NAME__ServiceProtocol {
+struct Preview__NAME__Service {
 
     // MARK: - Properties
 
@@ -25,7 +25,7 @@ struct Preview__NAME__Service: __NAME__ServiceProtocol {
 
 // MARK: - __NAME__ServiceProtocol
 
-extension Preview__NAME__Service {
+extension Preview__NAME__Service: __NAME__ServiceProtocol {
 
 }
 

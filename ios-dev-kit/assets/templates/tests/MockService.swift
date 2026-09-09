@@ -6,6 +6,7 @@
 //
 
 import Foundation
+
 @testable import __PROJECT__
 
 /// 以 lock-free 的方式記錄呼叫；測試皆為單執行緒存取，故標記 `@unchecked Sendable`。

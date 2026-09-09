@@ -87,9 +87,12 @@ private extension ProfileView {
     // 留在 View：狀態對應圖示，純呈現對應
     func iconName(for state: ProfileViewModel.State) -> String {
         switch state {
-        case .idle, .loaded: "person"
-        case .loading: "hourglass"
-        case .failed: "exclamationmark.triangle"
+        case .idle, .loaded:
+            "person"
+        case .loading:
+            "hourglass"
+        case .failed:
+            "exclamationmark.triangle"
         }
     }
 }
@@ -133,7 +136,9 @@ var body: some View {
         ScrollView {
             VStack(spacing: 16) {
                 header
+
                 statsSection
+
                 recentActivityList
             }
         }
@@ -246,9 +251,12 @@ func cancel()                      // 中途放棄，等同 finish(with: .cancel
 
 init?(rawValue: String) {
     switch rawValue.lowercased() {
-    case "active": self = .active
-    case "inactive", "disabled": self = .inactive
-    default: return nil
+    case "active":
+        self = .active
+    case "inactive", "disabled":
+        self = .inactive
+    default:
+        return nil
     }
 }
 ```
@@ -258,9 +266,9 @@ init?(rawValue: String) {
 
 ### domain/EnumWithAssociatedValue.swift
 
-有 associated value 的列舉。不帶 raw value，預設遵循 `Equatable`、`Sendable`。分區順序：本體放 cases 與 Init，extension 依序為 Nested Types → Computed Properties → Internal Method → Private Method。
+有 associated value 的列舉。不帶 raw value，預設遵循 `Equatable`、`Sendable`。分區順序：本體只放 cases，extension 依序為 Nested Types → Computed Properties → Internal Method → Codable → Private Method。
 
-**Init 只在需要時才寫，一般情況整組省略。** 樣板內的 `init(from:)`、`CodingKeys`、`encode(to:)` 與 `Codable` 遵循是一組，只有在這個 enum 需要與 JSON 互轉時才保留；不需要時把這四樣一起刪掉，只留空的 `// MARK: - Init` 與 Nested Types 插槽。不要只刪一半，例如留著 `Codable` 卻刪掉 `init(from:)`，那會退回自動合成的 `{"exampleWithValue": {"_0": "x"}}` 形狀。
+**`Codable` 只在需要時才寫，一般情況整組省略。** 樣板內的 `// MARK: - Codable` extension（含遵循宣告、`init(from:)`、`encode(to:)`）與 Nested Types 的 `CodingKeys` 是一組，只有在這個 enum 需要與 JSON 互轉時才保留；不需要時把整個 Codable extension 與 `CodingKeys` 一起刪掉。不要只刪一半，例如把 `Codable` 改回型別行卻刪掉 `init(from:)`，那會退回自動合成的 `{"exampleWithValue": {"_0": "x"}}` 形狀。依 `formatting.md` 的遵循宣告規則，手寫的 `init(from:)` 屬於 protocol 實作，放在 Codable extension 而非本體 Init 區。
 
 樣板的 `Codable` 實作假設後端 JSON 是 discriminator 形式，`type` 欄位放 case 名稱、`value` 欄位放 associated value：
 
@@ -451,7 +459,7 @@ Data 層的型別分兩種：
 遵循 Foundation 的 `FormatStyle` protocol，不自訂平行的 formatter protocol，也避免命名為 `<Name>Formatter` 以免與 Foundation 的 `Formatter` 類別混淆。
 
 - `FormatStyle` 要求 `Codable` 與 `Hashable`，因此 stored properties 只能是同樣遵循兩者的型別（`Locale`、`TimeZone`、`Calendar`、基本型別都可以）。
-- `format(_:)` 是唯一必要實作；輸入型別填入 `__VALUE_TYPE__`，輸出固定 `String`。
+- `format(_:)` 是唯一必要實作，放在 `// MARK: - FormatStyle` extension 並在該 extension 宣告遵循；輸入型別填入 `__VALUE_TYPE__`，輸出固定 `String`。
 - 樣板底部的 `extension FormatStyle where Self == ...` 提供 `.relativeDay` 這種點語法便利存取子，讓 View 可以寫 `Text(date, format: .relativeDay)`。有參數的樣式改成 static func。
 - 使用 `Locale`、`TimeZone` 時透過 init 注入並給預設值，不在 `format(_:)` 內直接讀 `.current`，方便測試固定環境。
 

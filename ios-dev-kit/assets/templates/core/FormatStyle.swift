@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct __NAME__FormatStyle: FormatStyle {
+struct __NAME__FormatStyle {
 
     // MARK: - Properties
 
@@ -16,8 +16,11 @@ struct __NAME__FormatStyle: FormatStyle {
     init() {
 
     }
+}
 
-    // MARK: - FormatStyle
+// MARK: - FormatStyle
+
+extension __NAME__FormatStyle: FormatStyle {
 
     func format(_ value: __VALUE_TYPE__) -> String {
         ""

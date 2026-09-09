@@ -7,30 +7,12 @@
 
 import Foundation
 
-enum __NAME__: Equatable, Sendable, Codable {
+enum __NAME__: Equatable, Sendable {
 
     case example
 
     case exampleWithValue(String)
 
-    // MARK: - Init
-
-    init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let type = try container.decode(String.self, forKey: .type)
-        switch type {
-        case "example":
-            self = .example
-        case "exampleWithValue":
-            self = .exampleWithValue(try container.decode(String.self, forKey: .value))
-        default:
-            throw DecodingError.dataCorruptedError(
-                forKey: .type,
-                in: container,
-                debugDescription: "Unknown type: \(type)"
-            )
-        }
-    }
 }
 
 // MARK: - Nested Types
@@ -38,9 +20,9 @@ enum __NAME__: Equatable, Sendable, Codable {
 extension __NAME__ {
 
     enum CodingKeys: String, CodingKey {
-        
+
         case type
-        
+
         case value
     }
 }
@@ -62,6 +44,29 @@ extension __NAME__ {
 // MARK: - Internal Method
 
 extension __NAME__ {
+
+}
+
+// MARK: - Codable
+
+extension __NAME__: Codable {
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "example":
+            self = .example
+        case "exampleWithValue":
+            self = .exampleWithValue(try container.decode(String.self, forKey: .value))
+        default:
+            throw DecodingError.dataCorruptedError(
+                forKey: .type,
+                in: container,
+                debugDescription: "Unknown type: \(type)"
+            )
+        }
+    }
 
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)

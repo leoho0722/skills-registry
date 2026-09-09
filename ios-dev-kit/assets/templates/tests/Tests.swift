@@ -6,6 +6,7 @@
 //
 
 import Testing
+
 @testable import __PROJECT__
 
 struct __NAME__Tests {
