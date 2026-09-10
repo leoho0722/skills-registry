@@ -22,6 +22,7 @@ Leo Ho 個人 Swift 檔案樣板規範，版本 2026-09。實體樣板放在 [`.
 | 列舉，無 associated value（分類、選項、raw value 對應字串或整數） | `domain/Enum.swift` | `<Name>.swift` |
 | 列舉，有 associated value（狀態機、結果、帶資料的事件） | `domain/EnumWithAssociatedValue.swift` | `<Name>.swift` |
 | 被多個 ViewModel 重複使用的跨 Service 流程 | `domain/UseCase.swift` | `<Verb><Noun>UseCase.swift` |
+| 一個領域的錯誤型別 | `domain/Error.swift` | `<領域>Error.swift` |
 | Service / Client / Store 的介面與實作 | `data/Service.swift`（Client / Store 複製後將 `Service` 整批替換） | `<Name>Service.swift`、`<Name>Client.swift`、`<Name>Store.swift` |
 | Service 的 Preview stub（固定回傳假資料） | `data/Service+Preview.swift` | `<Name>Service+Preview.swift` |
 | Service 的 Mock（記錄呼叫，測試用） | `tests/MockService.swift` | `Mock<Name>Service.swift` |
@@ -79,12 +80,20 @@ Leo Ho 個人 Swift 檔案樣板規範，版本 2026-09。實體樣板放在 [`.
 
 private extension ProfileView {
 
-    // 留在 View：依可用寬度算欄數，純版面計算
+    /// 依畫面寬度決定一列放幾格，寬螢幕三格、窄螢幕兩格。
+    ///
+    /// - Parameter width: 目前可用的寬度。
+    /// - Returns: 一列的格數。
+    /// - Note: 留在 View，純版面計算，不涉及業務規則。
     func columnCount(for width: CGFloat) -> Int {
         width > 600 ? 3 : 2
     }
 
-    // 留在 View：狀態對應圖示，純呈現對應
+    /// 依載入狀態選一個對應的系統圖示名稱。
+    ///
+    /// - Parameter state: 畫面目前的載入狀態。
+    /// - Returns: SF Symbols 的圖示名稱。
+    /// - Note: 留在 View，純呈現對應，不涉及業務規則。
     func iconName(for state: ProfileViewModel.State) -> String {
         switch state {
         case .idle, .loaded:
@@ -123,6 +132,7 @@ Text(order.total, format: .currency(code: "TWD"))
 Text(post.publishedAt, format: .relativeDay)
 
 // ViewModel：暴露原始型別
+/// 訂單總金額，未格式化，由 View 決定顯示樣式。
 var total: Decimal { order.total }
 ```
 
@@ -131,6 +141,7 @@ var total: Decimal { order.total }
 **`body` 只負責呈現大框架，一律保持簡潔。** `body` 內只允許容器（`NavigationStack`、`VStack`、`List`、`ScrollView` 等）、子 View 的呼叫，以及套在整個畫面上的 modifier（`navigationTitle`、`toolbar`、`task`、`sheet`）。任何實際內容，包括單一 `Text` 加幾個 modifier，都抽到 Private Views 成為具名的子 View。判斷標準：讀 `body` 應該能在三秒內說出這個畫面由哪幾塊組成，而不需要知道每塊長什麼樣。
 
 ```swift
+/// 個人資料畫面的骨架：由上而下是標題區、統計區、近期活動列表。
 var body: some View {
     NavigationStack {
         ScrollView {
@@ -169,15 +180,33 @@ var body: some View {
 
 extension ProfileViewModel {
 
+    /// 畫面目前的載入狀態。
     enum State: Equatable {
+
+        /// 尚未開始載入。
         case idle
+
+        /// 正在向伺服器取得資料。
         case loading
+
+        /// 載入完成。
+        ///
+        /// - Parameter profile: 取得的個人資料。
         case loaded(Profile)
+
+        /// 載入失敗。
+        ///
+        /// - Parameter message: 要顯示給使用者的訊息。
         case failed(String)
     }
 
+    /// 使用者在畫面上能觸發的動作。
     enum Action {
+
+        /// 第一次進入畫面時載入資料。
         case load
+
+        /// 載入失敗後重新嘗試。
         case retry
     }
 }
@@ -212,10 +241,21 @@ extension ProfileViewModel {
 **動詞固定四個**，不自創：
 
 ```swift
-func proceed(from step: Route)     // 完成某一步，Coordinator 依 draft 決定下一步
-func pop()                         // 退回上一步，沿用一般 Coordinator
-func finish(with result: Result)   // 整個流程完成，呼叫 onFinish；父層負責 dismiss
-func cancel()                      // 中途放棄，等同 finish(with: .cancelled)
+/// 完成某一步後前進，下一步由 Coordinator 依已填的資料決定。
+///
+/// - Parameter step: 剛完成的步驟。
+func proceed(from step: Route)
+
+/// 退回上一步，與一般 Coordinator 相同。
+func pop()
+
+/// 整個流程結束，把結果交給父層；畫面的關閉由父層負責。
+///
+/// - Parameter result: 完成的產出或取消。
+func finish(with result: Result)
+
+/// 中途放棄流程，等同以「取消」結束。
+func cancel()
 ```
 
 - **`proceed(from:)` 帶目前步驟**，Coordinator 不靠 `path.last` 推算；最後一步不呼叫 `proceed`，由該步驟的 ViewModel 把 draft 轉成產出後呼叫 `finish(with: .completed(...))`。draft 轉正式 Model 是業務邏輯，屬 ViewModel，Coordinator 不做。
@@ -249,6 +289,9 @@ func cancel()                      // 中途放棄，等同 finish(with: .cancel
 ```swift
 // MARK: - Init
 
+/// 從伺服器回傳的字串還原成狀態，大小寫不分；對應不到任何狀態時得到 nil。
+///
+/// - Parameter rawValue: 伺服器回傳的狀態字串。
 init?(rawValue: String) {
     switch rawValue.lowercased() {
     case "active":
@@ -295,6 +338,10 @@ init?(rawValue: String) {
 - ViewModel 以 `any <Name>UseCaseProtocol` init 注入，注入方式與 Service 相同，`@Entry` 同樣集中在 `EnvironmentValues+Services.swift`。
 - Mock 套用 `tests/MockService.swift`，把 `Service` 整批替換成 `UseCase`。
 
+### domain/Error.swift
+
+一個領域一個 Error enum，命名 `<領域>Error`，規則見 `coding-style.md` 的 Error Handling 一節。樣板的四個 case 是示範，替換成該領域實際的失敗情況；`network` 與 `decoding` 只在該領域的 Service 會接觸網路或解析時保留。`LocalizedError` extension 只在錯誤會直接顯示給使用者時保留，字串 key 依 `error.<領域>.<case>` 命名；純內部錯誤把整個 extension 刪掉。
+
 ### data/Service.swift
 
 Protocol 與正式實作同檔，protocol 先、實作後；protocol 遵循放在獨立 extension，以 protocol 名稱作 MARK。Preview stub 與 mock 各自獨立檔案，不與正式碼同檔：
@@ -315,14 +362,28 @@ Protocol 與正式實作同檔，protocol 先、實作後；protocol 遵循放�
 1. **方法超過七個，先檢查是否混了多種責任。** 抓取、更新、快取、驗證是不同的事，依責任拆成多個小 protocol，需要整組能力時用 `typealias` 組合。ViewModel 只依賴用到的那個小 protocol，mock 也只需實作那幾個方法。
 
    ```swift
+   /// 能讀取個人資料的來源。
    protocol ProfileFetching: Sendable {
+
+       /// 依識別碼取得個人資料。
+       ///
+       /// - Parameter id: 使用者識別碼。
+       /// - Returns: 該使用者的個人資料。
+       /// - Throws: 找不到使用者或網路失敗時丟出。
        func fetchProfile(id: String) async throws -> Profile
    }
 
+   /// 能更新個人資料的來源。
    protocol ProfileUpdating: Sendable {
+
+       /// 把修改後的個人資料送到伺服器。
+       ///
+       /// - Parameter profile: 修改後的完整個人資料。
+       /// - Throws: 資料不合法或網路失敗時丟出。
        func updateProfile(_ profile: Profile) async throws
    }
 
+   /// 完整的個人資料服務：同時能讀取與更新。
    typealias ProfileServiceProtocol = ProfileFetching & ProfileUpdating
    ```
 
@@ -360,13 +421,33 @@ Mock 的型別與正式實作無關，測試 target 內的 mock 可以用 `final
 改成 `actor` 時，protocol 內的方法宣告要加 `async`，讓 mock 與其他實作不受 actor 隔離限制：
 
 ```swift
+/// 取得使用者個人資料的入口。
 protocol ProfileServiceProtocol: Sendable {
+
+    /// 依識別碼取得個人資料。
+    ///
+    /// - Parameter id: 使用者識別碼。
+    /// - Returns: 該使用者的個人資料。
+    /// - Throws: 找不到使用者或網路失敗時丟出。
     func fetchProfile(id: String) async throws -> Profile
 }
 
-actor ProfileService: ProfileServiceProtocol {
-    private var cache: [String: Profile] = [:]
+/// 有快取的個人資料來源，因為要記住抓過的資料所以用 actor。
+actor ProfileService {
 
+    /// 已抓過的個人資料，以識別碼查找。
+    private var cache: [String: Profile] = [:]
+}
+
+// MARK: - ProfileServiceProtocol
+
+extension ProfileService: ProfileServiceProtocol {
+
+    /// 先查快取，沒有才向伺服器抓並存入快取。
+    ///
+    /// - Parameter id: 使用者識別碼。
+    /// - Returns: 快取或伺服器的個人資料。
+    /// - Throws: 快取沒有且伺服器抓取失敗時丟出。
     func fetchProfile(id: String) async throws -> Profile { ... }
 }
 ```
@@ -381,6 +462,8 @@ actor ProfileService: ProfileServiceProtocol {
 ```swift
 // Core/Environment/EnvironmentValues+Services.swift
 extension EnvironmentValues {
+
+    /// 個人資料來源；未在 App 根部注入時使用 Preview 假資料。
     @Entry var profileService: any ProfileServiceProtocol = PreviewProfileService()
 }
 
@@ -389,10 +472,16 @@ ContentView()
     .environment(\.profileService, ProfileService())
 
 // View
+/// 個人資料畫面。
 struct ProfileView: View {
+
+    /// 從環境取得的個人資料來源，用來建立 ViewModel。
     @Environment(\.profileService) private var profileService
+
+    /// 畫面的狀態與動作，首次顯示時才建立。
     @State private var viewModel: ProfileViewModel?
 
+    /// 畫面骨架，首次顯示時建立 ViewModel。
     var body: some View {
         content
             .task {
@@ -404,6 +493,9 @@ struct ProfileView: View {
 }
 
 // ViewModel
+/// 建立個人資料畫面的 ViewModel。
+///
+/// - Parameter profileService: 實際去拿個人資料的物件。
 init(profileService: any ProfileServiceProtocol) {
     self.profileService = profileService
 }
@@ -428,7 +520,7 @@ Data 層的型別分兩種：
 
 **Client / Store 共用 `data/Service.swift` 樣板**，複製後把 `Service` 字樣整批替換成 `Client` 或 `Store`；Preview stub 與 Mock 樣板同樣處理，得到 `PreviewAPIClient`、`MockKeychainStore`。不另建樣板，因為三者檔案結構完全相同。
 
-- 後綴固定三選一：`Service`、`Client`、`Store`。不用 `Manager`、`Helper`、`Provider`、`Handler` 這類語意模糊的字。
+- Data 層的後綴固定三選一：`Service`、`Client`、`Store`。`Manager`、`Handler`、`Provider` 只在職責確實符合該字本意時用於 Core 層，判斷表見 `coding-style.md` 的命名一節；`Helper` 與 `Util` 不使用。
 - 選型表同樣適用：Client 包 `URLSession` 通常是 `struct`；Store 包 SwiftData 的 `ModelContext` 這類非 `Sendable` 物件時用 `@ModelActor` 或 `actor`，落在選型表第二列。
 - Client / Store 的 protocol 方法只暴露技術操作（`request`、`read`、`write`、`delete`），簽章中不出現業務名詞；一旦出現 `Profile`、`Order` 這種詞，它就該是 Service。
 
@@ -450,7 +542,7 @@ Data 層的型別分兩種：
 
 - `<method>CallCount`：呼叫次數，`private(set) var`。
 - `<method>ReceivedArguments`：依序記錄每次傳入的參數，`private(set) var`；無參數的方法省略。
-- `<method>Result`：測試端設定的回傳值或錯誤，`var`，型別用 `Result<Output, any Error>`，方法內以 `try <method>Result.get()` 取出。
+- `<method>Result`：測試端設定的回傳值或錯誤，`var`，型別用 `Result<Output, <領域>Error>` 與 protocol 的 typed throws 對應，方法內以 `try <method>Result.get()` 取出。
 
 樣板內的 `example(_:)` 是示範用，替換成實際 protocol 方法後刪除。
 
@@ -510,5 +602,5 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 
 - [ ] 佔位符全數替換
 - [ ] 未使用的空 MARK 區塊與空 extension 已刪除
+- [ ] 所有宣告（含 `private` 成員與每個 `case`）都有 `///` doc comment；樣板的示範成員附有示範說明，替換為實際內容時必須同步改寫，不可留下「示範」「替換時改寫」字樣
 - [ ] 檔名與主要型別名稱一致
-- [ ]

@@ -85,6 +85,15 @@ guard let profile = viewModel.profile,
 
 ```swift
 // 宣告：超過三個參數，每個一行，右括號單獨一行
+/// 取得使用者的個人資料。
+///
+/// - Parameters:
+///   - id: 使用者識別碼。
+///   - includeDetails: 是否連同詳細欄位一起取得。
+///   - cachePolicy: 要不要用先前抓過的資料。
+///   - timeout: 最多等多久。
+/// - Returns: 該使用者的個人資料。
+/// - Throws: 找不到使用者、逾時或網路失敗時丟出。
 func fetchProfile(
     id: String,
     includeDetails: Bool = false,
@@ -95,6 +104,13 @@ func fetchProfile(
 }
 
 // 宣告：兩個參數且未超過 100，維持一行
+/// 取得使用者的個人資料。
+///
+/// - Parameters:
+///   - id: 使用者識別碼。
+///   - includeDetails: 是否連同詳細欄位一起取得。
+/// - Returns: 該使用者的個人資料。
+/// - Throws: 找不到使用者或網路失敗時丟出。
 func fetchProfile(id: String, includeDetails: Bool = false) async throws -> Profile
 
 // 呼叫：與宣告同一套規則
@@ -106,6 +122,13 @@ let profile = try await service.fetchProfile(
 )
 
 // init：同上
+/// 建立結帳畫面的 ViewModel，四個來源缺一不可。
+///
+/// - Parameters:
+///   - profileService: 取得個人資料的物件。
+///   - orderService: 取得與建立訂單的物件。
+///   - paymentService: 執行付款的物件。
+///   - analytics: 回報使用行為的物件。
 init(
     profileService: any ProfileServiceProtocol,
     orderService: any OrderServiceProtocol,
@@ -141,12 +164,16 @@ init(
 - **避免**：`case` 很多時為了縮短而連續排列，規則一致比省行數重要。
 
 ```swift
+/// 伺服器提供的各個資料端點。
 enum Endpoint: String, CaseIterable, Codable, Sendable {
 
+    /// 使用者個人資料。
     case profile
 
+    /// 使用者的訂單清單。
     case orders
 
+    /// App 設定。
     case settings
 }
 
@@ -154,6 +181,7 @@ enum Endpoint: String, CaseIterable, Codable, Sendable {
 
 extension Endpoint {
 
+    /// 端點在伺服器上的路徑，接在網域之後。
     var path: String {
         switch self {
         case .profile:
@@ -165,6 +193,7 @@ extension Endpoint {
         }
     }
 
+    /// 呼叫這個端點是否需要先登入。
     var requiresAuth: Bool {
         self != .settings
     }
@@ -287,6 +316,7 @@ client.onMessage = { [weak self] message in
 | 4. 導航與呈現 | 最後 | `navigationTitle`、`navigationDestination`、`toolbar`、`sheet`、`fullScreenCover`、`alert`、`confirmationDialog` |
 
 ```swift
+/// 個人資料畫面的骨架：標題區、統計區，再依有無近期活動顯示列表或空狀態。
 var body: some View {
     NavigationStack {
         ScrollView {

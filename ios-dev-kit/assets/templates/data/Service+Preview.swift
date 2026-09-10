@@ -9,12 +9,14 @@
 
 import Foundation
 
+/// 給 Preview 與測試用的 `__NAME__ServiceProtocol` 假實作，只回傳固定資料，不連線。
 struct Preview__NAME__Service {
 
     // MARK: - Properties
 
     // MARK: - Init
 
+    /// 建立假實作；在正式 App 中誤用時 Debug 會立刻中止。
     init() {
         assert(
             RuntimeEnvironment.allowsPreviewStub,
