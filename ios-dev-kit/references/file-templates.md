@@ -1,6 +1,6 @@
 # File Templates（檔案樣板）
 
-Leo Ho 個人 Swift 檔案樣板規範，版本 2026-09。實體樣板放在 [`../assets/templates/`](../assets/templates/)，本檔說明「何時用哪個」與各區塊的填寫規則。
+Leo Ho 個人 Swift 檔案樣板規範，版本 1.0.0。實體樣板放在 [`../assets/templates/`](../assets/templates/)，本檔說明「何時用哪個」與各區塊的填寫規則。
 
 ## 目錄
 

@@ -1,6 +1,6 @@
 # Coding Style（命名與語意慣例）
 
-Leo Ho 個人 Swift 開發規範，版本 2026-09。參考 [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/) 並加上個人偏好；與官方相左之處以本檔為準。
+Leo Ho 個人 Swift 開發規範，版本 1.0.0。參考 [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/) 並加上個人偏好；與官方相左之處以本檔為準。
 
 ## 目錄
 

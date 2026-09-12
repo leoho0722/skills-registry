@@ -1,9 +1,9 @@
 ---
 name: ios-dev-kit
-description: Leo Ho 個人的 iOS/macOS Swift 開發規範，涵蓋 coding style（命名、存取控制、optional 與錯誤處理）、code formatting 排版（縮排、換行、MARK 分區、import 排序）、新檔案的 file template 與專案目錄結構。Use when writing, modifying, or reviewing any Swift / SwiftUI / UIKit code, creating new Swift files or iOS projects, or when the user mentions coding style、排版、格式、命名規則、檔案樣板、專案結構、code review、Swift 慣例。
+description: Leo Ho 個人的 iOS/macOS Swift 開發規範，涵蓋 coding style（命名、存取控制、optional、error handling、concurrency、doc comment）、code formatting 排版（縮排、換行、MARK 分區、import 排序、SwiftUI body）、新檔案的 file template（View、ViewModel、Coordinator、Service、Mock、測試）與專案目錄結構（Feature-first 分層、A/B/C 三種 SPM package 方案、DesignSystem、測試目錄）。Use when writing, modifying, or reviewing any Swift / SwiftUI / UIKit code, creating new Swift files, Features, or iOS projects, or when the user mentions coding style、排版、格式、命名規則、檔案樣板、專案結構、SPM package、Coordinator、依賴注入、單元測試、code review、Swift 慣例。
 metadata:
   - author: "Leo Ho"
-  - version: "2026-09"
+  - version: "1.0.0"
 ---
 
 # iOS Dev Kit：個人 Swift 開發規範
@@ -20,22 +20,27 @@ metadata:
 
 | 任務情境 | 讀這份 |
 |---|---|
-| 命名、存取控制、optional 處理、error handling、註解與 doc comment | [references/coding-style.md](references/coding-style.md) |
-| 縮排、換行、參數對齊、`// MARK:` 分區順序、import 排序、空行規則 | [references/formatting.md](references/formatting.md) |
-| 建立新 Swift 檔案、決定用哪個樣板、樣板內各區塊的填寫規則 | [references/file-templates.md](references/file-templates.md) |
-| 新專案目錄結構、分層方式、新增 Feature 模組時該建哪些資料夾 | [references/project-structure.md](references/project-structure.md) |
+| 命名、存取控制、型別選擇、optional 處理、error handling、concurrency、註解與 doc comment | [references/coding-style.md](references/coding-style.md) |
+| 縮排、換行、參數對齊、空行規則、`// MARK:` 分區順序與 protocol 遵循位置、import 排序、closure、SwiftUI body 排版 | [references/formatting.md](references/formatting.md) |
+| 建立新 Swift 檔案、決定用哪個樣板、View / ViewModel / Coordinator / Service / Mock / 測試各樣板的填寫規則、依賴注入 | [references/file-templates.md](references/file-templates.md) |
+| 新專案目錄結構、A / B / C 方案的選擇與偵測、分層與依賴方向、Feature 模組結構、DesignSystem、測試目錄 | [references/project-structure.md](references/project-structure.md) |
 
 樣板實體檔案放在 [assets/templates/](assets/templates/)，依 `presentation/`、`domain/`、`data/`、`core/`、`tests/` 分層；建新檔時先查 `file-templates.md` 的樣板選擇表取得路徑，直接複製再替換佔位符，不要憑記憶重寫。
 
 ## 不可違反的鐵則
 
-<!-- TODO：填入你最在意、違反即視為 blocker 的規則。以下為範例格式，請替換。 -->
+違反任一條即為 blocker，review 時第一輪就擋；細節與例外的完整說明在對應的 reference。
 
-1. **新檔案一律從 `assets/templates/` 的樣板複製**，不得手寫骨架。
-2. **不使用強制解包 `!`**，除非是 `IBOutlet` 或有註解說明的不變量。
-3. **所有型別與成員都明確標示存取控制**，預設 `private`，只在需要時放寬。
-4. **一個檔案只放一個主要型別**，extension 依 `formatting.md` 的分區順序排列。
-5. **公開 API 必須有 doc comment（`///`）**，內部實作只在「為什麼」不明顯時加註解。
+1. **新檔案一律從 `assets/templates/` 的樣板複製**，替換全部佔位符並刪除未用的空插槽；不得手寫骨架。（`file-templates.md`）
+2. **所有宣告一律有 `///`，無例外**：有參數寫 `- Parameter`、有回傳寫 `- Returns`、會 throw 寫 `- Throws`；白話且精簡。（`coding-style.md` 註解一節）
+3. **禁止 `!`、`try!`、`as!`**，只有兩個例外：`IBOutlet` 的隱式解包，以及 `static let` 中左側完全由字面值組成的強制解包。（`coding-style.md` Optional 一節）
+4. **單元測試一律 Swift Testing，UI Test 才用 XCTest**；測試本體 Given / When / Then。（`file-templates.md` tests 一節）
+5. **async/await 是唯一的非同步模型**：禁 GCD、自建 Combine pipeline、`Task.detached`、`nonisolated(unsafe)`；`@unchecked Sendable` 只允許 Mock 與包裝非 Sendable 的第三方物件。（`coding-style.md` Concurrency 一節）
+6. **分層依賴單向**：Presentation → Domain ← Data，三者皆可依賴 Core；Service 不依賴同層 Service；跨 Feature 只引用對方 Domain 的 Model 與 Error；不得補 Repository / Interactor / Presenter。（`project-structure.md` 分層原則）
+7. **Service / Client / Store / Database 的 protocol 一律 `Sendable` 加 typed throws**，以 init 注入且不給預設值；禁 `.shared` 與 DI container。（`file-templates.md` Service 一節）
+8. **View 的 `body` 只放大框架**，內容抽到 Private Views；View 不寫格式化與業務邏輯，格式化用 `FormatStyle`，業務邏輯在 ViewModel。（`file-templates.md` View 一節）
+9. **MARK 六區順序固定**，protocol 遵循放獨立 extension；縮排 4 格、行寬 100、無尾隨空白。（`formatting.md`）
+10. **專案結構方案由使用者決定**：新專案先問 A / B / C，既有專案偵測後請使用者確認；agent 不自行決定。（`project-structure.md` 方案判斷）
 
 ## 工作流程
 
@@ -56,7 +61,8 @@ metadata:
 1. 讀 `file-templates.md` 決定樣板類型。
 2. 複製 `assets/templates/` 對應檔案，替換所有 `__PLACEHOLDER__` 佔位符。
 3. 刪除沒用到的空 MARK 區塊與空 extension；樣板保留它們只是作為插槽，實際檔案不留空區塊（見 `formatting.md`）。
-4. 對照 `coding-style.md` 命名；對照 `formatting.md` 確認分區順序與排版。
+4. 所有宣告補上 `///`，樣板示範成員的說明一併改寫（見 `coding-style.md` 註解一節）。
+5. 對照 `coding-style.md` 命名；對照 `formatting.md` 確認分區順序與排版。
 
 ### 修改既有檔案
 
@@ -67,5 +73,5 @@ metadata:
 ### Code review
 
 1. 逐條檢查「不可違反的鐵則」，違反即列為 blocker。
-2. 依變更內容載入對應 reference，輸出「違反規範／建議改善」兩級清單，每條附具體修法。
+2. 依變更內容載入對應 reference，以各 reference 檔末的「常見錯誤檢查清單」逐項對照，輸出「違反規範／建議改善」兩級清單，每條附具體修法。
 3. 排版問題集中列在最後，不與邏輯問題混雜。

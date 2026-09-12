@@ -1,6 +1,6 @@
 # Project Structure（專案目錄結構）
 
-Leo Ho 個人 iOS 專案目錄結構規範，版本 2026-09。
+Leo Ho 個人 iOS 專案目錄結構規範，版本 1.0.0。
 
 ## 目錄
 

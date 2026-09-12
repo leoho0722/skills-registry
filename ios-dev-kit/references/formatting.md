@@ -1,6 +1,6 @@
 # Code Formatting（排版規則）
 
-Leo Ho 個人 Swift 排版規範，版本 2026-09。若專案有 `.swiftformat` 或 `.swift-format` 設定檔，以設定檔為準；本檔補充設定檔無法表達的規則。
+Leo Ho 個人 Swift 排版規範，版本 1.0.0。若專案有 `.swiftformat` 或 `.swift-format` 設定檔，以設定檔為準；本檔補充設定檔無法表達的規則。
 
 ## 目錄
 
