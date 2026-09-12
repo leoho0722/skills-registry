@@ -14,8 +14,8 @@ Leo Ho 個人 Swift 檔案樣板規範，版本 2026-09。實體樣板放在 [`.
 
 | 要建立的東西 | 用這個樣板（相對於 `assets/templates/`） | 檔名規則 |
 |---|---|---|
-| SwiftUI 畫面 | `presentation/View.swift` | `<Feature>View.swift` |
-| 畫面的狀態與邏輯 | `presentation/ViewModel.swift` | `<Feature>ViewModel.swift` |
+| SwiftUI 畫面 | `presentation/View.swift` | `<Screen>View.swift`；Feature 根畫面為 `<Feature>RootView.swift` |
+| 畫面的狀態與邏輯 | `presentation/ViewModel.swift` | `<Screen>ViewModel.swift`；Feature 根畫面為 `<Feature>RootViewModel.swift` |
 | 一個 Feature 內的導航（push / sheet）與目的地組裝 | `presentation/Coordinator.swift` | `<Feature>Coordinator.swift` |
 | 有起點、終點與完成結果的多步驟流程（onboarding、結帳、註冊精靈） | `presentation/FlowCoordinator.swift` | `<流程名>Coordinator.swift` |
 | 純資料模型 | `domain/Model.swift` | `<Name>.swift` |
@@ -23,7 +23,7 @@ Leo Ho 個人 Swift 檔案樣板規範，版本 2026-09。實體樣板放在 [`.
 | 列舉，有 associated value（狀態機、結果、帶資料的事件） | `domain/EnumWithAssociatedValue.swift` | `<Name>.swift` |
 | 被多個 ViewModel 重複使用的跨 Service 流程 | `domain/UseCase.swift` | `<Verb><Noun>UseCase.swift` |
 | 一個領域的錯誤型別 | `domain/Error.swift` | `<領域>Error.swift` |
-| Service / Client / Store 的介面與實作 | `data/Service.swift`（Client / Store 複製後將 `Service` 整批替換） | `<Name>Service.swift`、`<Name>Client.swift`、`<Name>Store.swift` |
+| Service / Client / Store / Database 的介面與實作 | `data/Service.swift`（Client / Store / Database 複製後將 `Service` 整批替換） | `<Name>Service.swift`、`<Name>Client.swift`、`<Name>Store.swift`、`<App>Database.swift` |
 | Service 的 Preview stub（固定回傳假資料） | `data/Service+Preview.swift` | `<Name>Service+Preview.swift` |
 | Service 的 Mock（記錄呼叫，測試用） | `tests/MockService.swift` | `Mock<Name>Service.swift` |
 | 單元測試（Swift Testing） | `tests/Tests.swift` | `<TypeUnderTest>Tests.swift` |
@@ -223,7 +223,7 @@ extension ProfileViewModel {
 - **`Route` 與 `Sheet` 宣告在 Nested Types**，`Route` 遵循 `Hashable` 供 `navigationDestination(for:)`，`Sheet` 遵循 `Identifiable` 供 `.sheet(item:)`。需要 fullScreenCover 時比照 `Sheet` 再加一個 `FullScreen` enum，不與 `Sheet` 混用。
 - **Internal Method 只放狀態操作**（`push`、`pop`、`popToRoot`、`present`、`dismissSheet`），不含業務判斷；「按下按鈕後該去哪」由 ViewModel 決定後呼叫 Coordinator。
 - **`// MARK: - Destinations` 是 Coordinator 專屬分區**，放 `destination(for:)` 與 `view(for:)` 兩個 `@ViewBuilder`，排在 Internal Method 之後、Private Method 之前。目的地 View 需要的 Service 由 View 自己從 `@Environment` 取，Coordinator 不轉傳依賴。
-- **根 View 負責串接**：`NavigationStack(path: $coordinator.path)`、`.navigationDestination(for: Route.self)`、`.sheet(item: $coordinator.sheet)` 三行固定寫在 Feature 的根 View，其他 View 不重複。
+- **根 View 負責串接**：`NavigationStack(path: $coordinator.path)`、`.navigationDestination(for: Route.self)`、`.sheet(item: $coordinator.sheet)` 三行固定寫在 Feature 的根 View `<Feature>RootView`（放 `Presentation/Root/`，見 `project-structure.md`），其他 View 不重複。
 - 跨 Feature 的導航由上層 Coordinator 持有子 Coordinator 處理，Feature 之間不互相引用對方的 `Route`。
 
 ### presentation/FlowCoordinator.swift
@@ -333,7 +333,7 @@ init?(rawValue: String) {
 
 只在「同一個跨 Service 流程被多個 ViewModel 重複使用」時建立，單一 ViewModel 用到的流程直接寫在 ViewModel。命名 `<動詞><名詞>UseCase`，例如 `PlaceOrderUseCase`、`SyncProfileUseCase`。
 
-- Protocol 與實作同檔，結構與 Service 相同；型別為 `struct`，init 注入所需的 Service（可注入多個），**不注入 Client / Store**，也不注入其他 UseCase。
+- Protocol 與實作同檔，結構與 Service 相同；型別為 `struct`，init 注入所需的 Service（可注入多個），**不注入 Client / Store / Database**，也不注入其他 UseCase。
 - **對外只有一個 `execute`**，參數與回傳型別依需求調整，其餘輔助方法放 Private Method。一個 UseCase 需要第二個公開方法時，代表它是兩個 UseCase。
 - ViewModel 以 `any <Name>UseCaseProtocol` init 注入，注入方式與 Service 相同，`@Entry` 同樣集中在 `EnvironmentValues+Services.swift`。
 - Mock 套用 `tests/MockService.swift`，把 `Service` 整批替換成 `UseCase`。
@@ -509,20 +509,20 @@ Data 層的型別分兩種：
 
 | 種類 | 職責 | 例子 |
 |---|---|---|
-| Client / Store | 純技術能力，不含業務語意 | `APIClient`、`KeychainStore`、`DatabaseStore` |
-| Service | 面向業務的一組操作，組合 Client / Store | `ProfileService`、`OrderService` |
+| Client / Store / Database | 純技術能力，不含業務語意 | `APIClient`、`KeychainStore`、`AppDatabase` |
+| Service | 面向業務的一組操作，組合 Client / Store / Database | `ProfileService`、`OrderService` |
 
-- Service 可以 init 注入 Client / Store。
+- Service 可以 init 注入 Client / Store / Database。
 - **Service 不可注入另一個 Service**。需要跨多個 Service 的流程放在 ViewModel；同一流程被多個 ViewModel 重複使用時，才抽成 Domain 層的 UseCase（目前專案未使用此層，見 `project-structure.md`）。
-- Client / Store 之間不互相依賴。
+- Client / Store / Database 之間不互相依賴。
 
 依賴圖因此固定為兩層且無環：mock 一個 Service 時不必連帶處理它底下的東西。
 
-**Client / Store 共用 `data/Service.swift` 樣板**，複製後把 `Service` 字樣整批替換成 `Client` 或 `Store`；Preview stub 與 Mock 樣板同樣處理，得到 `PreviewAPIClient`、`MockKeychainStore`。不另建樣板，因為三者檔案結構完全相同。
+**Client / Store / Database 共用 `data/Service.swift` 樣板**，複製後把 `Service` 字樣整批替換成 `Client`、`Store` 或 `Database`；Preview stub 與 Mock 樣板同樣處理，得到 `PreviewAPIClient`、`MockKeychainStore`、`MockAppDatabase`。不另建樣板，因為四者檔案結構相同；`Database` 的實作依 Service 選型表第二列改為 `actor`（SwiftData 用 `@ModelActor`）。
 
-- Data 層的後綴固定三選一：`Service`、`Client`、`Store`。`Manager`、`Handler`、`Provider` 只在職責確實符合該字本意時用於 Core 層，判斷表見 `coding-style.md` 的命名一節；`Helper` 與 `Util` 不使用。
+- Data 層與 Core 的後綴固定四選一：`Service`、`Client`、`Store`、`Database`；`Database` 只給有 schema 與 migration 的結構化資料庫入口，命名 `<App>Database`，一個 App 通常只有一個。`Manager`、`Handler`、`Provider` 只在職責確實符合該字本意時用於 Core 層，判斷表見 `coding-style.md` 的命名一節；`Helper` 與 `Util` 不使用。
 - 選型表同樣適用：Client 包 `URLSession` 通常是 `struct`；Store 包 SwiftData 的 `ModelContext` 這類非 `Sendable` 物件時用 `@ModelActor` 或 `actor`，落在選型表第二列。
-- Client / Store 的 protocol 方法只暴露技術操作（`request`、`read`、`write`、`delete`），簽章中不出現業務名詞；一旦出現 `Profile`、`Order` 這種詞，它就該是 Service。
+- Client / Store / Database 的 protocol 方法只暴露技術操作（`request`、`read`、`write`、`delete`、`fetch(_:)`），簽章中不出現業務名詞；一旦出現 `Profile`、`Order` 這種詞，它就該是 Service。
 
 **`@Entry` 集中在 `Core/Environment/EnvironmentValues+Services.swift` 一個檔案**，不一個 Service 一檔。這個檔案就是「App 可注入哪些 Service」的清單，等同 composition root 的目錄。
 
@@ -534,7 +534,7 @@ Data 層的型別分兩種：
 
 給 `#Preview` 用的固定回傳實作，型別名稱固定 `Preview<Name>Service`。方法內只回傳寫死的假資料或立即 `return`，不記錄呼叫、不含邏輯。放在 `Preview Content/`，整檔以 `#if DEBUG` 包住。
 
-**init 內固定放一行 `assert(RuntimeEnvironment.allowsPreviewStub, ...)`**，正式 App 忘記在根部覆寫 `@Entry` 時，Debug 執行會立刻中止而非靜默使用 stub；Release 因 `assert` 被移除且整檔在 `#if DEBUG` 內，不受影響。`RuntimeEnvironment` 由 `core/RuntimeEnvironment.swift` 樣板建立，每個專案一份。
+**init 內固定放一行 `assert(RuntimeEnvironment.allowsPreviewStub, ...)`**，正式 App 忘記在根部覆寫 `@Entry` 時，Debug 執行會立刻中止而非靜默使用 stub；Release 因 `assert` 被移除且整檔在 `#if DEBUG` 內，不受影響。`RuntimeEnvironment` 由 `core/RuntimeEnvironment.swift` 樣板建立，每個專案一份，放 `Core/Environment/`。
 
 ### tests/MockService.swift
 
@@ -567,7 +567,7 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 
 ### core/RuntimeEnvironment.swift
 
-每個專案一份，檔名固定。無 case 的 `enum` 作為命名空間，四個 static computed property 放 `// MARK: - Computed Properties` extension：`isPreview`（`XCODE_RUNNING_FOR_PREVIEWS`）、`isUITesting`（`-uiTesting` launch argument）、`isUnitTesting`（`XCTestConfigurationFilePath` / `XCTestBundlePath`）、`allowsPreviewStub`（前三者任一）。App 根部依 `isUITesting` 決定注入正式實作或 Preview stub；Preview stub 的 init 以 `allowsPreviewStub` 做 assert。不在此型別加入其他與環境無關的判斷。
+每個專案一份，檔名固定，放 `Core/Environment/` 與 `EnvironmentValues+Services.swift` 同資料夾。無 case 的 `enum` 作為命名空間，四個 static computed property 放 `// MARK: - Computed Properties` extension：`isPreview`（`XCODE_RUNNING_FOR_PREVIEWS`）、`isUITesting`（`-uiTesting` launch argument）、`isUnitTesting`（`XCTestConfigurationFilePath` / `XCTestBundlePath`）、`allowsPreviewStub`（前三者任一）。App 根部依 `isUITesting` 決定注入正式實作或 Preview stub；Preview stub 的 init 以 `allowsPreviewStub` 做 assert。不在此型別加入其他與環境無關的判斷。
 
 ### tests/Tests.swift
 

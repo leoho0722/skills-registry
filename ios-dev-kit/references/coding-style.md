@@ -32,7 +32,7 @@ Leo Ho 個人 Swift 開發規範，版本 2026-09。參考 [Swift API Design Gui
 
 ### 型別與 protocol
 
-- **要**：型別 UpperCamelCase；後綴只用已定義的角色名：`View`、`ViewModel`、`Coordinator`、`Service`、`Client`、`Store`、`UseCase`、`FormatStyle`、`Tests`、`UITests`。
+- **要**：型別 UpperCamelCase；後綴只用已定義的角色名：`View`、`ViewModel`、`Coordinator`、`Service`、`Client`、`Store`、`Database`、`UseCase`、`FormatStyle`、`Tests`、`UITests`。
 - **要**：描述能力的 protocol 用 `-able` / `-ible` / `-ing`（`Sendable`、`ProfileFetching`）；描述角色的 protocol 用名詞加 `Protocol` 後綴（`ProfileServiceProtocol`）。
 - **要**：泛型參數一律具名，表達它的角色：`Element`、`Output`、`Value`、`Key`；單字母 `T` 只允許在完全沒有語意的工具函式（例如 `identity<T>(_:)`）。
 - **要**：`Manager`、`Handler`、`Provider` 只在型別的職責**確實符合該字的本意**時使用，判斷標準如下表；符合就用，不符合就改用能說明職責的字。`Helper` 與 `Util` 沒有對應的職責，不使用。
@@ -186,7 +186,7 @@ extension ProfileViewModel {
 - **要**：有可變狀態且會跨執行緒存取的用 `actor`，不用 `class` 加 lock；選型細節見 `file-templates.md` 的 Service 一節。
 - **要**：有限集合與狀態機用 `enum`：狀態、分類、選項用無 associated value 的 enum，帶資料的狀態用 associated value；payload 超過三個欄位改 struct。
 - **要**：無 case 的 `enum` 作命名空間，放常數群與純 static 工具（`Layout`、`RuntimeEnvironment`）；不用 `struct` 加 `private init()` 模擬。
-- **要**：protocol 只在有第二個實作或需要 mock 時才定義。Service / Client / Store / UseCase 因為要 mock 一律有 protocol，其他型別不預先抽象。
+- **要**：protocol 只在有第二個實作或需要 mock 時才定義。Service / Client / Store / Database / UseCase 因為要 mock 一律有 protocol，其他型別不預先抽象。
 - **要**：`some` 優先於 `any`；`any` 只在需要異質集合或存進屬性時用（Service 注入用 `any`）。
 - **要**：需要語意上不同的識別碼或單位時用 struct wrapper 取得型別安全，遵循 `Hashable`、`Sendable`，以 `rawValue` 持有底層值。
 - **避免**：`typealias` 給基本型別取別名（`typealias UserID = String`），它與 `String` 可互換，不提供型別安全；`typealias` 只用於組合 protocol 與縮短長泛型簽章。
@@ -305,7 +305,7 @@ return fresh
 
 ### 丟出與傳遞
 
-- **要**：Service / Client / Store 的 protocol 方法一律用 typed throws：`func fetchProfile(id: UserID) async throws(ProfileError) -> Profile`，讓呼叫端知道會拿到哪種錯誤。
+- **要**：Service / Client / Store / Database 的 protocol 方法一律用 typed throws：`func fetchProfile(id: UserID) async throws(ProfileError) -> Profile`，讓呼叫端知道會拿到哪種錯誤。
 - **要**：Service 抓到 `URLError`、`DecodingError` 等底層錯誤時，轉成自己領域的 Error 再往上丟；ViewModel 不應該看到 `URLError`。
 - **要**：UseCase 與 ViewModel 這類跨領域的組合層用一般 `throws`，不強行合併多個領域的 Error 型別。
 - **要**：`throws` 優先於 `Result`；`Result` 只用於把成功或失敗存起來（Mock 的 `<method>Result`）或傳給不能 `throw` 的 callback。
@@ -387,7 +387,7 @@ try? cache.store(profile)
 
 ### Actor 與隔離
 
-- **要**：`@MainActor` 標在型別上：ViewModel、Coordinator 整個型別標，不逐方法標。Service / Client / Store / UseCase / Model 不標，在呼叫端的隔離域執行。
+- **要**：`@MainActor` 標在型別上：ViewModel、Coordinator 整個型別標，不逐方法標。Service / Client / Store / UseCase / Model 不標，在呼叫端的隔離域執行；Database 是 `@ModelActor`，自帶隔離。
 - **要**：跨隔離域傳遞的型別一律 `Sendable`；Model 預設已遵循。
 - **要**：`nonisolated` 只用於 `@MainActor` 型別內確實不碰狀態的純函式，且加註解說明。
 - **要**：actor 方法內的 `await` 會讓出隔離（reentrancy），跨 `await` 之後要重新檢查依賴的狀態，不假設它沒變。
