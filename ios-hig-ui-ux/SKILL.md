@@ -2,10 +2,10 @@
 name: ios-hig-ui-ux
 description: 依 Apple Human Interface Guidelines（HIG，Liquid Glass 世代，涵蓋 iOS 26/27）提供 iOS/iPadOS App 的 UI/UX 交互設計最佳實踐。Use when designing, implementing, or reviewing iOS app UI/UX — 包括畫面版面與自適應、導航結構（tab bar/sheet/alert）、元件選用、手勢與輸入、Liquid Glass 與視覺樣式、無障礙，以及 onboarding/通知/設定等 UX patterns；或當使用者提到 HIG、Apple 設計規範、Liquid Glass、iOS 設計審查時。
 metadata: 
-  - author: "Apple Human Interface Guidelines"
-  - source: "https://developer.apple.com/design/human-interface-guidelines/"
-  - license: "https://developer.apple.com/terms/"
-  - version: "2026-06"
+  author: "Apple Human Interface Guidelines"
+  source: "https://developer.apple.com/design/human-interface-guidelines/"
+  license: "https://developer.apple.com/terms/"
+  version: "2026-06"
 ---
 
 # iOS HIG UI/UX 最佳實踐
