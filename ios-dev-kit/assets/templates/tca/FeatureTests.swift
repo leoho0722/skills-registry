@@ -10,7 +10,7 @@ import Testing
 
 @testable import __PROJECT__
 
-/// `__NAME__Feature` 的單元測試，以 TestStore 逐步驗證每個 Action 造成的狀態變化與後續 Action。
+/// `__NAME__Feature` 的單元測試，以 TestStore 逐步驗證每個 Action 造成的狀態變化與後續 Action
 @MainActor
 struct __NAME__FeatureTests {
 
@@ -18,7 +18,7 @@ struct __NAME__FeatureTests {
 
     // MARK: - Tests
 
-    /// 示範測試，替換為實際案例並依「行為_情境_預期」命名。
+    /// 示範測試，替換為實際案例並依「行為_情境_預期」命名
     @Test
     func task_serviceSucceeds_notifiesFinished() async {
         // Given

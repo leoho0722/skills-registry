@@ -68,52 +68,52 @@ Leo Ho 個人 Swift 開發規範。參考 [Swift API Design Guidelines](https://
 - **避免**：`case none` / `case unknown` 以外的「無意義」case，需要表達缺席用 `Optional`。
 
 ```swift
-/// 一筆訂單，含買了什麼與付款、出貨進度。
+/// 一筆訂單，含買了什麼與付款、出貨進度
 struct Order: Identifiable, Sendable {
 
-    /// 訂單識別碼。
+    /// 訂單識別碼
     let id: UUID
 
-    /// 下單的顧客識別碼。
+    /// 下單的顧客識別碼
     let customerID: UUID
 
-    /// 訂單內的每一項商品。
+    /// 訂單內的每一項商品
     let items: [OrderItem]
 
-    /// 是否已付款。
+    /// 是否已付款
     var isPaid: Bool
 
-    /// 是否已出貨。
+    /// 是否已出貨
     var hasShipped: Bool
 }
 
-/// 全 App 共用的版面尺寸。
+/// 全 App 共用的版面尺寸
 enum Layout {
 
-    /// 元件之間的標準間距（pt）。
+    /// 元件之間的標準間距（pt）
     static let spacing: CGFloat = 16
 
-    /// 卡片與按鈕的圓角半徑（pt）。
+    /// 卡片與按鈕的圓角半徑（pt）
     static let cornerRadius: CGFloat = 12
 }
 
-/// 能取得訂單清單的來源。
+/// 能取得訂單清單的來源
 protocol OrderFetching: Sendable {
 
-    /// 取得某位顧客的所有訂單。
+    /// 取得某位顧客的所有訂單
     ///
-    /// - Parameter customerID: 顧客識別碼。
-    /// - Returns: 該顧客的訂單，沒有訂單時為空陣列。
-    /// - Throws: 網路失敗或顧客不存在時丟出。
+    /// - Parameter customerID: 顧客識別碼
+    /// - Returns: 該顧客的訂單，沒有訂單時為空陣列
+    /// - Throws: 網路失敗或顧客不存在時丟出
     func fetchOrders(customerID: UUID) async throws -> [Order]
 }
 
-/// 找出第一個符合條件的元素。
+/// 找出第一個符合條件的元素
 ///
 /// - Parameters:
-///   - elements: 要搜尋的陣列。
-///   - predicate: 判斷元素是否符合的條件。
-/// - Returns: 第一個符合的元素；都不符合時為 nil。
+///   - elements: 要搜尋的陣列
+///   - predicate: 判斷元素是否符合的條件
+/// - Returns: 第一個符合的元素；都不符合時為 nil
 func firstMatch<Element>(in elements: [Element], where predicate: (Element) -> Bool) -> Element?
 ```
 
@@ -130,24 +130,24 @@ func firstMatch<Element>(in elements: [Element], where predicate: (Element) -> B
 - **避免**：為了測試放寬存取層級；測試用 `@testable import` 存取 `internal`，`private` 的東西不直接測，透過公開行為驗證。
 
 ```swift
-/// 個人資料畫面要顯示什麼、按鈕按下後做什麼，都由它決定。
+/// 個人資料畫面要顯示什麼、按鈕按下後做什麼，都由它決定
 @MainActor
 @Observable
 final class ProfileViewModel {
 
     // MARK: - Properties
 
-    /// 畫面目前處於未開始、載入中、完成或失敗哪一種；外部只能讀。
+    /// 畫面目前處於未開始、載入中、完成或失敗哪一種；外部只能讀
     private(set) var state: State = .idle
 
-    /// 實際去拿個人資料的物件，測試時換成假的。
+    /// 實際去拿個人資料的物件，測試時換成假的
     private let profileService: any ProfileServiceProtocol
 
     // MARK: - Init
 
-    /// 建立個人資料畫面的 ViewModel，初始狀態為未開始。
+    /// 建立個人資料畫面的 ViewModel，初始狀態為未開始
     ///
-    /// - Parameter profileService: 實際去拿個人資料的物件。
+    /// - Parameter profileService: 實際去拿個人資料的物件
     init(profileService: any ProfileServiceProtocol) {
         self.profileService = profileService
     }
@@ -157,23 +157,23 @@ final class ProfileViewModel {
 
 extension ProfileViewModel {
 
-    /// 畫面目前的載入狀態；View 要讀，所以不加 private。
+    /// 畫面目前的載入狀態；View 要讀，所以不加 private
     enum State: Equatable {
 
-        /// 尚未開始載入。
+        /// 尚未開始載入
         case idle
 
-        /// 正在向伺服器取得資料。
+        /// 正在向伺服器取得資料
         case loading
 
-        /// 載入完成。
+        /// 載入完成
         ///
-        /// - Parameter profile: 取得的個人資料。
+        /// - Parameter profile: 取得的個人資料
         case loaded(Profile)
 
-        /// 載入失敗。
+        /// 載入失敗
         ///
-        /// - Parameter message: 要顯示給使用者的訊息。
+        /// - Parameter message: 要顯示給使用者的訊息
         case failed(String)
     }
 }
@@ -196,37 +196,37 @@ extension ProfileViewModel {
 
 ```swift
 // 型別安全的識別碼：struct wrapper，不用 typealias
-/// 使用者識別碼，與其他識別碼型別不可互換。
+/// 使用者識別碼，與其他識別碼型別不可互換
 struct UserID: Hashable, Sendable {
 
-    /// 伺服器給的原始字串。
+    /// 伺服器給的原始字串
     let rawValue: String
 }
 
-/// 訂單識別碼，與其他識別碼型別不可互換。
+/// 訂單識別碼，與其他識別碼型別不可互換
 struct OrderID: Hashable, Sendable {
 
-    /// 伺服器給的原始字串。
+    /// 伺服器給的原始字串
     let rawValue: String
 }
 
 // 編譯器會擋下把 OrderID 傳給需要 UserID 的地方
-/// 依識別碼取得個人資料。
+/// 依識別碼取得個人資料
 ///
-/// - Parameter id: 使用者識別碼。
-/// - Returns: 該使用者的個人資料。
-/// - Throws: 找不到使用者或網路失敗時丟出。
+/// - Parameter id: 使用者識別碼
+/// - Returns: 該使用者的個人資料
+/// - Throws: 找不到使用者或網路失敗時丟出
 func fetchProfile(id: UserID) async throws -> Profile
 
 // 組合 protocol 是 typealias 的正確用途
-/// 完整的個人資料服務：同時能讀取與更新。
+/// 完整的個人資料服務：同時能讀取與更新
 typealias ProfileServiceProtocol = ProfileFetching & ProfileUpdating
 
 // 無 case enum 作命名空間
-/// 全 App 共用的版面尺寸。
+/// 全 App 共用的版面尺寸
 enum Layout {
 
-    /// 元件之間的標準間距（pt）。
+    /// 元件之間的標準間距（pt）
     static let spacing: CGFloat = 16
 }
 ```
@@ -254,16 +254,16 @@ enum Layout {
 
 ```swift
 // 允許：全是字面值，結果在編譯期確定
-/// 與伺服器溝通用的固定設定。
+/// 與伺服器溝通用的固定設定
 enum API {
 
-    /// 伺服器網址，所有請求都接在它後面。
+    /// 伺服器網址，所有請求都接在它後面
     static let baseURL = URL(string: "https://api.example.com")!  // 字面值常數
 
-    /// 稅率，5%。
+    /// 稅率，5%
     static let taxRate = Decimal(string: "0.05")!                 // 字面值常數
 
-    /// 顯示時間時使用的時區，固定台北。
+    /// 顯示時間時使用的時區，固定台北
     static let taipei = TimeZone(identifier: "Asia/Taipei")!      // 字面值常數
 }
 
@@ -323,10 +323,10 @@ return fresh
 
 ```swift
 // Service：typed throws，包裝底層錯誤
-/// 從伺服器取得個人資料的正式實作。
+/// 從伺服器取得個人資料的正式實作
 struct ProfileService {
 
-    /// 實際發出網路請求的物件。
+    /// 實際發出網路請求的物件
     private let client: any APIClientProtocol
 }
 
@@ -334,11 +334,11 @@ struct ProfileService {
 
 extension ProfileService: ProfileServiceProtocol {
 
-    /// 每次都向伺服器抓取，不做快取；伺服器與解析錯誤都轉成 `ProfileError`。
+    /// 每次都向伺服器抓取，不做快取；伺服器與解析錯誤都轉成 `ProfileError`
     ///
-    /// - Parameter id: 使用者識別碼。
-    /// - Returns: 伺服器回傳的最新個人資料。
-    /// - Throws: 資料格式不符丟 `.decoding`，其餘連線問題丟 `.network`。
+    /// - Parameter id: 使用者識別碼
+    /// - Returns: 伺服器回傳的最新個人資料
+    /// - Throws: 資料格式不符丟 `.decoding`，其餘連線問題丟 `.network`
     func fetchProfile(id: UserID) async throws(ProfileError) -> Profile {
         do {
             let data = try await client.request(.profile(id))
@@ -352,7 +352,7 @@ extension ProfileService: ProfileServiceProtocol {
 }
 
 // ViewModel：通用 catch 內 switch 窮舉，取消不當錯誤
-/// 載入個人資料並更新畫面狀態；被取消時不改變狀態。
+/// 載入個人資料並更新畫面狀態；被取消時不改變狀態
 func load() async {
     state = .loading
     do {
@@ -405,26 +405,26 @@ try? cache.store(profile)
 - **避免**：忘記持有而無法取消的 Task（fire-and-forget），除了明確只跑一次且無副作用的情況。
 
 ```swift
-/// 首頁儀表板要顯示的資料與載入動作。
+/// 首頁儀表板要顯示的資料與載入動作
 @MainActor
 @Observable
 final class DashboardViewModel {
 
     // MARK: - Properties
 
-    /// 目前使用者的個人資料，尚未載入時為 nil。
+    /// 目前使用者的個人資料，尚未載入時為 nil
     private(set) var profile: Profile?
 
-    /// 目前使用者的訂單，尚未載入時為空。
+    /// 目前使用者的訂單，尚未載入時為空
     private(set) var orders: [Order] = []
 
-    /// 取得個人資料的物件。
+    /// 取得個人資料的物件
     private let profileService: any ProfileServiceProtocol
 
-    /// 取得訂單的物件。
+    /// 取得訂單的物件
     private let orderService: any OrderServiceProtocol
 
-    /// 正在進行的載入工作，重新載入前先取消它。
+    /// 正在進行的載入工作，重新載入前先取消它
     @ObservationIgnored
     private var loadTask: Task<Void, Never>?
 
@@ -436,7 +436,7 @@ final class DashboardViewModel {
 extension DashboardViewModel {
 
     // async let 並行兩個獨立請求
-    /// 同時載入個人資料與訂單，兩者都完成後才更新畫面；被取消時不更新。
+    /// 同時載入個人資料與訂單，兩者都完成後才更新畫面；被取消時不更新
     func load() async {
         do {
             async let profile = profileService.fetchProfile(id: userID)
@@ -450,14 +450,14 @@ extension DashboardViewModel {
     }
 
     // 重複觸發前取消上一次
-    /// 重新載入；上一次還沒完成的話先取消，避免舊結果蓋掉新結果。
+    /// 重新載入；上一次還沒完成的話先取消，避免舊結果蓋掉新結果
     func reload() {
         loadTask?.cancel()
         loadTask = Task { await load() }
     }
 
     // 系統通知用 AsyncSequence 消費，不用 Combine
-    /// 每次 App 從背景回到前景就重新載入一次，直到所在的 Task 被取消。
+    /// 每次 App 從背景回到前景就重新載入一次，直到所在的 Task 被取消
     func observeForeground() async {
         for await _ in NotificationCenter.default.notifications(named: UIApplication.willEnterForegroundNotification) {
             await load()
@@ -466,7 +466,7 @@ extension DashboardViewModel {
 }
 
 // View：兩個獨立的 .task，隨 View 消失自動取消
-/// 儀表板畫面骨架：顯示時載入資料並開始監聽回前景事件。
+/// 儀表板畫面骨架：顯示時載入資料並開始監聽回前景事件
 var body: some View {
     content
         .task { await viewModel.load() }
@@ -481,7 +481,7 @@ var body: some View {
 
 - **要**：**所有宣告一律有 `///`，沒有例外**，不分存取層級：型別、protocol 與其每個要求、extension 內的每個方法與 computed property、stored property、enum 的每個 case、nested type、`private` 成員、測試方法、protocol 遵循 extension 內的實作。
 - **要**：protocol 要求與其實作**兩邊都寫**，但內容不同：protocol 上寫「做什麼、呼叫端能期待什麼」；實作上寫「這個實作怎麼做」，例如資料來源、有無快取、平台限制、與其他實作的差異。實作端不複製 protocol 的句子。
-- **要**：第一行一句話摘要，說明「這是什麼」或「做什麼」，動詞開頭，句末加句號；型別的摘要說明職責與使用時機。
+- **要**：第一行一句話摘要，說明「這是什麼」或「做什麼」，動詞開頭，句末不加句號；型別的摘要說明職責與使用時機。
 - **要**：摘要後空一行，依序寫 `- Parameter x:`（單一參數）或 `- Parameters:`（多個參數，每個一行縮排）、`- Returns:`、`- Throws:`。**有參數就一定寫參數、有回傳值就一定寫回傳、會 throw 就一定寫 Throws**，不因名稱已清楚而省略；`Throws` 寫出哪些情況丟哪個 case。
 - **要**：`init` 一律有摘要，說明建立出來的東西是什麼、需要什麼；參數依上一條寫。
 - **要**：enum case 帶 associated value 時，每個 value 都以 `- Parameter` / `- Parameters:` 說明，寫法與函式參數相同；沒有 label 的 value 以型別名稱小寫作為名稱（`- Parameter profile:`）。
@@ -504,36 +504,36 @@ var body: some View {
 - **避免**：`// MARK:` 使用規範以外的分區名稱。
 
 ```swift
-/// 向伺服器讀取與更新使用者個人資料的唯一入口。
+/// 向伺服器讀取與更新使用者個人資料的唯一入口
 protocol ProfileServiceProtocol: Sendable {
 
-    /// 依識別碼取得個人資料；最近抓過就用上次的，不再連網路。
+    /// 依識別碼取得個人資料；最近抓過就用上次的，不再連網路
     ///
-    /// - Parameter id: 要查詢的使用者識別碼。
-    /// - Returns: 該使用者的個人資料。
-    /// - Throws: 找不到使用者丟 `ProfileError.notFound`；網路連不上丟 `ProfileError.network`。
-    /// - Note: 快取保留五分鐘，要強制重抓請先呼叫 `invalidateCache()`。
+    /// - Parameter id: 要查詢的使用者識別碼
+    /// - Returns: 該使用者的個人資料
+    /// - Throws: 找不到使用者丟 `ProfileError.notFound`；網路連不上丟 `ProfileError.network`
+    /// - Note: 快取保留五分鐘，要強制重抓請先呼叫 `invalidateCache()`
     func fetchProfile(id: UserID) async throws(ProfileError) -> Profile
 }
 
-/// 個人資料畫面要顯示什麼、按鈕按下後做什麼，都由它決定。
+/// 個人資料畫面要顯示什麼、按鈕按下後做什麼，都由它決定
 @MainActor
 @Observable
 final class ProfileViewModel {
 
     // MARK: - Properties
 
-    /// 畫面目前處於未開始、載入中、完成或失敗哪一種，決定顯示內容。
+    /// 畫面目前處於未開始、載入中、完成或失敗哪一種，決定顯示內容
     private(set) var state: State = .idle
 
-    /// 實際去拿個人資料的物件，測試時換成假的以免連網路。
+    /// 實際去拿個人資料的物件，測試時換成假的以免連網路
     private let profileService: any ProfileServiceProtocol
 
     // MARK: - Init
 
-    /// 建立個人資料畫面的 ViewModel，初始狀態為未開始。
+    /// 建立個人資料畫面的 ViewModel，初始狀態為未開始
     ///
-    /// - Parameter profileService: 實際去拿個人資料的物件。
+    /// - Parameter profileService: 實際去拿個人資料的物件
     init(profileService: any ProfileServiceProtocol) {
         self.profileService = profileService
     }
@@ -543,10 +543,10 @@ final class ProfileViewModel {
 
 private extension ProfileViewModel {
 
-    /// 把內部錯誤翻譯成使用者看得懂的一句話，所有錯誤都顯示同一句通用訊息。
+    /// 把內部錯誤翻譯成使用者看得懂的一句話，所有錯誤都顯示同一句通用訊息
     ///
-    /// - Parameter error: 載入個人資料時發生的錯誤。
-    /// - Returns: 可直接顯示在畫面上的文案。
+    /// - Parameter error: 載入個人資料時發生的錯誤
+    /// - Returns: 可直接顯示在畫面上的文案
     func message(for error: ProfileError) -> String {
         // iOS 17 的 String(localized:) 在 Preview 內不會套用 bundle，故明確指定
         String(localized: "profile.unavailable", bundle: .main)

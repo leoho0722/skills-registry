@@ -106,79 +106,79 @@ Features/<Feature>/
 完整骨架如下，方法本體省略：
 
 ```swift
-/// 個人資料畫面要顯示什麼、事件發生後做什麼，都由它決定。
+/// 個人資料畫面要顯示什麼、事件發生後做什麼，都由它決定
 @Reducer
 struct ProfileFeature {
 
     // MARK: - State
 
-    /// 畫面的全部狀態。
+    /// 畫面的全部狀態
     @ObservableState
     struct State: Equatable {
 
-        /// 是否正在載入。
+        /// 是否正在載入
         var isLoading = false
 
-        /// 目前呈現的目的地，`nil` 代表沒有。
+        /// 目前呈現的目的地，`nil` 代表沒有
         @Presents var destination: Destination.State?
     }
 
     // MARK: - Action
 
-    /// 畫面會發生的所有事件。
+    /// 畫面會發生的所有事件
     enum Action {
 
-        /// 使用者在畫面上的操作。
+        /// 使用者在畫面上的操作
         ///
-        /// - Parameter action: 實際的操作。
+        /// - Parameter action: 實際的操作
         case view(View)
 
-        /// 交給父 reducer 處理的結果。
+        /// 交給父 reducer 處理的結果
         ///
-        /// - Parameter action: 要交給父層的結果。
+        /// - Parameter action: 要交給父層的結果
         case delegate(Delegate)
 
-        /// 目的地畫面的事件。
+        /// 目的地畫面的事件
         ///
-        /// - Parameter action: 呈現、關閉或目的地內部的事件。
+        /// - Parameter action: 呈現、關閉或目的地內部的事件
         case destination(PresentationAction<Destination.Action>)
 
-        /// Service 回傳個人資料的結果。
+        /// Service 回傳個人資料的結果
         ///
-        /// - Parameter result: 成功帶回資料，失敗帶回錯誤。
+        /// - Parameter result: 成功帶回資料，失敗帶回錯誤
         case profileResponse(Result<Profile, any Error>)
 
-        /// 使用者在畫面上的操作。
+        /// 使用者在畫面上的操作
         @CasePathable
         enum View {
 
-            /// 畫面出現。
+            /// 畫面出現
             case task
 
-            /// 按下編輯按鈕。
+            /// 按下編輯按鈕
             case editButtonTapped
         }
 
-        /// 交給父 reducer 的結果。
+        /// 交給父 reducer 的結果
         @CasePathable
         enum Delegate: Equatable {
 
-            /// 個人資料已更新。
+            /// 個人資料已更新
             ///
-            /// - Parameter profile: 更新後的資料。
+            /// - Parameter profile: 更新後的資料
             case profileUpdated(Profile)
         }
     }
 
     // MARK: - Dependencies
 
-    /// 讀取與更新個人資料的 Service。
+    /// 讀取與更新個人資料的 Service
     @Dependency(\.profileService)
     private var service
 
     // MARK: - Body
 
-    /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`。
+    /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`
     var body: some ReducerOf<Self> {
         Reduce(core)
             .ifLet(\.$destination, action: \.destination)
@@ -189,11 +189,11 @@ struct ProfileFeature {
 
 extension ProfileFeature {
 
-    /// 畫面內可呈現的目的地。
+    /// 畫面內可呈現的目的地
     @Reducer
     enum Destination {
 
-        /// 編輯個人資料的表單。
+        /// 編輯個人資料的表單
         case edit(EditProfileFeature)
     }
 }
@@ -206,19 +206,19 @@ extension ProfileFeature.Destination.State: Equatable {}
 
 private extension ProfileFeature {
 
-    /// 依收到的 Action 更新 State，並回傳要執行的 Effect。
+    /// 依收到的 Action 更新 State，並回傳要執行的 Effect
     ///
     /// - Parameters:
-    ///   - state: 目前的畫面狀態，直接就地修改。
-    ///   - action: 這次收到的事件。
-    /// - Returns: 接下來要執行的 Effect，沒有就回 `.none`。
+    ///   - state: 目前的畫面狀態，直接就地修改
+    ///   - action: 這次收到的事件
+    /// - Returns: 接下來要執行的 Effect，沒有就回 `.none`
     func core(state: inout State, action: Action) -> Effect<Action> {
         // ...
     }
 
-    /// 向 Service 取得個人資料，結果以 `profileResponse` 送回。
+    /// 向 Service 取得個人資料，結果以 `profileResponse` 送回
     ///
-    /// - Returns: 載入個人資料的 Effect。
+    /// - Returns: 載入個人資料的 Effect
     func loadProfile() -> Effect<Action> {
         // ...
     }
@@ -261,7 +261,7 @@ private extension ProfileFeature {
 ```swift
     // MARK: - Body
 
-    /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`。
+    /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`
     var body: some ReducerOf<Self> {
         Reduce(core)
             .ifLet(\.$destination, action: \.destination)
@@ -272,12 +272,12 @@ private extension ProfileFeature {
 
 private extension ProfileFeature {
 
-    /// 依收到的 Action 更新 State，並回傳要執行的 Effect。
+    /// 依收到的 Action 更新 State，並回傳要執行的 Effect
     ///
     /// - Parameters:
-    ///   - state: 目前的畫面狀態，直接就地修改。
-    ///   - action: 這次收到的事件。
-    /// - Returns: 接下來要執行的 Effect，沒有就回 `.none`。
+    ///   - state: 目前的畫面狀態，直接就地修改
+    ///   - action: 這次收到的事件
+    /// - Returns: 接下來要執行的 Effect，沒有就回 `.none`
     func core(state: inout State, action: Action) -> Effect<Action> {
         switch action {
         case .view(.task):
@@ -299,9 +299,9 @@ private extension ProfileFeature {
         }
     }
 
-    /// 向 Service 取得個人資料，結果以 `profileResponse` 送回。
+    /// 向 Service 取得個人資料，結果以 `profileResponse` 送回
     ///
-    /// - Returns: 載入個人資料的 Effect。
+    /// - Returns: 載入個人資料的 Effect
     func loadProfile() -> Effect<Action> {
         .run { send in
             do {
@@ -383,10 +383,10 @@ Service 的形式不變：protocol 加 struct / actor 實作，init 注入 Clien
 ```swift
 // MARK: - DependencyKey
 
-/// 把 `ProfileServiceProtocol` 註冊進 TCA 依賴系統：正式 App 用正式實作，Preview 用 stub。
+/// 把 `ProfileServiceProtocol` 註冊進 TCA 依賴系統：正式 App 用正式實作，Preview 用 stub
 enum ProfileServiceKey: DependencyKey {
 
-    /// 正式 App 使用的實作，Client 由依賴系統取得後注入。
+    /// 正式 App 使用的實作，Client 由依賴系統取得後注入
     static var liveValue: any ProfileServiceProtocol {
         @Dependency(\.apiClient) var apiClient
         return ProfileService(client: apiClient)
@@ -394,7 +394,7 @@ enum ProfileServiceKey: DependencyKey {
 
     #if DEBUG
 
-    /// Preview 使用的 stub，固定回傳假資料。
+    /// Preview 使用的 stub，固定回傳假資料
     static var previewValue: any ProfileServiceProtocol {
         PreviewProfileService()
     }

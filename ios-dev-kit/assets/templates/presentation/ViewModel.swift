@@ -10,14 +10,14 @@ import Observation
 
 @MainActor
 @Observable
-/// __NAME__ 畫面要顯示什麼、按鈕按下後做什麼，都由它決定；替換時改寫此說明。
+/// __NAME__ 畫面要顯示什麼、按鈕按下後做什麼，都由它決定；替換時改寫此說明
 final class __NAME__ViewModel {
 
     // MARK: - Properties
 
     // MARK: - Init
 
-    /// 建立 ViewModel，所需的 Service 由此注入。
+    /// 建立 ViewModel，所需的 Service 由此注入
     init() {
 
     }

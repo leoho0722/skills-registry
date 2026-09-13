@@ -86,20 +86,20 @@ Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/template
 
 private extension ProfileView {
 
-    /// 依畫面寬度決定一列放幾格，寬螢幕三格、窄螢幕兩格。
+    /// 依畫面寬度決定一列放幾格，寬螢幕三格、窄螢幕兩格
     ///
-    /// - Parameter width: 目前可用的寬度。
-    /// - Returns: 一列的格數。
-    /// - Note: 留在 View，純版面計算，不涉及業務規則。
+    /// - Parameter width: 目前可用的寬度
+    /// - Returns: 一列的格數
+    /// - Note: 留在 View，純版面計算，不涉及業務規則
     func columnCount(for width: CGFloat) -> Int {
         width > 600 ? 3 : 2
     }
 
-    /// 依載入狀態選一個對應的系統圖示名稱。
+    /// 依載入狀態選一個對應的系統圖示名稱
     ///
-    /// - Parameter state: 畫面目前的載入狀態。
-    /// - Returns: SF Symbols 的圖示名稱。
-    /// - Note: 留在 View，純呈現對應，不涉及業務規則。
+    /// - Parameter state: 畫面目前的載入狀態
+    /// - Returns: SF Symbols 的圖示名稱
+    /// - Note: 留在 View，純呈現對應，不涉及業務規則
     func iconName(for state: ProfileViewModel.State) -> String {
         switch state {
         case .idle, .loaded:
@@ -138,7 +138,7 @@ Text(order.total, format: .currency(code: "TWD"))
 Text(post.publishedAt, format: .relativeDay)
 
 // ViewModel：暴露原始型別
-/// 訂單總金額，未格式化，由 View 決定顯示樣式。
+/// 訂單總金額，未格式化，由 View 決定顯示樣式
 var total: Decimal { order.total }
 ```
 
@@ -147,7 +147,7 @@ var total: Decimal { order.total }
 **`body` 只負責呈現大框架，一律保持簡潔。** `body` 內只允許容器（`NavigationStack`、`VStack`、`List`、`ScrollView` 等）、子 View 的呼叫，以及套在整個畫面上的 modifier（`navigationTitle`、`toolbar`、`task`、`sheet`）。任何實際內容，包括單一 `Text` 加幾個 modifier，都抽到 Private Views 成為具名的子 View。判斷標準：讀 `body` 應該能在三秒內說出這個畫面由哪幾塊組成，而不需要知道每塊長什麼樣。
 
 ```swift
-/// 個人資料畫面的骨架：由上而下是標題區、統計區、近期活動列表。
+/// 個人資料畫面的骨架：由上而下是標題區、統計區、近期活動列表
 var body: some View {
     NavigationStack {
         ScrollView {
@@ -186,33 +186,33 @@ var body: some View {
 
 extension ProfileViewModel {
 
-    /// 畫面目前的載入狀態。
+    /// 畫面目前的載入狀態
     enum State: Equatable {
 
-        /// 尚未開始載入。
+        /// 尚未開始載入
         case idle
 
-        /// 正在向伺服器取得資料。
+        /// 正在向伺服器取得資料
         case loading
 
-        /// 載入完成。
+        /// 載入完成
         ///
-        /// - Parameter profile: 取得的個人資料。
+        /// - Parameter profile: 取得的個人資料
         case loaded(Profile)
 
-        /// 載入失敗。
+        /// 載入失敗
         ///
-        /// - Parameter message: 要顯示給使用者的訊息。
+        /// - Parameter message: 要顯示給使用者的訊息
         case failed(String)
     }
 
-    /// 使用者在畫面上能觸發的動作。
+    /// 使用者在畫面上能觸發的動作
     enum Action {
 
-        /// 第一次進入畫面時載入資料。
+        /// 第一次進入畫面時載入資料
         case load
 
-        /// 載入失敗後重新嘗試。
+        /// 載入失敗後重新嘗試
         case retry
     }
 }
@@ -247,20 +247,20 @@ extension ProfileViewModel {
 **動詞固定四個**，不自創：
 
 ```swift
-/// 完成某一步後前進，下一步由 Coordinator 依已填的資料決定。
+/// 完成某一步後前進，下一步由 Coordinator 依已填的資料決定
 ///
-/// - Parameter step: 剛完成的步驟。
+/// - Parameter step: 剛完成的步驟
 func proceed(from step: Route)
 
-/// 退回上一步，與一般 Coordinator 相同。
+/// 退回上一步，與一般 Coordinator 相同
 func pop()
 
-/// 整個流程結束，把結果交給父層；畫面的關閉由父層負責。
+/// 整個流程結束，把結果交給父層；畫面的關閉由父層負責
 ///
-/// - Parameter result: 完成的產出或取消。
+/// - Parameter result: 完成的產出或取消
 func finish(with result: Result)
 
-/// 中途放棄流程，等同以「取消」結束。
+/// 中途放棄流程，等同以「取消」結束
 func cancel()
 ```
 
@@ -295,9 +295,9 @@ func cancel()
 ```swift
 // MARK: - Init
 
-/// 從伺服器回傳的字串還原成狀態，大小寫不分；對應不到任何狀態時得到 nil。
+/// 從伺服器回傳的字串還原成狀態，大小寫不分；對應不到任何狀態時得到 nil
 ///
-/// - Parameter rawValue: 伺服器回傳的狀態字串。
+/// - Parameter rawValue: 伺服器回傳的狀態字串
 init?(rawValue: String) {
     switch rawValue.lowercased() {
     case "active":
@@ -368,28 +368,28 @@ Protocol 與正式實作同檔，protocol 先、實作後；protocol 遵循放�
 1. **方法超過七個，先檢查是否混了多種責任。** 抓取、更新、快取、驗證是不同的事，依責任拆成多個小 protocol，需要整組能力時用 `typealias` 組合。ViewModel 只依賴用到的那個小 protocol，mock 也只需實作那幾個方法。
 
    ```swift
-   /// 能讀取個人資料的來源。
+   /// 能讀取個人資料的來源
    protocol ProfileFetching: Sendable {
 
-       /// 依識別碼取得個人資料。
+       /// 依識別碼取得個人資料
        ///
-       /// - Parameter id: 使用者識別碼。
-       /// - Returns: 該使用者的個人資料。
-       /// - Throws: 找不到使用者或網路失敗時丟出。
+       /// - Parameter id: 使用者識別碼
+       /// - Returns: 該使用者的個人資料
+       /// - Throws: 找不到使用者或網路失敗時丟出
        func fetchProfile(id: String) async throws -> Profile
    }
 
-   /// 能更新個人資料的來源。
+   /// 能更新個人資料的來源
    protocol ProfileUpdating: Sendable {
 
-       /// 把修改後的個人資料送到伺服器。
+       /// 把修改後的個人資料送到伺服器
        ///
-       /// - Parameter profile: 修改後的完整個人資料。
-       /// - Throws: 資料不合法或網路失敗時丟出。
+       /// - Parameter profile: 修改後的完整個人資料
+       /// - Throws: 資料不合法或網路失敗時丟出
        func updateProfile(_ profile: Profile) async throws
    }
 
-   /// 完整的個人資料服務：同時能讀取與更新。
+   /// 完整的個人資料服務：同時能讀取與更新
    typealias ProfileServiceProtocol = ProfileFetching & ProfileUpdating
    ```
 
@@ -427,21 +427,21 @@ Mock 的型別與正式實作無關，測試 target 內的 mock 可以用 `final
 改成 `actor` 時，protocol 內的方法宣告要加 `async`，讓 mock 與其他實作不受 actor 隔離限制：
 
 ```swift
-/// 取得使用者個人資料的入口。
+/// 取得使用者個人資料的入口
 protocol ProfileServiceProtocol: Sendable {
 
-    /// 依識別碼取得個人資料。
+    /// 依識別碼取得個人資料
     ///
-    /// - Parameter id: 使用者識別碼。
-    /// - Returns: 該使用者的個人資料。
-    /// - Throws: 找不到使用者或網路失敗時丟出。
+    /// - Parameter id: 使用者識別碼
+    /// - Returns: 該使用者的個人資料
+    /// - Throws: 找不到使用者或網路失敗時丟出
     func fetchProfile(id: String) async throws -> Profile
 }
 
-/// 有快取的個人資料來源，因為要記住抓過的資料所以用 actor。
+/// 有快取的個人資料來源，因為要記住抓過的資料所以用 actor
 actor ProfileService {
 
-    /// 已抓過的個人資料，以識別碼查找。
+    /// 已抓過的個人資料，以識別碼查找
     private var cache: [String: Profile] = [:]
 }
 
@@ -449,11 +449,11 @@ actor ProfileService {
 
 extension ProfileService: ProfileServiceProtocol {
 
-    /// 先查快取，沒有才向伺服器抓並存入快取。
+    /// 先查快取，沒有才向伺服器抓並存入快取
     ///
-    /// - Parameter id: 使用者識別碼。
-    /// - Returns: 快取或伺服器的個人資料。
-    /// - Throws: 快取沒有且伺服器抓取失敗時丟出。
+    /// - Parameter id: 使用者識別碼
+    /// - Returns: 快取或伺服器的個人資料
+    /// - Throws: 快取沒有且伺服器抓取失敗時丟出
     func fetchProfile(id: String) async throws -> Profile { ... }
 }
 ```
@@ -469,7 +469,7 @@ extension ProfileService: ProfileServiceProtocol {
 // Core/Environment/EnvironmentValues+Services.swift
 extension EnvironmentValues {
 
-    /// 個人資料來源；未在 App 根部注入時使用 Preview 假資料。
+    /// 個人資料來源；未在 App 根部注入時使用 Preview 假資料
     @Entry var profileService: any ProfileServiceProtocol = PreviewProfileService()
 }
 
@@ -478,16 +478,16 @@ ContentView()
     .environment(\.profileService, ProfileService())
 
 // View
-/// 個人資料畫面。
+/// 個人資料畫面
 struct ProfileView: View {
 
-    /// 從環境取得的個人資料來源，用來建立 ViewModel。
+    /// 從環境取得的個人資料來源，用來建立 ViewModel
     @Environment(\.profileService) private var profileService
 
-    /// 畫面的狀態與動作，首次顯示時才建立。
+    /// 畫面的狀態與動作，首次顯示時才建立
     @State private var viewModel: ProfileViewModel?
 
-    /// 畫面骨架，首次顯示時建立 ViewModel。
+    /// 畫面骨架，首次顯示時建立 ViewModel
     var body: some View {
         content
             .task {
@@ -499,9 +499,9 @@ struct ProfileView: View {
 }
 
 // ViewModel
-/// 建立個人資料畫面的 ViewModel。
+/// 建立個人資料畫面的 ViewModel
 ///
-/// - Parameter profileService: 實際去拿個人資料的物件。
+/// - Parameter profileService: 實際去拿個人資料的物件
 init(profileService: any ProfileServiceProtocol) {
     self.profileService = profileService
 }

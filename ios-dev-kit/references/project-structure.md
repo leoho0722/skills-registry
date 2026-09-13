@@ -389,13 +389,13 @@ DesignSystem/
   ```swift
   extension Profile {
 
-      /// 測試用的固定個人資料，參數都有預設值，只覆寫測試關心的欄位。
+      /// 測試用的固定個人資料，參數都有預設值，只覆寫測試關心的欄位
       ///
       /// - Parameters:
-      ///   - id: 識別碼。
-      ///   - name: 顯示名稱。
-      ///   - isVerified: 是否已驗證。
-      /// - Returns: 一筆可直接用於測試的個人資料。
+      ///   - id: 識別碼
+      ///   - name: 顯示名稱
+      ///   - isVerified: 是否已驗證
+      /// - Returns: 一筆可直接用於測試的個人資料
       static func fixture(
           id: UserID = UserID(rawValue: "user-1"),
           name: String = "Leo",

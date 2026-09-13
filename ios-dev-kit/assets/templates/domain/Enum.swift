@@ -7,10 +7,10 @@
 
 import Foundation
 
-/// __NAME__ 的所有可能值，替換時改寫成這個分類代表什麼。
+/// __NAME__ 的所有可能值，替換時改寫成這個分類代表什麼
 enum __NAME__: __RAW_TYPE__, CaseIterable, Codable, Sendable {
 
-    /// 示範 case，替換為實際的值並改寫此說明。
+    /// 示範 case，替換為實際的值並改寫此說明
     case example
 }
 
@@ -18,7 +18,7 @@ enum __NAME__: __RAW_TYPE__, CaseIterable, Codable, Sendable {
 
 extension __NAME__ {
 
-    /// 顯示給使用者看的名稱。
+    /// 顯示給使用者看的名稱
     var title: String {
         switch self {
         case .example:
