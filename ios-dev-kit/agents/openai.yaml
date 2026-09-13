@@ -1,6 +1,6 @@
 interface:
   display_name: "iOS Dev Kit"
-  short_description: "Leo Ho 個人的 Swift coding style、排版與檔案樣板規範"
+  short_description: "Leo Ho 個人的 Swift coding style、排版、檔案樣板、專案結構與 TCA 架構規範"
   default_prompt: "Use $ios-dev-kit to write or review this Swift code following my personal coding conventions."
 
 policy:

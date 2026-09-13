@@ -1,6 +1,6 @@
 # Code Formatting（排版規則）
 
-Leo Ho 個人 Swift 排版規範，版本 1.0.0。若專案有 `.swiftformat` 或 `.swift-format` 設定檔，以設定檔為準；本檔補充設定檔無法表達的規則。
+Leo Ho 個人 Swift 排版規範。若專案有 `.swiftformat` 或 `.swift-format` 設定檔，以設定檔為準；本檔補充設定檔無法表達的規則。
 
 ## 目錄
 
@@ -213,7 +213,7 @@ extension Endpoint {
 
 用不到的區塊直接省略，不留空的 MARK；順序不可調換。Protocol 遵循各自獨立一個 extension，以 protocol 名稱作為 MARK 名稱（例如 `// MARK: - __NAME__ServiceProtocol`、`// MARK: - Codable`），**排在 Internal Method 之後、Private Method 之前**；多個 protocol 遵循依 protocol 名稱字母排序。閱讀順序因此固定為：型別是什麼 → 自己提供什麼 → 履行什麼契約 → 內部怎麼做。
 
-型別專屬的額外分區（View 的 `Body`、`Private Views`、`Preview`，Coordinator 與流程型 Coordinator 的 `Destinations`，FormatStyle 的 `Convenience`）以各樣板為準，位置見 `file-templates.md` 對應一節；不自創其他分區名稱。
+型別專屬的額外分區（View 的 `Body`、`Private Views`、`Preview`，Coordinator 與流程型 Coordinator 的 `Destinations`，FormatStyle 的 `Convenience`，TCA Feature 型別的 `State`、`Action`、`Dependencies`、`Body`）以各樣板為準，位置見 `file-templates.md` 與 `tca-architecture.md` 對應一節；不自創其他分區名稱。
 
 ### 遵循宣告在型別行還是 extension
 

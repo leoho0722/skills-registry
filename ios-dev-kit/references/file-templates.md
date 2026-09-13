@@ -1,6 +1,6 @@
 # File Templates（檔案樣板）
 
-Leo Ho 個人 Swift 檔案樣板規範，版本 1.0.0。實體樣板放在 [`../assets/templates/`](../assets/templates/)，本檔說明「何時用哪個」與各區塊的填寫規則。
+Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/templates/`](../assets/templates/)，本檔說明「何時用哪個」與各區塊的填寫規則。
 
 ## 目錄
 
@@ -31,8 +31,12 @@ Leo Ho 個人 Swift 檔案樣板規範，版本 1.0.0。實體樣板放在 [`../
 | 自訂格式化樣式（含業務規則的日期、金額、遮罩等） | `core/FormatStyle.swift` | `<Name>FormatStyle.swift` |
 | Service 的 Environment 注入清單（每個專案一份） | `core/EnvironmentValues+Services.swift` | 固定 `EnvironmentValues+Services.swift` |
 | 執行環境判斷（Preview / UI Test / 單元測試），每個專案一份 | `core/RuntimeEnvironment.swift` | 固定 `RuntimeEnvironment.swift` |
+| TCA 專案：畫面的狀態與邏輯（Reducer） | `tca/Feature.swift` | `<Screen>Feature.swift`；根畫面為 `<Feature>RootFeature.swift` |
+| TCA 專案：SwiftUI 畫面 | `tca/FeatureView.swift` | `<Screen>View.swift`；根畫面為 `<Feature>RootView.swift` |
+| TCA 專案：Service / Client / Store / Database 的 DependencyKey 註冊 | `tca/DependencyKey.swift` | `<Name>Service+Dependency.swift`（Client / Store / Database 改後綴） |
+| TCA 專案：Feature 型別的單元測試（TestStore） | `tca/FeatureTests.swift` | `<Screen>FeatureTests.swift` |
 
-子資料夾對應 `project-structure.md` 的分層：`presentation/`、`domain/`、`data/`、`core/`、`tests/`。建 Feature 模組時，依要建的層去對應子資料夾取樣板；跨 Feature 共用的基礎型別放 `core/`。
+子資料夾對應 `project-structure.md` 的分層：`presentation/`、`domain/`、`data/`、`core/`、`tests/`；`tca/` 是 TCA 專案取代 `presentation/` 的 View 與 ViewModel、`core/EnvironmentValues+Services.swift` 與 `tests/Tests.swift` 的四份樣板，填寫規則見 `tca-architecture.md`，MVVM 專案不使用。建 Feature 模組時，依要建的層去對應子資料夾取樣板；跨 Feature 共用的基礎型別放 `core/`。
 
 表中沒有的型別先不建樣板，等實際專案出現該型別再補，避免留下沒人用的空樣板；新增時同步在對應子資料夾放檔案並在此表加一列。
 
@@ -43,7 +47,9 @@ Leo Ho 個人 Swift 檔案樣板規範，版本 1.0.0。實體樣板放在 [`../
 | 佔位符 | 意義 |
 |---|---|
 | `__NAME__` | 主要型別名稱（不含後綴），UpperCamelCase |
-| `__NAME_LOWER_CAMEL__` | 主要型別名稱的 lowerCamelCase 形式，用於 static 便利存取子 |
+| `__NAME_LOWER_CAMEL__` | 主要型別名稱的 lowerCamelCase 形式，用於 static 便利存取子與 `DependencyValues` 的屬性名 |
+| `__SERVICE__` | TCA 樣板內 Feature 型別所依賴的 Service 名稱（不含後綴），UpperCamelCase，用於 `Mock__SERVICE__Service` |
+| `__SERVICE_LOWER_CAMEL__` | `__SERVICE__` 的 lowerCamelCase 形式，用於 `@Dependency(\.__SERVICE_LOWER_CAMEL__Service)` |
 | `__VALUE_TYPE__` | 被格式化的輸入型別，例如 `Date`、`Decimal`、`String` |
 | `__OUTPUT_TYPE__` | 流程完成時交出的產出型別，例如 `Order`、`Account` |
 | `__RAW_TYPE__` | enum 的 raw type，依需求決定，例如 `String`、`Int` |

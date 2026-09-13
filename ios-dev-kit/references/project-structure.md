@@ -1,6 +1,6 @@
 # Project Structure（專案目錄結構）
 
-Leo Ho 個人 iOS 專案目錄結構規範，版本 1.0.0。
+Leo Ho 個人 iOS 專案目錄結構規範。
 
 ## 目錄
 
@@ -22,7 +22,7 @@ Leo Ho 個人 iOS 專案目錄結構規範，版本 1.0.0。
 
 ## 分層原則
 
-架構是 **Feature-first 加內部分層的 MVVM 搭配 Coordinator**：第一刀依功能切成 Feature，每個 Feature 內再依技術層分成 Presentation / Domain / Data，跨 Feature 共用的技術能力放 Core。不是嚴格的 Clean Architecture：沒有 Repository 抽象、UseCase 是可選層、ViewModel 可直接依賴 Service protocol；agent 不得自行補上 Repository、Interactor、Presenter 等本規範沒有的層。
+架構是 **Feature-first 加內部分層的 MVVM 搭配 Coordinator**：第一刀依功能切成 Feature，每個 Feature 內再依技術層分成 Presentation / Domain / Data，跨 Feature 共用的技術能力放 Core。不是嚴格的 Clean Architecture：沒有 Repository 抽象、UseCase 是可選層、ViewModel 可直接依賴 Service protocol；agent 不得自行補上 Repository、Interactor、Presenter 等本規範沒有的層。Presentation 層另有 TCA 這個第二選擇，由使用者決定、一個專案只用一種；TCA 專案的 Presentation 與 Feature 模組結構見 `tca-architecture.md`，本檔其餘規則不變。
 
 | 層 | 放什麼 | 對應樣板 |
 |---|---|---|
