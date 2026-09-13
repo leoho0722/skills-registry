@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `SKILL.md` frontmatter 只允許 `name`、`description`、`license`、`allowed-tools`、`metadata` 五個 key；`description` 要同時寫「做什麼」與「何時觸發」(含使用者可能提到的關鍵字)，因為 Claude Code / Codex 靠它決定是否自動載入。
 - `SKILL.md` 本體是「路由器」：只放鐵則、核心原則、工作流程與一張「任務情境 → 讀哪份 reference」導覽表，細節全部下放到 `references/`，讓 agent 只載入需要的部分 (progressive disclosure)。
-- 每份 `references/*.md` 開頭放目錄 (anchor 連結) 並註明依據來源與版本日期，方便日後對照更新。
+- 每份 `references/*.md` 開頭放目錄 (anchor 連結)。內容對應外部來源的 skill（如 `ios-hig-ui-ux`）在檔頭註明依據來源與版本日期，方便日後對照更新；自行維護的規範型 skill（如 `ios-dev-kit`）檔頭不寫版號，版號只存在 `SKILL.md` 的 `metadata.version`，避免每次改版都要碰所有 reference。
 - `agents/openai.yaml` 提供 `interface.display_name`、`short_description`、`default_prompt` 與 `policy.allow_implicit_invocation`。
 - 內容以正體中文撰寫，技術名詞與 API 名稱保留英文。
 - `metadata.version` 依 skill 的性質二選一：內容對應外部來源（如 HIG）的 skill 用來源的年月（`2026-06`），回答「對應到哪個時間點的來源」；自行維護的規範型 skill（如 `ios-dev-kit`）用語義化版號（`1.0.0`）。語義化版號的進位規則：MAJOR 為既有程式碼會變違規或 reference 檔改名、移除、拆分；MINOR 為新增規則、樣板或 reference 且既有程式碼不受影響；PATCH 為措辭、範例、錯字修正。`skills` CLI 不讀此欄位，它只給人看，但每次修改 skill 內容時都要對應調整。
