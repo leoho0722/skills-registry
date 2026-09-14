@@ -251,7 +251,7 @@ private extension ProfileFeature {
 
 - **要**：`body` 只負責組合，本畫面自己的邏輯放 Private Method 的 `core(state: inout State, action: Action) -> Effect<Action>`，`body` 以 `Reduce(core)` 引用；不在 `body` 內寫 `Reduce { state, action in ... }` 閉包。
 - **要**：`body` 的組合順序固定：`BindingReducer()`（有才寫）→ `Scope`（固定子 Feature）→ `Reduce(core)`；`.ifLet` 與 `.forEach` 以 modifier 形式接在 `Reduce(core)` 之後。
-- **要**：`core` 內 `switch action` 的 case 順序與 `Action` 宣告順序一致；每個 case 本體換行，同 `formatting.md`。
+- **要**：`core` 內 `switch action` 的 case 順序與 `Action` 宣告順序一致；每個 case 本體換行、case 之間不空行，同 `formatting.md`。
 - **要**：Effect 只用 `.run`，內部是 async/await；`Task.detached`、GCD、Combine 依鐵則 5 禁用。Service 的 typed throws 在 `.run` 內以 `do` / `catch` 接住，轉成 `Result` 送回 Action。
 - **要**：畫面出現時要啟動的 Effect（初次載入、`AsyncStream` / `.values` 監聽）一律綁在 `.view(.task)`，由 View 的 `.task` modifier 觸發，離開畫面時 SwiftUI 自動取消，不需要 `CancelID`。
 - **要**：只有使用者動作觸發、且需要手動取消或去重的 Effect（搜尋防抖、可取消的送出）才用 `CancelID`（Nested Types 內的 `enum`）配 `.cancellable(id:cancelInFlight:)` 與 `.cancel(id:)`。
@@ -283,17 +283,14 @@ private extension ProfileFeature {
         case .view(.task):
             state.isLoading = true
             return loadProfile()
-
         case let .profileResponse(.success(profile)):
             state.isLoading = false
             state.profile = profile
             return .none
-
         case let .profileResponse(.failure(error)):
             state.isLoading = false
             state.errorMessage = error.localizedDescription
             return .none
-
         case .delegate, .destination:
             return .none
         }
