@@ -183,13 +183,14 @@ extension ProfileViewModel {
 
 - **要**：預設 `struct`。需要以下任一才用 `class`：身分語意（同一實例被多處共享並觀察其變化，例如 ViewModel、Coordinator）、框架要求 reference 型別（delegate、`deinit`）、必須繼承系統 class（`XCTestCase`、`UIViewController`）。
 - **要**：`class` 一律 `final`，除非刻意設計要被繼承；可被繼承的 class 要有 doc comment 說明可覆寫的點。
+- **要**：型別成員（type property、type method）照 Apple 文件與社群慣例：自己宣告、不打算被覆寫的寫 `static`；覆寫父類別的 class 成員時沿用父類別的寫法（`override class var layerClass: AnyClass`）；只有刻意設計要被繼承的 class，宣告可被覆寫的型別成員時才寫 `class`。排序時 `class` 成員視同 static，見 `formatting.md` 的區內排序。
 - **要**：有可變狀態且會跨執行緒存取的用 `actor`，不用 `class` 加 lock；選型細節見 `file-templates.md` 的 Service 一節。
 - **要**：有限集合與狀態機用 `enum`：狀態、分類、選項用無 associated value 的 enum，帶資料的狀態用 associated value；payload 超過三個欄位改 struct。
 - **要**：無 case 的 `enum` 作命名空間，放常數群與純 static 工具（`Layout`、`RuntimeEnvironment`）；不用 `struct` 加 `private init()` 模擬。
 - **要**：protocol 只在有第二個實作或需要 mock 時才定義。Service / Client / Store / Database / UseCase 因為要 mock 一律有 protocol，其他型別不預先抽象。
 - **要**：`some` 優先於 `any`；`any` 只在需要異質集合或存進屬性時用（Service 注入用 `any`）。
 - **要**：需要語意上不同的識別碼或單位時用 struct wrapper 取得型別安全，遵循 `Hashable`、`Sendable`，以 `rawValue` 持有底層值。
-- **避免**：`typealias` 給基本型別取別名（`typealias UserID = String`），它與 `String` 可互換，不提供型別安全；`typealias` 只用於組合 protocol 與縮短長泛型簽章。
+- **避免**：`typealias` 給基本型別取別名（`typealias UserID = String`），它與 `String` 可互換，不提供型別安全；`typealias` 只用於組合 protocol、縮短長泛型簽章，以及 TCA 專案 Service 的 closure 型別（見 `tca-architecture.md`）。
 - **避免**：tuple 跨越函式邊界或超過兩個元素；只允許在函式內部或回傳兩個以下的值，其他改 struct。
 - **避免**：只有一個具體型別卻寫成 generic；generic 只用於演算法與容器。
 - **避免**：`class` 只為了讓屬性可變而用，`struct` 的 `var` 加 `mutating` 或複製修改即可。
@@ -234,7 +235,7 @@ enum Layout {
 ## Optional 處理
 
 - **要**：`guard let` 優先於 `if let`：需要提早離開的用 `guard let`，只有在 nil 時仍要繼續執行後續邏輯才用 `if let`。`guard` 的 `else` 只放 `return`、`throw`、`continue`、`break`，不放其他邏輯。
-- **要**：同名解包用簡寫 `guard let profile else { return }`，不寫 `guard let profile = profile`。
+- **要**：同名解包用簡寫 `guard let profile`、`if let profile`，不寫 `guard let profile = profile`。
 - **要**：多個 Optional 用逗號串在同一個 `guard let` / `if let`，巢狀不超過一層。
 - **要**：optional chaining 最多兩層（`user?.profile?.avatar`），更深就先 `guard let` 拆開，否則 nil 的來源無法辨識。
 - **要**：`??` 只給真正有合理預設的情況（空字串、空陣列、0），不用它掩蓋應該視為錯誤的 nil。
@@ -359,10 +360,13 @@ func load() async {
         let profile = try await profileService.fetchProfile(id: userID)
         state = .loaded(profile)
     } catch {
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled else {
+            return
+        }
         switch error {
         case .notFound:
             state = .failed(String(localized: "profile.notFound"))
+
         case .network, .decoding, .invalidInput:
             state = .failed(String(localized: "profile.unavailable"))
         }
@@ -444,7 +448,9 @@ extension DashboardViewModel {
             self.profile = try await profile
             self.orders = try await orders
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                return
+            }
             // 轉成 State.failed
         }
     }
@@ -558,7 +564,7 @@ private extension ProfileViewModel {
 
 - [ ] 命名：`Manager` / `Handler` / `Provider` 用在不符本意的型別、`Helper` / `Util` 後綴、`get` 前綴、否定式 `Bool`、以型別當後綴（`userArray`）、`Id` 而非 `ID`、泛型用單字母
 - [ ] 存取控制：成員未從 `private` 起手、明寫 `internal`、出現 `fileprivate`、為測試放寬存取層級、屬性包裝與存取控制順序顛倒
-- [ ] 型別：`class` 未加 `final`、可變共享狀態用 `class` 加 lock 而非 `actor`、`typealias` 給基本型別取別名、tuple 跨函式邊界、只有一個實作卻定義 protocol
+- [ ] 型別：`class` 未加 `final`、不打算被覆寫的型別成員寫 `class` 而非 `static`、可變共享狀態用 `class` 加 lock 而非 `actor`、`typealias` 給基本型別取別名、tuple 跨函式邊界、只有一個實作卻定義 protocol
 - [ ] Optional：`if let` 用在該提早離開的地方、`guard` 的 `else` 內有邏輯、optional chaining 超過兩層、`??` 掩蓋錯誤、`Bool?`、`.none`
 - [ ] 強制解包：`!` 左側含變數、`try!`、`as!`、`IBOutlet` 以外的隱式解包、字面值 `!` 出現在一般方法內而非 `static let`
 - [ ] Error：全域 `AppError`、Error 帶 raw value、Service 方法未用 typed throws、Service 外洩 `URLError` / `DecodingError`、`catch` 子句分散而非通用 `catch` 內 `switch`

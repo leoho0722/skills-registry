@@ -43,6 +43,7 @@ extension __NAME__ {
         switch self {
         case .example:
             "Example"
+
         case .exampleWithValue(let value):
             value
         }
@@ -69,8 +70,10 @@ extension __NAME__: Codable {
         switch type {
         case "example":
             self = .example
+
         case "exampleWithValue":
             self = .exampleWithValue(try container.decode(String.self, forKey: .value))
+
         default:
             throw DecodingError.dataCorruptedError(
                 forKey: .type,
@@ -89,6 +92,7 @@ extension __NAME__: Codable {
         switch self {
         case .example:
             try container.encode("example", forKey: .type)
+
         case .exampleWithValue(let value):
             try container.encode("exampleWithValue", forKey: .type)
             try container.encode(value, forKey: .value)

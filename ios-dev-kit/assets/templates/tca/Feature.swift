@@ -104,13 +104,16 @@ private extension __NAME__Feature {
                     await send(.exampleResponse(.failure(error)))
                 }
             }
+
         case let .exampleResponse(.success(value)):
             state.isLoading = false
             state.text = value
             return .send(.delegate(.finished))
+
         case .exampleResponse(.failure):
             state.isLoading = false
             return .none
+
         case .delegate:
             return .none
         }

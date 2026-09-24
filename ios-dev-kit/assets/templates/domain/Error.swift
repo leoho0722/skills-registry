@@ -42,8 +42,10 @@ extension __NAME__Error: LocalizedError {
         switch self {
         case .notFound:
             String(localized: "error.__NAME_LOWER_CAMEL__.notFound")
+
         case .invalidInput(_, let reason):
             reason
+
         case .network, .decoding:
             String(localized: "error.__NAME_LOWER_CAMEL__.unavailable")
         }

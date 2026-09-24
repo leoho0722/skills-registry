@@ -26,10 +26,25 @@ extension RuntimeEnvironment {
         CommandLine.arguments.contains("-uiTesting")
     }
 
-    /// 是否正在跑單元測試
+    /// 是否正在跑單元測試：Xcode 會設定 XCTest 的環境變數，命令列的 `swift test` 不會，改看啟動參數
+    ///
+    /// - Note: 判斷條件參考 swift-issue-reporting 的 `isTesting`
     static var isUnitTesting: Bool {
         let environment = ProcessInfo.processInfo.environment
-        return environment["XCTestConfigurationFilePath"] != nil || environment["XCTestBundlePath"] != nil
+        let hasTestEnvironment = [
+            "XCTestBundlePath",
+            "XCTestBundleInjectPath",
+            "XCTestConfigurationFilePath",
+            "XCTestSessionIdentifier"
+        ].contains { environment[$0] != nil }
+        let hasTestArgument = CommandLine.arguments.contains { argument in
+            let url = URL(fileURLWithPath: argument)
+            return url.lastPathComponent == "swiftpm-testing-helper"
+                || url.lastPathComponent == "xctest"
+                || url.pathExtension == "xctest"
+                || argument == "--testing-library"
+        }
+        return hasTestEnvironment || hasTestArgument
     }
 
     /// 是否允許使用 Preview stub：Preview、UI Test、單元測試三者任一成立即可

@@ -22,11 +22,14 @@ struct __NAME__FeatureTests {
     @Test
     func task_serviceSucceeds_notifiesFinished() async {
         // Given
-        let service = Mock__SERVICE__Service()
+        let exampleCallCount = LockIsolated(0)
         let store = TestStore(initialState: __NAME__Feature.State()) {
             __NAME__Feature()
         } withDependencies: {
-            $0.__SERVICE_LOWER_CAMEL__Service = service
+            $0.__SERVICE_LOWER_CAMEL__Service.example = {
+                exampleCallCount.withValue { $0 += 1 }
+                return "stub"
+            }
         }
 
         // When
@@ -40,6 +43,6 @@ struct __NAME__FeatureTests {
             $0.text = "stub"
         }
         await store.receive(\.delegate.finished)
-        #expect(service.exampleCallCount == 1)
+        #expect(exampleCallCount.value == 1)
     }
 }

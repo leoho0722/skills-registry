@@ -33,23 +33,25 @@ Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/template
 | 執行環境判斷（Preview / UI Test / 單元測試），每個專案一份 | `core/RuntimeEnvironment.swift` | 固定 `RuntimeEnvironment.swift` |
 | TCA 專案：畫面的狀態與邏輯（Reducer） | `tca/Feature.swift` | `<Screen>Feature.swift`；根畫面為 `<Feature>RootFeature.swift` |
 | TCA 專案：SwiftUI 畫面 | `tca/FeatureView.swift` | `<Screen>View.swift`；根畫面為 `<Feature>RootView.swift` |
-| TCA 專案：Service / Client / Store / Database 的 DependencyKey 註冊 | `tca/DependencyKey.swift` | `<Name>Service+Dependency.swift`（Client / Store / Database 改後綴） |
+| TCA 專案：Service（struct 裝 closure） | `tca/Service.swift` | `<Feature>Service.swift` |
+| TCA 專案：Service 的 `liveValue`、`testValue` 與 `DependencyValues` 屬性 | `tca/Service+Dependency.swift` | `<Feature>Service+Dependency.swift` |
+| TCA 專案：Service 的 `previewValue` | `tca/Service+Preview.swift` | `<Feature>Service+Preview.swift` |
+| TCA 專案：Client / Store / Database 的 DependencyKey 註冊 | `tca/DependencyKey.swift` | `<Name>+Dependency.swift`，例如 `APIClient+Dependency.swift` |
 | TCA 專案：Feature 型別的單元測試（TestStore） | `tca/FeatureTests.swift` | `<Screen>FeatureTests.swift` |
 
-子資料夾對應 `project-structure.md` 的分層：`presentation/`、`domain/`、`data/`、`core/`、`tests/`；`tca/` 是 TCA 專案取代 `presentation/` 的 View 與 ViewModel、`core/EnvironmentValues+Services.swift` 與 `tests/Tests.swift` 的四份樣板，填寫規則見 `tca-architecture.md`，MVVM 專案不使用。建 Feature 模組時，依要建的層去對應子資料夾取樣板；跨 Feature 共用的基礎型別放 `core/`。
+子資料夾對應 `project-structure.md` 的分層：`presentation/`、`domain/`、`data/`、`core/`、`tests/`；`tca/` 是 TCA 專案的七份樣板，取代 `presentation/` 的 View 與 ViewModel、`data/` 的 Service 與其 Preview stub、`tests/MockService.swift` 的 Service Mock、`core/EnvironmentValues+Services.swift`，以及 Feature 型別的 `tests/Tests.swift`；Client / Store / Database 在 TCA 專案仍用 `data/` 與 `tests/` 的樣板。填寫規則見 `tca-architecture.md`，MVVM 專案不使用。建 Feature 模組時，依要建的層去對應子資料夾取樣板；跨 Feature 共用的基礎型別放 `core/`。
 
 表中沒有的型別先不建樣板，等實際專案出現該型別再補，避免留下沒人用的空樣板；新增時同步在對應子資料夾放檔案並在此表加一列。
 
 ## 佔位符
 
-樣板內所有佔位符都是 `__UPPER_SNAKE__` 形式，複製後必須全數替換，殘留即視為錯誤。替換完成後，把沒用到的空 MARK 區塊與空 extension 一併刪除：樣板保留空區塊只是標示插槽位置與順序，實際檔案依 `formatting.md` 不留空區塊。
+樣板內所有佔位符都是 `__UPPER_SNAKE__` 形式，複製後必須全數替換，殘留即視為錯誤。替換完成後，把沒用到的空 MARK 區塊與空 extension 一併刪除：樣板保留空區塊只是標示插槽位置與順序，實際檔案依 `formatting.md` 不留空區塊。反過來，下方各樣板說明列出的分區順序只是樣板現有的插槽；需要樣板沒有的分區時（例如 Coordinator 需要 Computed Properties），依 `formatting.md` 的六區順序插入，不因樣板沒列就視為禁止。
 
 | 佔位符 | 意義 |
 |---|---|
-| `__NAME__` | 主要型別名稱（不含後綴），UpperCamelCase |
-| `__NAME_LOWER_CAMEL__` | 主要型別名稱的 lowerCamelCase 形式，用於 static 便利存取子與 `DependencyValues` 的屬性名 |
-| `__SERVICE__` | TCA 樣板內 Feature 型別所依賴的 Service 名稱（不含後綴），UpperCamelCase，用於 `Mock__SERVICE__Service` |
-| `__SERVICE_LOWER_CAMEL__` | `__SERVICE__` 的 lowerCamelCase 形式，用於 `@Dependency(\.__SERVICE_LOWER_CAMEL__Service)` |
+| `__NAME__` | 主要型別名稱（不含後綴），UpperCamelCase；唯一例外是 `tca/DependencyKey.swift`，填含後綴的完整型別名稱，例如 `APIClient` |
+| `__NAME_LOWER_CAMEL__` | `__NAME__` 的 lowerCamelCase 形式，用於 static 便利存取子與 `DependencyValues` 的屬性名 |
+| `__SERVICE_LOWER_CAMEL__` | TCA 樣板內 Feature 型別所依賴的 Service 名稱（不含後綴）的 lowerCamelCase 形式，用於 `@Dependency(\.__SERVICE_LOWER_CAMEL__Service)` 與測試的覆寫 |
 | `__VALUE_TYPE__` | 被格式化的輸入型別，例如 `Date`、`Decimal`、`String` |
 | `__OUTPUT_TYPE__` | 流程完成時交出的產出型別，例如 `Order`、`Account` |
 | `__RAW_TYPE__` | enum 的 raw type，依需求決定，例如 `String`、`Int` |
@@ -67,7 +69,7 @@ Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/template
 
 ### presentation/View.swift
 
-型別本體只放 Properties、Init 與 Body，其餘以 extension 分區，順序固定為 Private Views → Nested Types → Private Method → Preview。
+型別本體只放 Properties、Init 與 Body，其餘以 extension 分區，順序固定為 Private Views → Nested Types → Private Method → Preview。View 不設 Computed Properties 區：View 的 computed property 除了 `body` 都是 private，依 `formatting.md` 回傳 `some View` 的放 Private Views，其餘放 Private Method。
 
 **Private Views 區塊**：從 `body` 抽出的子 View，以 `private var` 或 `private func` 回傳 `some View`。
 
@@ -80,6 +82,28 @@ Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/template
 3. **沒有副作用**：不改變任何狀態、不呼叫 viewModel 以外的物件、不 `async`、不 `throw`。
 
 一秒判斷：**這個方法值得寫單元測試嗎？** 值得就是 ViewModel 的職責，搬過去；不值得才留在 View。
+
+收納規則同樣適用於沒有參數的計算：比照 Private Views，無參數寫成 computed property、需要參數寫成 `func`，兩者都放這一區，property 排在方法之前（`formatting.md` 區內排序）。
+
+```swift
+// MARK: - Private Method
+
+private extension ProfileView {
+
+    /// 是否為窄螢幕，決定統計區要不要改成直向排列
+    var isCompact: Bool {
+        horizontalSizeClass == .compact
+    }
+
+    /// 依畫面寬度決定一列放幾格，寬螢幕三格、窄螢幕兩格
+    ///
+    /// - Parameter width: 目前可用的寬度
+    /// - Returns: 一列的格數
+    func columnCount(for width: CGFloat) -> Int {
+        width > 600 ? 3 : 2
+    }
+}
+```
 
 ```swift
 // MARK: - Private Method
@@ -104,8 +128,10 @@ private extension ProfileView {
         switch state {
         case .idle, .loaded:
             "person"
+
         case .loading:
             "hourglass"
+
         case .failed:
             "exclamationmark.triangle"
         }
@@ -142,7 +168,7 @@ Text(post.publishedAt, format: .relativeDay)
 var total: Decimal { order.total }
 ```
 
-**Properties 的順序**固定為 `@Environment` → `@State` → `@Binding` → 一般 `let` / `var`，同一組內依名稱字母排序。
+**Properties 的順序**固定為 `static let` → `@Environment` → `@State` → `@Binding` → 一般 `let` / `var`，同一組內依名稱字母排序；`static let` 排第一依 `formatting.md` 的區內排序。
 
 **`body` 只負責呈現大框架，一律保持簡潔。** `body` 內只允許容器（`NavigationStack`、`VStack`、`List`、`ScrollView` 等）、子 View 的呼叫，以及套在整個畫面上的 modifier（`navigationTitle`、`toolbar`、`task`、`sheet`）。任何實際內容，包括單一 `Text` 加幾個 modifier，都抽到 Private Views 成為具名的子 View。判斷標準：讀 `body` 應該能在三秒內說出這個畫面由哪幾塊組成，而不需要知道每塊長什麼樣。
 
@@ -171,7 +197,7 @@ var body: some View {
 
 ### presentation/ViewModel.swift
 
-型別本體只放 Properties 與 Init，其餘一律以 extension 分區，順序固定為 Nested Types → Internal Method → Private Method。
+型別本體只放 Properties 與 Init，其餘一律以 extension 分區，順序固定為 Nested Types → Computed Properties → Internal Method → Private Method。
 
 **Nested Types 區塊的收納規則**：只放**此 ViewModel 專屬**的 enum / struct / class，判斷標準三條同時成立：
 
@@ -217,6 +243,8 @@ extension ProfileViewModel {
     }
 }
 ```
+
+**Computed Properties 區塊**：放 View 要讀的衍生狀態，例如 `isSaveEnabled`、`canSubmit`、上方格式化範例的 `total`；彼此有依賴時依 `formatting.md` 的依賴順序排列。已格式化的字串只在上方格式化規則的例外情況才提供。只給 ViewModel 內部用的 computed property 是 private，放 Private Method。
 
 - **一律 `@Observable` + `@MainActor`**，不用 `ObservableObject` / `@Published`；既有程式碼新增 ViewModel 時也用 `@Observable`，不與舊寫法混用。
 - **Nested Types 預設 internal**，因為對應的 View 需要讀取；只有 ViewModel 內部使用的型別才加 `private`。
@@ -288,7 +316,7 @@ func cancel()
 | 值要與後端的數字代碼對應，或需要天然的排序 | `Int` |
 | 純粹在程式內分類，不需要任何外部表示 | 不加 raw type |
 
-不加 raw type 時 `Codable` 仍可自動合成，會以 case 名稱的字串編碼；若連 `Codable` 都不需要就一併拿掉。本體只放 cases，computed properties 一律放 `// MARK: - Computed Properties` extension（enum 沒有 stored property，此為 `formatting.md` 分區順序的型別特例）。
+不加 raw type 時 `Codable` 仍可自動合成，會以 case 名稱的字串編碼；若連 `Codable` 都不需要就一併拿掉。本體只放 cases（enum 沒有 stored property，此為 `formatting.md` 分區順序的型別特例）；非 private 的 computed properties 放 `// MARK: - Computed Properties` extension，private 的放 Private Method。
 
 **樣板不含 init，`init?(rawValue:)` 交由編譯器合成。** 只有「raw value 與 case 名稱不一一對應」或需要容錯解析（例如未知值落到 `.unknown`）時才手寫，放在本體 cases 之後的 `// MARK: - Init` 區塊；手寫版必須列出所有 case，`default` 只允許 `return nil` 或 `self = .unknown`。
 
@@ -302,8 +330,10 @@ init?(rawValue: String) {
     switch rawValue.lowercased() {
     case "active":
         self = .active
+
     case "inactive", "disabled":
         self = .inactive
+
     default:
         return nil
     }
@@ -550,6 +580,8 @@ Data 層的型別分兩種：
 - `<method>ReceivedArguments`：依序記錄每次傳入的參數，`private(set) var`；無參數的方法省略。
 - `<method>Result`：測試端設定的回傳值或錯誤，`var`，型別用 `Result<Output, <領域>Error>` 與 protocol 的 typed throws 對應，方法內以 `try <method>Result.get()` 取出。
 
+三個屬性以方法為單位分組，組與組的順序、以及 extension 內的方法順序，都和 protocol 的宣告順序一致（`formatting.md` 區內排序）。
+
 樣板內的 `example(_:)` 是示範用，替換成實際 protocol 方法後刪除。
 
 ### core/FormatStyle.swift
@@ -573,7 +605,7 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 
 ### core/RuntimeEnvironment.swift
 
-每個專案一份，檔名固定，放 `Core/Environment/` 與 `EnvironmentValues+Services.swift` 同資料夾。無 case 的 `enum` 作為命名空間，四個 static computed property 放 `// MARK: - Computed Properties` extension：`isPreview`（`XCODE_RUNNING_FOR_PREVIEWS`）、`isUITesting`（`-uiTesting` launch argument）、`isUnitTesting`（`XCTestConfigurationFilePath` / `XCTestBundlePath`）、`allowsPreviewStub`（前三者任一）。App 根部依 `isUITesting` 決定注入正式實作或 Preview stub；Preview stub 的 init 以 `allowsPreviewStub` 做 assert。不在此型別加入其他與環境無關的判斷。
+每個專案一份，檔名固定，放 `Core/Environment/` 與 `EnvironmentValues+Services.swift` 同資料夾。無 case 的 `enum` 作為命名空間，四個 static computed property 放 `// MARK: - Computed Properties` extension：`isPreview`（`XCODE_RUNNING_FOR_PREVIEWS`）、`isUITesting`（`-uiTesting` launch argument）、`isUnitTesting`（Xcode 設定的 XCTest 環境變數，或命令列 `swift test` 的啟動參數 `swiftpm-testing-helper`、`--testing-library`、`xctest`；只看環境變數會讓 `swift test` 被判為非測試而觸發 assert）、`allowsPreviewStub`（前三者任一）。App 根部依 `isUITesting` 決定注入正式實作或 Preview stub；Preview stub 的 init（TCA 專案的 Service 為 `previewValue` 的 getter）以 `allowsPreviewStub` 做 assert。不在此型別加入其他與環境無關的判斷。
 
 ### tests/Tests.swift
 
@@ -610,3 +642,4 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - [ ] 未使用的空 MARK 區塊與空 extension 已刪除
 - [ ] 所有宣告（含 `private` 成員與每個 `case`）都有 `///` doc comment；樣板的示範成員附有示範說明，替換為實際內容時必須同步改寫，不可留下「示範」「替換時改寫」字樣
 - [ ] 檔名與主要型別名稱一致
+- [ ] View 另開 Computed Properties 區；ViewModel 給 View 讀的衍生狀態不在 Computed Properties

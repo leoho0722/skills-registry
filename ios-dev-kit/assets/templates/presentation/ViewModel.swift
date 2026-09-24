@@ -29,6 +29,12 @@ extension __NAME__ViewModel {
 
 }
 
+// MARK: - Computed Properties
+
+extension __NAME__ViewModel {
+
+}
+
 // MARK: - Internal Method
 
 extension __NAME__ViewModel {

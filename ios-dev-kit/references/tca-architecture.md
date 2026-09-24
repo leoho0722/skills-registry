@@ -22,6 +22,8 @@ Leo Ho 個人 iOS 專案採用 [The Composable Architecture](https://github.com/
     - [動詞對應](#動詞對應)
     - [跨 Feature 模組導航](#跨-feature-模組導航)
   - [依賴注入](#依賴注入)
+    - [Service](#service)
+    - [Client、Store、Database](#clientstoredatabase)
   - [@Shared](#shared)
   - [測試](#測試)
   - [常見錯誤檢查清單](#常見錯誤檢查清單)
@@ -37,7 +39,7 @@ TCA 是 **Presentation 層的第二種架構**，與 MVVM + Coordinator 並列�
 | Feature 模組 | `project-structure.md` 定義的功能單位，一個資料夾 | `Features/Profile/` |
 | Feature 型別 | TCA 的 `@Reducer` 型別，一個畫面一個 | `EditProfileFeature` |
 
-型別後綴採 TCA 社群慣例 `Feature`，不用 `Reducer`。
+型別後綴採 TCA 社群慣例 `Feature`，不用 `Reducer`。依賴型別則不採社群慣例的 `XxxClient`，維持 `<Feature>Service`：本規範的 `Client` 專指 Core 的網路層，後綴與資料夾一對一（見 `project-structure.md`），Feature 的依賴也叫 Client 會讓同一個後綴代表兩層。
 
 ### MVVM 與 TCA 的對應
 
@@ -49,11 +51,13 @@ TCA 是 **Presentation 層的第二種架構**，與 MVVM + Coordinator 並列�
 | `<Feature>Coordinator` 的 `Sheet` / `FullScreen` | 該畫面 Feature 的 `Destination` | Tree 導航 |
 | `FlowCoordinator` 的 `proceed` / `pop` / `finish` / `cancel` | 子畫面的 `delegate` action 與父層的 `path` 操作 | 見「動詞對應」 |
 | `@Entry` 與 `EnvironmentValues+Services.swift` | `DependencyKey` 與 `<Name>Service+Dependency.swift` | 每個 Service 一檔 |
-| ViewModel init 注入 Service | `@Dependency(\.xxxService)` | Service 本身仍以 init 注入 Client / Store |
-| 測試以 init 注入 `Mock<Name>Service` | `TestStore` 的 `withDependencies` 注入同一個 Mock | Mock 樣板不變 |
+| `<Name>ServiceProtocol` 加 `<Name>Service` 實作 | struct 裝 closure 的 `<Name>Service`，正式實作在 `liveValue` | 見「依賴注入」 |
+| ViewModel init 注入 Service | `@Dependency(\.xxxService)` | Service 的 `liveValue` 以 `@Dependency` 取得 Client / Store |
+| `Preview<Name>Service` | `<Name>Service` 的 `previewValue` | 位置同樣在 `Preview Content/` |
+| 測試以 init 注入 `Mock<Name>Service` | `withDependencies` 只覆寫用到的 closure，`testValue` 全為 `unimplemented` | Service 沒有 Mock，呼叫紀錄用 `LockIsolated` |
 | `@Observable` ViewModel 的單元測試 | `TestStore` 測試 | 一律 exhaustive |
 
-不變的部分：Model、Enum、Error、UseCase、Service、Client、Store、Database、FormatStyle、DesignSystem、RuntimeEnvironment、UITests 的規則與樣板完全沿用。
+不變的部分：Model、Enum、Error、Client、Store、Database、FormatStyle、DesignSystem、RuntimeEnvironment、UITests 的規則與樣板完全沿用。Service 改用 struct 裝 closure，TCA 專案有 UseCase 時比照 Service，見「依賴注入」。
 
 ## Feature 模組結構
 
@@ -72,15 +76,15 @@ Features/<Feature>/
 │       └── <Screen>View+<Part>.swift     # 選用，同 MVVM
 ├── Domain/                               # 同 MVVM
 ├── Data/
-│   ├── <Feature>Service.swift            # data/Service.swift
-│   └── <Feature>Service+Dependency.swift # tca/DependencyKey.swift
-└── Preview Content/
-    └── <Feature>Service+Preview.swift    # data/Service+Preview.swift
+│   ├── <Feature>Service.swift            # tca/Service.swift
+│   └── <Feature>Service+Dependency.swift # tca/Service+Dependency.swift
+└── Preview Content/                      # 方案 A；B、C 改為 Preview/ 並整檔 #if DEBUG
+    └── <Feature>Service+Preview.swift    # tca/Service+Preview.swift
 ```
 
-- **要**：最小檔案組六個：`Root/` 的 Feature 與 View、Error、Service、Service 的 DependencyKey、Preview stub。
+- **要**：最小檔案組六個：`Root/` 的 Feature 與 View、Error、Service、Service 的 `+Dependency`、Service 的 `+Preview`。
 - **要**：根畫面型別固定 `<Feature>RootFeature` 與 `<Feature>RootView`，套樣板時 `__NAME__` 填 `<Feature>Root`。
-- **要**：`Core/` 的 Client、Store、Database 同樣各自一個 `<Name>+Dependency.swift`，與型別同資料夾。
+- **要**：`Core/` 的 Client、Store、Database 同樣各自一個 `<Name>+Dependency.swift`，從 `tca/DependencyKey.swift` 複製，與型別同資料夾。
 - **避免**：`Presentation/` 出現 ViewModel、Coordinator、`EnvironmentValues+Services.swift`；同一個畫面資料夾出現第二個 Feature 型別。
 
 ## Feature 型別（Reducer）
@@ -99,7 +103,7 @@ Features/<Feature>/
 本體以外依既有規範以同檔 extension 分區，順序固定：
 
 5. `Nested Types`（extension）：`Path`、`Destination`、`CancelID` 等 Feature 專屬型別；順序固定 `Path` → `Destination` → `CancelID` → 其他依字母排序。`@Reducer enum` 放 extension 內與放本體內效果相同，已驗證。
-6. `Private Method`（`private extension`）：第一個方法固定是 `core(state:action:)`，其後是抽出的 Effect 方法。
+6. `Private Method`（`private extension`）：第一個方法固定是 `core(state:action:)`，其後是抽出的 Effect 方法，依 `formatting.md` 的呼叫者在前、深度優先排列；`core` 排第一本身就符合這條通則。有 private static method 時也排在 `core` 之後，這是 `formatting.md`「區內排序」static 在前的例外，讓 reducer 的入口一打開就看得到；private computed property 仍依該節排在所有方法之前。
 
 `State` 與 `Action` 必須在本體：`@Reducer` 巨集只會替本體內的 `Action` 加上 `@CasePathable`，搬到 extension 會失去 case key path。`@Dependency` 是 property wrapper，展開後是 stored property，Swift 不允許 extension 宣告 stored property，所以也必須在本體；官方文件一律寫在 `Action` 之後、`body` 之前，本規範以 `Dependencies` 區名固定這個位置。`body` 留本體則比照 SwiftUI `View` 的 Body 例外。`@Reducer`、`@ObservableState`、`@CasePathable`、`@Dependency` 各自獨立一行，寫在被修飾的宣告正上方，doc comment 在巨集之上；`@Dependency(\.xxx)` 與 `private var xxx` 也分兩行，避免 key path 拉長單行。用不到的區塊直接省略，不留空 MARK。
 
@@ -228,7 +232,7 @@ private extension ProfileFeature {
 ### State
 
 - **要**：一律 `@ObservableState` 且遵循 `Equatable`，否則 `TestStore` 無法比對狀態。
-- **要**：只放畫面需要的最小狀態；能從其他狀態算出的值改為 computed property，放同一個 `State` 內、stored property 之後。
+- **要**：只放畫面需要的最小狀態；能從其他狀態算出的值改為 computed property，放同一個 `State` 內、stored property 之後。`State` 是巢狀型別，依 `formatting.md` 的「巢狀型別」就地寫，不另開 `extension <Screen>Feature.State`。
 - **要**：子畫面的狀態以 `@Presents var destination: Destination.State?` 或 `var path = StackState<Path.State>()` 持有，見「導航」。
 - **避免**：把 Service 或 Client 放進 `State`；把 `Model` 的欄位攤平複製進 `State`，直接持有 `Model`。
 
@@ -251,7 +255,7 @@ private extension ProfileFeature {
 
 - **要**：`body` 只負責組合，本畫面自己的邏輯放 Private Method 的 `core(state: inout State, action: Action) -> Effect<Action>`，`body` 以 `Reduce(core)` 引用；不在 `body` 內寫 `Reduce { state, action in ... }` 閉包。
 - **要**：`body` 的組合順序固定：`BindingReducer()`（有才寫）→ `Scope`（固定子 Feature）→ `Reduce(core)`；`.ifLet` 與 `.forEach` 以 modifier 形式接在 `Reduce(core)` 之後。
-- **要**：`core` 內 `switch action` 的 case 順序與 `Action` 宣告順序一致；每個 case 本體換行、case 之間不空行，同 `formatting.md`。
+- **要**：`core` 內 `switch action` 的 case 順序與 `Action` 宣告順序一致；每個 case 本體換行、case 之間空一行，同 `formatting.md`。
 - **要**：Effect 只用 `.run`，內部是 async/await；`Task.detached`、GCD、Combine 依鐵則 5 禁用。Service 的 typed throws 在 `.run` 內以 `do` / `catch` 接住，轉成 `Result` 送回 Action。
 - **要**：畫面出現時要啟動的 Effect（初次載入、`AsyncStream` / `.values` 監聽）一律綁在 `.view(.task)`，由 View 的 `.task` modifier 觸發，離開畫面時 SwiftUI 自動取消，不需要 `CancelID`。
 - **要**：只有使用者動作觸發、且需要手動取消或去重的 Effect（搜尋防抖、可取消的送出）才用 `CancelID`（Nested Types 內的 `enum`）配 `.cancellable(id:cancelInFlight:)` 與 `.cancel(id:)`。
@@ -283,14 +287,17 @@ private extension ProfileFeature {
         case .view(.task):
             state.isLoading = true
             return loadProfile()
+
         case let .profileResponse(.success(profile)):
             state.isLoading = false
             state.profile = profile
             return .none
+
         case let .profileResponse(.failure(error)):
             state.isLoading = false
             state.errorMessage = error.localizedDescription
             return .none
+
         case .delegate, .destination:
             return .none
         }
@@ -368,37 +375,135 @@ TCA 原生導航取代 Coordinator：Stack 導航由根 Feature 的 `Path` 管�
 
 ## 依賴注入
 
-Service 的形式不變：protocol 加 struct / actor 實作，init 注入 Client / Store，禁 `.shared`。差別只在**誰把 Service 交給 Feature**：MVVM 用 `@Entry` 與 View 的 `@Environment`，TCA 用 `DependencyKey`。
+Feature 型別直接取用的 Service 改用 TCA 慣例的 struct 裝 closure；Service 內部使用的 Client、Store、Database 維持 protocol 加 struct / actor 實作與 init 注入，禁 `.shared`，與 MVVM 專案共用同一份程式碼與樣板。TCA 專案有 UseCase 時比照 Service，套用樣板時把 `Service` 換成 `UseCase`。
 
-- **要**：每個 Service、Client、Store、Database 一個 `<Name>+Dependency.swift`，從 `tca/DependencyKey.swift` 複製，放在該型別同資料夾；內容固定 `enum <Name>Key: DependencyKey` 與 `extension DependencyValues` 兩區。
-- **要**：`liveValue` 為 computed property，在裡面以 `@Dependency` 取得 Client / Store 後傳入 Service 的 init；Service 不自己建 Client。
-- **要**：`previewValue` 以 `#if DEBUG` 包住，回傳既有的 `Preview<Name>Service`；stub 的 `RuntimeEnvironment.allowsPreviewStub` 斷言保留。
-- **要**：**不宣告 `testValue`**。TCA 對只有 `liveValue` 的依賴，在測試中未經 `withDependencies` 覆寫就存取時會直接讓測試失敗，這正是要的效果：每個測試都必須明確注入 Mock。
-- **要**：Feature 型別以 `@Dependency(\.<name>Service)` 換行接 `private var service` 取用，放 Dependencies 區；`Effect` 內直接用捕獲的 `service`。
-- **避免**：TCA 專案出現 `@Entry`、`EnvironmentValues+Services.swift` 或 View 的 `@Environment(\.xxxService)`；`liveValue` 內 `.shared`；把 Mock 放進主 target 當 `testValue`；用 TCA 慣例的 struct-of-closures client 取代 protocol。
+- **要**：所有依賴一律以 `DependencyKey` 註冊、`DependencyValues` 的屬性取用。
+- **避免**：TCA 專案出現 `@Entry`、`EnvironmentValues+Services.swift` 或 View 的 `@Environment(\.xxxService)`；`liveValue` 內 `.shared`；把 Mock 放進主 target 當 `testValue`。
+
+### Service
+
+從 `tca/Service.swift`、`tca/Service+Dependency.swift`、`tca/Service+Preview.swift` 複製，檔案位置見「Feature 模組結構」。
+
+- **要**：`<Feature>Service` 是遵循 `Sendable` 的 struct，每個操作一個 closure 屬性，型別一律 `@Sendable` 加 typed throws；TCA 專案不出現 `<Feature>ServiceProtocol`、`Preview<Feature>Service`、`Mock<Feature>Service`。
+- **要**：每個 closure 屬性一律宣告 typealias，名稱為屬性名稱首字大寫（`addCategory` → `AddCategory`），放 Nested Types，順序與屬性一致，參數名稱保留在 typealias 內。完整的 `///`（`- Parameter`、`- Returns`、`- Throws`）寫在屬性上，因為呼叫端的 Quick Help 顯示的是屬性的說明；typealias 只寫一行「`addCategory` 的函式型別」。
+- **要**：Service 直接遵循 `DependencyKey`（`extension <Feature>Service: DependencyKey`），不另建 Key enum。Feature 型別以 `@Dependency(\.<feature>Service)` 換行接 `private var service` 取用，放 Dependencies 區，`Effect` 內直接用捕獲的 `service`。
+- **要**：`liveValue` 是 computed property（`static var`），在裡面以 `@Dependency` 取得 Client / Store，再組出每個 closure；本體會 throw 的 closure 依 `formatting.md` 只補 `throws(E)`。不寫成 `static let`：`static let` 只在第一次取用時建立，之後固定住當時的 Client / Store，測 Service 時無法用 `withDependencies` 換成 Mock。
+- **要**：`testValue` 必須宣告，每個 closure 都是 `unimplemented("<Feature>Service.<屬性>")`，有回傳值的加 `placeholder:`，填空集合、`nil`、空字串這類中性的值。少了 `testValue`，測試在 `withDependencies` 只覆寫一個 closure 時，其他 closure 會悄悄改用 `previewValue`，不會報錯（swift-dependencies 在設定依賴期間的預設行為，已實測）。
+- **要**：`previewValue` 放在 `+Preview` 檔，整檔 `#if DEBUG`，getter 第一行 `assert(RuntimeEnvironment.allowsPreviewStub, ...)`，closure 只回傳固定的假資料。
+- **避免**：`@DependencyClient` 巨集。它替每個 closure 產生的未實作預設會丟出自己的 `Unimplemented` 錯誤，與 typed throws 衝突而編譯失敗；closure 型別改成 typealias 後，巨集又認不出是 closure，什麼都不產生（swift-dependencies 1.17 實測）。
+- **避免**：以型別下標取用（`$0[<Feature>Service.self]`、`@Dependency(<Feature>Service.self)`），一律用 `DependencyValues` 的屬性。
+
+`CategoryService.swift`：
+
+```swift
+/// 類別資料的讀寫；正式實作在 `liveValue`、測試預設值在 `testValue`、假資料在 `previewValue`
+struct CategoryService: Sendable {
+
+    // MARK: - Properties
+
+    /// 讀取目前所有類別名稱並排序
+    ///
+    /// - Returns: 已排序的類別名稱
+    /// - Throws: 讀取持久化資料失敗時丟出
+    var fetchCategories: FetchCategories
+
+    /// 加入新類別；去除前後空白後若為空字串則不處理
+    ///
+    /// - Parameter rawName: 尚未去除前後空白的名稱
+    /// - Throws: 寫入持久化資料失敗時丟出
+    var addCategory: AddCategory
+}
+
+// MARK: - Nested Types
+
+extension CategoryService {
+
+    /// `fetchCategories` 的函式型別
+    typealias FetchCategories = @Sendable () async throws(PersistenceError) -> [String]
+
+    /// `addCategory` 的函式型別
+    typealias AddCategory = @Sendable (_ rawName: String) async throws(PersistenceError) -> Void
+}
+```
+
+`CategoryService+Dependency.swift`：
 
 ```swift
 // MARK: - DependencyKey
 
-/// 把 `ProfileServiceProtocol` 註冊進 TCA 依賴系統：正式 App 用正式實作，Preview 用 stub
-enum ProfileServiceKey: DependencyKey {
+extension CategoryService: DependencyKey {
 
-    /// 正式 App 使用的實作，Client 由依賴系統取得後注入
-    static var liveValue: any ProfileServiceProtocol {
-        @Dependency(\.apiClient) var apiClient
-        return ProfileService(client: apiClient)
+    /// 正式 App 使用的實作，Store 由依賴系統取得
+    static var liveValue: Self {
+        @Dependency(\.categoryStore) var store
+        return Self(
+            fetchCategories: { () throws(PersistenceError) in
+                try await store.fetchAll().sorted()
+            },
+            addCategory: { rawName throws(PersistenceError) in
+                let name = rawName.trimmingCharacters(in: .whitespaces)
+                guard !name.isEmpty else {
+                    return
+                }
+                try await store.add(name)
+            }
+        )
     }
 
-    #if DEBUG
-
-    /// Preview 使用的 stub，固定回傳假資料
-    static var previewValue: any ProfileServiceProtocol {
-        PreviewProfileService()
+    /// 測試用的預設值，每個 closure 都未實作，測試沒覆寫就呼叫會直接失敗
+    static var testValue: Self {
+        Self(
+            fetchCategories: unimplemented("CategoryService.fetchCategories", placeholder: []),
+            addCategory: unimplemented("CategoryService.addCategory")
+        )
     }
+}
 
-    #endif
+// MARK: - DependencyValues
+
+extension DependencyValues {
+
+    /// 供 reducer 以 `@Dependency(\.categoryService)` 取得的類別 Service
+    var categoryService: CategoryService {
+        get { self[CategoryService.self] }
+        set { self[CategoryService.self] = newValue }
+    }
 }
 ```
+
+`CategoryService+Preview.swift`：
+
+```swift
+#if DEBUG
+
+// MARK: - DependencyKey
+
+extension CategoryService {
+
+    /// Preview 使用的假資料，只回傳固定內容；在正式 App 中誤用時 Debug 會立刻中止
+    static var previewValue: Self {
+        assert(
+            RuntimeEnvironment.allowsPreviewStub,
+            "CategoryService.previewValue 只能在 Preview、UI Test 或單元測試中使用"
+        )
+        return Self(
+            fetchCategories: {
+                ["餐飲", "交通", "娛樂"]
+            },
+            addCategory: { _ in }
+        )
+    }
+}
+
+#endif
+```
+
+### Client、Store、Database
+
+- **要**：每個 Client、Store、Database 一個 `<Name>+Dependency.swift`，從 `tca/DependencyKey.swift` 複製，`__NAME__` 填完整型別名稱（例如 `APIClient`），放在該型別同資料夾；內容固定 `enum <Name>Key: DependencyKey` 與 `extension DependencyValues` 兩區。
+- **要**：`liveValue` 為 computed property，回傳正式實作。
+- **要**：`previewValue` 以 `#if DEBUG` 包住，回傳既有的 `Preview<Name>`（例如 `PreviewAPIClient`）；stub 的 `RuntimeEnvironment.allowsPreviewStub` 斷言保留。
+- **要**：**不宣告 `testValue`**。只有 `liveValue` 的依賴在測試中未經 `withDependencies` 覆寫就存取時，TCA 會直接讓測試失敗；測 Service 的 `liveValue` 時漏注入 Mock 就會被擋下，不會連到真正的網路或資料庫。
 
 ## @Shared
 
@@ -413,22 +518,86 @@ enum ProfileServiceKey: DependencyKey {
 - **要**：每個 Feature 型別一個 `<Screen>FeatureTests.swift`，從 `tca/FeatureTests.swift` 複製，位置鏡像到 Feature 模組層級；型別標 `@MainActor`。
 - **要**：一律用 `TestStore`，**不關 exhaustivity**：每個 `send` 與 `receive` 都寫出完整的狀態變化，未接收的 Action 與未斷言的變化就是測試失敗。
 - **要**：`receive` 用 case key path（`store.receive(\.profileResponse.success)`），不依賴 `Action: Equatable`。成功值為 `Void` 的 `Result` 不可再接 `.success`（Swift 6.3.3 會在 IR 產生階段崩潰，已驗證），改為 `store.receive(\.xxxResponse)`。
-- **要**：Mock 沿用 `tests/MockService.swift`，在 `TestStore` 的 `withDependencies` 閉包注入；一個測試只覆寫它用到的依賴。時間、UUID 等系統依賴用 TCA 內建的 `continuousClock`、`uuid` 覆寫，不自建。
+- **要**：Service 沒有 Mock。`TestStore` 的 `withDependencies` 只覆寫這個測試用到的 closure（`$0.categoryService.addCategory = ...`），不整個替換 Service；沒覆寫的 closure 被呼叫時，`testValue` 的 `unimplemented` 會讓測試失敗。時間、UUID 等系統依賴用 TCA 內建的 `continuousClock`、`uuid` 覆寫，不自建。
+- **要**：失敗或特定回傳的 closure 先以 typealias 宣告成常數再注入：`let failingAdd: CategoryService.AddCategory = { _ in throw .saveFailed }`。以 `let` 加型別宣告時 Swift 推斷得出 typed throws，closure 不用任何標註；直接賦值給屬性則要依 `formatting.md` 補 `throws(E)`。
+- **要**：要驗證呼叫次數或收到的參數時，用 `LockIsolated` 記錄，取代 Mock 的 `callCount` 與 `receivedArguments`。
+- **要**：Service 本身的邏輯在 `<Feature>ServiceTests.swift` 測，位置同 `project-structure.md` 的測試目錄：以 `withDependencies` 把 Client / Store 換成 Mock，再取 `<Feature>Service.liveValue` 測正式實作。Client / Store 的 Mock 沿用 `tests/MockService.swift`，把 `Service` 換成 `Client` / `Store`。`testValue` 是給 Feature 測試用的替身，裡面沒有邏輯，不測它。
 - **要**：測試本體 Given / When / Then，`send` 為 When、`receive` 與 `#expect` 為 Then。
+- **要**：`send`、`receive` 的狀態斷言 closure 與 `withDependencies` 的 closure 用 `$0`，多行也一樣，不另取參數名。這是 TCA 官方寫法，這三處的 `$0` 固定代表要修改的 State 或依賴，不會被誤讀；也是 `formatting.md` 的 `$0` 規則唯一的例外，其他 closure 照常具名。
 - **避免**：`exhaustivity = .off`；測 View；在測試裡直接呼叫 `Feature().reduce(into:action:)`；為 `Path` / `Destination` 子 reducer 單獨開測試檔（它們透過父 Feature 的測試覆蓋，除非本身是獨立畫面）。
+
+```swift
+/// 新增類別時儲存失敗，畫面要顯示錯誤提示
+@Test
+func addButtonTapped_saveFails_showsAlert() async {
+    // Given
+    let failingAdd: CategoryService.AddCategory = { _ in
+        throw .saveFailed
+    }
+    let store = TestStore(initialState: CategoryListFeature.State()) {
+        CategoryListFeature()
+    } withDependencies: {
+        $0.categoryService.addCategory = failingAdd
+    }
+
+    // When
+    ...
+}
+
+/// 按下儲存時，把輸入的名稱交給 Service 一次
+@Test
+func saveButtonTapped_validName_addsCategoryOnce() async {
+    // Given
+    let addedNames = LockIsolated<[String]>([])
+    let store = TestStore(initialState: CategoryListFeature.State()) {
+        CategoryListFeature()
+    } withDependencies: {
+        $0.categoryService.addCategory = { name in
+            addedNames.withValue { $0.append(name) }
+        }
+    }
+
+    // When
+    ...
+
+    // Then
+    #expect(addedNames.value == ["新類別"])
+}
+
+/// Service 本身：名稱前後的空白要先去掉再存
+@Test
+func addCategory_withSurroundingSpaces_savesTrimmedName() async throws {
+    // Given
+    let store = MockCategoryStore()
+    let service = withDependencies {
+        $0.categoryStore = store
+    } operation: {
+        CategoryService.liveValue
+    }
+
+    // When
+    try await service.addCategory("  新類別  ")
+
+    // Then
+    #expect(store.addReceivedArguments == ["新類別"])
+}
+```
 
 ## 常見錯誤檢查清單
 
 - [ ] TCA 專案出現 ViewModel、Coordinator、`@Entry`、`EnvironmentValues+Services.swift`，或 MVVM 專案出現 `@Reducer`
 - [ ] Feature 型別本體分區順序不是 State → Action → Dependencies → Body；`Path` / `Destination` / `CancelID` 寫在本體內而非 Nested Types extension；`Destination.State` 缺 `Equatable` extension
-- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`
+- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；`core` 不是 Private Method 區的第一個方法
+- [ ] `State` 的 computed property 另開 `extension <Screen>Feature.State`，而非寫在 `State` 本體
 - [ ] `State` 缺 `@ObservableState` 或 `Equatable`；`State` 持有 Service
 - [ ] `Action` 缺 `view` / `delegate` 分組；View 送了 `view` 以外的 action；view case 用命令式命名
 - [ ] `body` 收到 `.delegate` 沒有 `return .none`；`.delegate` 在本 Feature 內被處理
 - [ ] Effect 用 `.run` 以外的方式；`Reduce` 內直接呼叫 Service；畫面出現的載入用 `onAppear` 而非 `.task` 加 `finish()`
 - [ ] `NavigationStack` 不在 `<Feature>RootView`；非根畫面持有 `StackState`；一個畫面有兩個 `@Presents`
 - [ ] Feature 模組之間引用對方的 Feature 型別（`AppFeature` 引用 `RootFeature` 除外）
-- [ ] Service 缺 `<Name>+Dependency.swift`；`liveValue` 內 `.shared`；宣告了 `testValue`；`previewValue` 未包 `#if DEBUG`
+- [ ] Service 寫成 protocol 加實作；用了 `@DependencyClient`、`XxxClient` 命名或型別下標取用；closure 屬性缺 typealias
+- [ ] Service 缺 `testValue`，或 `testValue` 不是全部 `unimplemented`；`liveValue` 寫成 `static let` 或內有 `.shared`；`previewValue` 未包 `#if DEBUG` 或缺 `assert`
+- [ ] Client / Store / Database 缺 `<Name>+Dependency.swift`，或宣告了 `testValue`
 - [ ] `@Shared` 帶 persistence key；跨 Feature 模組共享
-- [ ] 測試關閉 exhaustivity；未經 `withDependencies` 注入 Mock；`receive` 依賴 `Action: Equatable`
+- [ ] 測試關閉 exhaustivity；Feature 測試整個替換 Service 而非只覆寫用到的 closure；用 Mock class 記錄 Service 呼叫而非 `LockIsolated`；`receive` 依賴 `Action: Equatable`
 - [ ] Feature 型別超過 300 行卻未拆 `Path` / `Destination` 或子 Feature

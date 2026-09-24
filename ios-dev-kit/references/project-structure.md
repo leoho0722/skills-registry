@@ -414,8 +414,8 @@ DesignSystem/
 
 | 型別 | 位置 |
 |---|---|
-| `Mock<Name>Service` | 測試 target 的 `Mocks/`，不放主 target |
-| `Preview<Name>Service` | 方案 A 在該 Feature 的 `Preview Content/`，Xcode 的 Development Assets 設定排除於 Release；方案 B、C 在 package 的 `Preview/`，整檔 `#if DEBUG` |
+| `Mock<Name>Service` | 測試 target 的 `Mocks/`，不放主 target；TCA 專案的 Service 沒有 Mock，只有 Client / Store / Database 的 Mock |
+| `Preview<Name>Service` | 方案 A 在該 Feature 的 `Preview Content/`，Xcode 的 Development Assets 設定排除於 Release；方案 B、C 在 package 的 `Preview/`，整檔 `#if DEBUG`。TCA 專案的 Service 改為 `previewValue` extension（`<Feature>Service+Preview.swift`），位置相同 |
 
 ### 方案 B、C 的測試
 

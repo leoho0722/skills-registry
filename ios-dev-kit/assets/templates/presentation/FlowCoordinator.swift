@@ -141,6 +141,7 @@ extension __NAME__Coordinator {
         switch route {
         case .stepOne:
             Text("stepOne")
+
         case .stepTwo:
             Text("stepTwo")
         }
@@ -172,6 +173,7 @@ private extension __NAME__Coordinator {
         switch step {
         case .stepOne:
             .stepTwo
+
         case .stepTwo:
             nil
         }
