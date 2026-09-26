@@ -372,7 +372,7 @@ init?(rawValue: String) {
 - Protocol 與實作同檔，結構與 Service 相同；型別為 `struct`，init 注入所需的 Service（可注入多個），**不注入 Client / Store / Database**，也不注入其他 UseCase。
 - **對外只有一個 `execute`**，參數與回傳型別依需求調整，其餘輔助方法放 Private Method。一個 UseCase 需要第二個公開方法時，代表它是兩個 UseCase。
 - ViewModel 以 `any <Name>UseCaseProtocol` init 注入，注入方式與 Service 相同，`@Entry` 同樣集中在 `EnvironmentValues+Services.swift`。
-- Mock 套用 `tests/MockService.swift`，把 `Service` 整批替換成 `UseCase`。
+- Mock 套用 `tests/MockService.swift`，把 `Service` 整批替換成 `UseCase`；UseCase 用一般 `throws`，所以 `<method>Result` 的錯誤型別改成 `any Error`，方法也標一般 `throws`。
 
 ### domain/Error.swift
 
@@ -578,7 +578,7 @@ Data 層的型別分兩種：
 
 - `<method>CallCount`：呼叫次數，`private(set) var`。
 - `<method>ReceivedArguments`：依序記錄每次傳入的參數，`private(set) var`；無參數的方法省略。
-- `<method>Result`：測試端設定的回傳值或錯誤，`var`，型別用 `Result<Output, <領域>Error>` 與 protocol 的 typed throws 對應，方法內以 `try <method>Result.get()` 取出。
+- `<method>Result`：測試端設定的回傳值或錯誤，`var`，型別用 `Result<Output, <領域>Error>` 與 protocol 的 typed throws 對應，方法內以 `try <method>Result.get()` 取出。樣板的 `__NAME__Error` 是 Service 的預設領域 Error，protocol 丟的是其他型別（例如 Store 的 `PersistenceError`）時照 protocol 改；UseCase 例外見 `domain/UseCase.swift` 一節。
 
 三個屬性以方法為單位分組，組與組的順序、以及 extension 內的方法順序，都和 protocol 的宣告順序一致（`formatting.md` 區內排序）。
 
@@ -621,12 +621,14 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - **命名格式**：`<方法或行為>_<情境>_<預期>`，底線分三段，不加 `test` 前綴（Swift Testing 靠 `@Test` 探測）。方法或行為段照抄程式碼裡的名稱（方法名、TCA 的 Action 名稱），保留英文 lowerCamelCase，用名稱搜尋就找得到它的測試；情境與預期兩段用正體中文，簡短描述，不寫成完整句子。例：`fetchProfile_快取命中_回傳快取資料`、`submit_信箱空白_丟出驗證錯誤`、`saveButtonTapped_儲存失敗_顯示錯誤提示`。`@Test("顯示名稱")` 只在名稱無法表達意圖時加。
 - **三段註解必備**，即使某段只有一行；Given 為空時仍保留註解並留空行，讓結構一致。
 - **`// When`、`// Then` 前各空一行**，讓三段一眼分開；`// Given` 寫在本體第一行，依「函式本體不以空行開頭」前面不空行（`formatting.md` 空行規則）。
+- **三段註解寫在同一縮排層級**，不寫進 TCA `send` 或 `do` / `catch` 的 closure 裡。整個測試本體包在 `withDependencies` 或專案自訂的隔離 helper（例如 `withIsolatedStorage`）的 closure 內時，三段註解一起放進該 closure，`// Given` 寫在 closure 本體第一行。TCA 只有 `send` 時 `// Then` 的寫法見 `tca-architecture.md` 測試一節。
+- **驗證丟出的錯誤用 `actualError` 寫法**：Given 宣告 `var actualError: E?`；When 只寫 `do { try await … } catch { actualError = error }`，When 與 `catch` 裡都不斷言；Then 先 `let error = try #require(actualError)`，再對 `error` 斷言，測試方法因此標 `throws`。不用 `let error = #expect(throws:)`，它會在 When 裡放一個斷言。`do` 本體只丟同一種 typed error 時，`catch` 的 `error` 就是該型別，直接指定、不用轉型。
 - **一個測試只允許一組 When / Then**；需要驗證多個結果時用多個 `#expect`，需要多個動作時拆成多個測試或改用 `@Test(arguments:)`。
 - **`@Suite` 只在需要共用 setup、tag 或序列化執行（`.serialized`）時使用**，單純分組不加。
 - **`@MainActor` 只在絕對必要時才加，不要預設加上**：必要的定義是測試本體要存取 `@MainActor` 隔離的型別，例如 ViewModel、Coordinator、TCA 的 `TestStore`。Service、Client、Store、Model、Enum、FormatStyle 的測試不加。範圍越小越好：只有部分測試需要時標在那幾個測試方法上，整個測試型別都需要時（例如 TCA 的 `<Screen>FeatureTests`）才標在型別上。不為了消除並行檢查的警告而加，先找出實際需要主執行緒的是哪個型別。
 - **`@Suite(.serialized)` 只在絕對必要時才加，不要預設加上**：必要的定義是測試共用一個無法隔離的外部資源，例如 `UserDefaults.standard`、固定路徑的檔案、Keychain。Swift Testing 預設並行執行，序列化會拖慢整個測試。優先改成每個測試各自一份（以唯一名稱建立 `UserDefaults(suiteName:)`、每個測試用自己的暫存資料夾）讓測試能並行；真的無法隔離才序列化，並在 `@Suite` 的 `///` 寫明是哪個共用資源。
 
-第一個測試的對象是 `@MainActor` 的 ViewModel，所以只在這個測試方法標 `@MainActor`；第二個測的是一般 enum，不加：
+第一個測試的對象是 `@MainActor` 的 ViewModel，所以只在這個測試方法標 `@MainActor`；第二個測的是一般 enum，不加；第三個示範驗證丟出的錯誤：
 
 ```swift
 /// 載入成功時，畫面狀態變成已載入並帶著取得的資料
@@ -657,6 +659,27 @@ func requiresAuth_設定頁_不需登入() {
     // Then
     #expect(requiresAuth == false)
 }
+
+/// Store 寫入失敗時，Service 把錯誤原樣丟給呼叫端
+@Test
+func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
+    // Given
+    let store = MockCategoryStore()
+    store.addResult = .failure(.saveFailed)
+    let service = CategoryService(categoryStore: store)
+    var actualError: PersistenceError?
+
+    // When
+    do {
+        try await service.addCategory("新類別")
+    } catch {
+        actualError = error
+    }
+
+    // Then
+    let error = try #require(actualError)
+    #expect(error == .saveFailed)
+}
 ```
 
 ### tests/UITests.swift
@@ -679,4 +702,6 @@ func requiresAuth_設定頁_不需登入() {
 - [ ] 所有宣告（含 `private` 成員與每個 `case`）都有 `///` doc comment；樣板的示範成員附有示範說明，替換為實際內容時必須同步改寫，不可留下「示範」「替換時改寫」字樣
 - [ ] 檔名與主要型別名稱一致
 - [ ] View 另開 Computed Properties 區；ViewModel 給 View 讀的衍生狀態不在 Computed Properties
+- [ ] 測試的 `// Given`、`// When`、`// Then` 不在同一縮排層級，或寫進 `send`、`do` / `catch` 的 closure；整個本體包在 `withDependencies` 或自訂隔離 helper 的 closure 內時標記留在 closure 外
+- [ ] 驗證錯誤時用 `#expect(throws:)` 取回錯誤，或在 When、`catch` 裡斷言；Then 沒先 `try #require(actualError)` 就斷言
 - [ ] 測試不必要地加上 `@MainActor`（測試對象不是 `@MainActor` 型別，或只有部分測試需要卻標在整個型別上）或 `@Suite(.serialized)`（沒有無法隔離的共用資源）

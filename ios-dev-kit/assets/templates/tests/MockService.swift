@@ -21,7 +21,7 @@ final class Mock__NAME__Service: @unchecked Sendable {
     private(set) var exampleReceivedArguments: [String] = []
 
     /// `example(_:)` 要回傳的結果，測試端在呼叫前設定
-    var exampleResult: Result<Void, any Error> = .success(())
+    var exampleResult: Result<Void, __NAME__Error> = .success(())
 
     // MARK: - Init
 
@@ -39,7 +39,7 @@ extension Mock__NAME__Service: __NAME__ServiceProtocol {
     ///
     /// - Parameter argument: 呼叫端傳入的參數，會被記錄
     /// - Throws: `exampleResult` 設為失敗時丟出其中的錯誤
-    func example(_ argument: String) async throws {
+    func example(_ argument: String) async throws(__NAME__Error) {
         exampleCallCount += 1
         exampleReceivedArguments.append(argument)
         try exampleResult.get()

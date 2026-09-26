@@ -521,8 +521,9 @@ extension CategoryService {
 - **要**：Service 沒有 Mock。`TestStore` 的 `withDependencies` 只覆寫這個測試用到的 closure（`$0.categoryService.addCategory = ...`），不整個替換 Service；沒覆寫的 closure 被呼叫時，`testValue` 的 `unimplemented` 會讓測試失敗。時間、UUID 等系統依賴用 TCA 內建的 `continuousClock`、`uuid` 覆寫，不自建。
 - **要**：失敗或特定回傳的 closure 先以 typealias 宣告成常數再注入：`let failingAdd: CategoryService.AddCategory = { _ in throw .saveFailed }`。以 `let` 加型別宣告時 Swift 推斷得出 typed throws，closure 不用任何標註；直接賦值給屬性則要依 `formatting.md` 補 `throws(E)`。
 - **要**：要驗證呼叫次數或收到的參數時，用 `LockIsolated` 記錄，取代 Mock 的 `callCount` 與 `receivedArguments`。
-- **要**：Service 本身的邏輯在 `<Feature>ServiceTests.swift` 測，位置同 `project-structure.md` 的測試目錄：以 `withDependencies` 把 Client / Store 換成 Mock，再取 `<Feature>Service.liveValue` 測正式實作。Client / Store 的 Mock 沿用 `tests/MockService.swift`，把 `Service` 換成 `Client` / `Store`。`testValue` 是給 Feature 測試用的替身，裡面沒有邏輯，不測它。
-- **要**：測試本體 Given / When / Then，`send` 為 When、`receive` 與 `#expect` 為 Then。
+- **要**：Service 本身的邏輯在 `<Feature>ServiceTests.swift` 測，位置同 `project-structure.md` 的測試目錄：以 `withDependencies` 把 Client / Store 換成 Mock，再取 `<Feature>Service.liveValue` 測正式實作。Client / Store 的 Mock 沿用 `tests/MockService.swift`，把 `Service` 換成 `Client` / `Store`。`testValue` 是給 Feature 測試用的替身，裡面沒有邏輯，不測它。驗證 Service 丟出的錯誤時用 `file-templates.md` 測試一節的 `actualError` 寫法，不用 `#expect(throws:)`。
+- **要**：測試本體 Given / When / Then，`send` 連同它的狀態 closure 都算 When，`receive` 與 `#expect` 為 Then。三個標記的位置照 `file-templates.md` 測試一節：寫在同一縮排層級，不寫進 `send` 的 closure。
+- **要**：只有 `send`、沒有 `receive` 的測試，`// Then` 不寫進 `send` 的 closure：`send` 之後空一行寫 `// Then`，再用 `#expect(store.state.x == 值)` 斷言關鍵結果。`send` 的 closure 屬於 When，Then 段要有自己的斷言。有 `receive` 時照舊，`receive` 放 Then。
 - **要**：`send`、`receive` 的狀態斷言 closure 與 `withDependencies` 的 closure 用 `$0`，多行也一樣，不另取參數名。這是 TCA 官方寫法，這三處的 `$0` 固定代表要修改的 State 或依賴，不會被誤讀；也是 `formatting.md` 的 `$0` 規則唯一的例外，其他 closure 照常具名。
 - **避免**：`exhaustivity = .off`；測 View；在測試裡直接呼叫 `Feature().reduce(into:action:)`；為 `Path` / `Destination` 子 reducer 單獨開測試檔（它們透過父 Feature 的測試覆蓋，除非本身是獨立畫面）。
 
@@ -542,6 +543,23 @@ func addButtonTapped_儲存失敗_顯示錯誤提示() async {
 
     // When
     ...
+}
+
+/// 只有 send 沒有 receive：send 連同狀態 closure 是 When，send 之後另寫 Then 斷言關鍵結果
+@Test
+func unpaidOnlyToggled_開啟_只顯示未付款() async {
+    // Given
+    let store = TestStore(initialState: PurchaseListFeature.State()) {
+        PurchaseListFeature()
+    }
+
+    // When
+    await store.send(.view(.unpaidOnlyToggled(true))) {
+        $0.showsUnpaidOnly = true
+    }
+
+    // Then
+    #expect(store.state.showsUnpaidOnly)
 }
 
 /// 按下儲存時，把輸入的名稱交給 Service 一次
@@ -600,4 +618,5 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 - [ ] Client / Store / Database 缺 `<Name>+Dependency.swift`，或宣告了 `testValue`
 - [ ] `@Shared` 帶 persistence key；跨 Feature 模組共享
 - [ ] 測試關閉 exhaustivity；Feature 測試整個替換 Service 而非只覆寫用到的 closure；用 Mock class 記錄 Service 呼叫而非 `LockIsolated`；`receive` 依賴 `Action: Equatable`
+- [ ] `// Then` 寫進 `send` 的 closure；只有 `send` 的測試在 `send` 之後缺 `// Then` 與 `#expect(store.state...)`
 - [ ] Feature 型別超過 300 行卻未拆 `Path` / `Destination` 或子 Feature
