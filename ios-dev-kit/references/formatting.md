@@ -36,7 +36,7 @@ Xcode 設定對應：Settings → Text Editing → Indentation 設 Spaces / 4；
 - **要**：超長字串不斷行，允許超過 100；需要多行時用 `"""` 多行字串字面值。
 - **避免**：用 `+` 串接字串來壓行，會讓搜尋字串失效。
 - **避免**：`if` / `guard` 的條件續行用固定 4 格，會與本體同層而失去視覺分界。
-- **避免**：在以下四處斷行，超過 100 也維持一行：`import`、`case` 宣告、單一參數的函式簽章（只限宣告端，呼叫端依「參數與引數對齊」斷行）、closure 簽章（依「Closure 與 Trailing Closure」的處理順序做完仍超過時）。
+- **避免**：在以下三處斷行，超過 100 也維持一行：`import`、`case` 宣告、closure 簽章（依「Closure 與 Trailing Closure」的處理順序做完仍超過時）。函式簽章不在此列，只有一個參數也依「參數與引數對齊」斷行。
 - **要**：`switch` 的每個 `case` 本體一律另起一行縮排 4 格，即使只有一個表達式；不寫成 `case .x: value` 單行，`default` 同樣適用。`case` 之間的空行見「空行規則」。
 
 運算子放行首：
@@ -80,7 +80,7 @@ guard let profile = viewModel.profile,
 - **要**：二選一，所有參數放同一行，或每個參數獨立一行；換行時每個參數一行，續行縮排 4 格。
 - **要**：符合以下任一條件即每個參數獨立一行：整行超過 100 字元（即使參數不超過三個）；參數數量超過三個（即使整行不超過 100）。
 - **要**：換行時右括號單獨一行，對齊宣告或呼叫的起始欄位；回傳型別、`async throws`、`{` 接在右括號後同一行。有 trailing closure 時，closure 的 `{` 與簽章同樣接在右括號後：`) { item in`。
-- **要**：呼叫端只有一個引數時，整行超過 100 也依本節規則斷行；「單一參數不斷行」只適用於宣告端。
+- **要**：只有一個參數或引數時，整行超過 100 也依本節規則斷行，宣告端與呼叫端都一樣；參數型別含 closure、typed throws 或泛型時特別常見。斷行後右括號那一行（回傳型別、`throws`、`{`）仍超過 100 時，維持同一行，允許超過。
 - **避免**：部分換行（前兩個參數同行、第三個換行），diff 中會讓無關的參數跟著移動。
 - **避免**：右括號緊接最後一個參數，回傳型別會藏在參數尾巴，且參數區塊與本體失去分界。
 - **避免**：為了塞進一行而縮短參數標籤或省略預設值。
@@ -114,6 +114,18 @@ func fetchProfile(
 /// - Returns: 該使用者的個人資料
 /// - Throws: 找不到使用者或網路失敗時丟出
 func fetchProfile(id: String, includeDetails: Bool = false) async throws -> Profile
+
+// 宣告：只有一個參數但超過 100，同樣斷行
+/// 執行一段存取本機資料的操作，並把錯誤包成這個領域的錯誤
+///
+/// - Parameter operation: 要執行的存取操作
+/// - Returns: 操作的結果
+/// - Throws: `operation` 失敗時丟出，已包成 `.storage(_:)`
+static func wrapStorage<Value>(
+    _ operation: () throws(PersistenceError) -> Value
+) throws(ProfileStorageError) -> Value {
+    ...
+}
 
 // 呼叫：與宣告同一套規則
 let profile = try await service.fetchProfile(
@@ -550,7 +562,7 @@ var body: some View {
 - [ ] `switch` 的 `case` 本體與 `case` 寫在同一行
 - [ ] `if` / `guard` 多條件的續行沒有對齊第一個條件
 - [ ] `guard` 的 `else` 本體與 `else {` 寫在同一行（`guard let self else { return }` 除外）
-- [ ] 參數部分換行，或換行後右括號沒有單獨一行；單一引數的呼叫超過 100 卻沒有斷行
+- [ ] 參數部分換行，或換行後右括號沒有單獨一行；只有一個參數的宣告或呼叫超過 100 卻沒有斷行
 - [ ] 型別或 extension 開括號後沒空行、閉括號前有空行
 - [ ] enum 的 `case` 宣告之間、`switch` 的 `case` 之間沒空行；`switch {` 之後或 `}` 之前多了空行
 - [ ] MARK 順序錯置，或同一區塊拆成兩個 extension

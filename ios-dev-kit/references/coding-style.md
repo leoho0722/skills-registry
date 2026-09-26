@@ -465,7 +465,9 @@ extension DashboardViewModel {
     // 系統通知用 AsyncSequence 消費，不用 Combine
     /// 每次 App 從背景回到前景就重新載入一次，直到所在的 Task 被取消
     func observeForeground() async {
-        for await _ in NotificationCenter.default.notifications(named: UIApplication.willEnterForegroundNotification) {
+        for await _ in NotificationCenter.default.notifications(
+            named: UIApplication.willEnterForegroundNotification
+        ) {
             await load()
         }
     }
