@@ -75,12 +75,16 @@ guard let profile = viewModel.profile,
 
 ## 參數與引數對齊
 
-適用於函式與方法的宣告、`init` 宣告，以及所有呼叫端，四者同一套規則。
+適用於函式與方法的宣告、`init` 宣告，以及所有呼叫端（含 `#expect` 這類 macro），四者同一套規則。斷不斷行完全由下列條件決定，非此即彼，不是可以自由選擇的風格。
 
-- **要**：二選一，所有參數放同一行，或每個參數獨立一行；換行時每個參數一行，續行縮排 4 格。
-- **要**：符合以下任一條件即每個參數獨立一行：整行超過 100 字元（即使參數不超過三個）；參數數量超過三個（即使整行不超過 100）。
-- **要**：換行時右括號單獨一行，對齊宣告或呼叫的起始欄位；回傳型別、`async throws`、`{` 接在右括號後同一行。有 trailing closure 時，closure 的 `{` 與簽章同樣接在右括號後：`) { item in`。
-- **要**：只有一個參數或引數時，整行超過 100 也依本節規則斷行，宣告端與呼叫端都一樣；參數型別含 closure、typed throws 或泛型時特別常見。斷行後右括號那一行（回傳型別、`throws`、`{`）仍超過 100 時，維持同一行，允許超過。
+- **要**：符合以下任一條件就斷行，每個參數或引數獨立一行，續行縮排 4 格：整行超過 100 字元（即使參數不超過三個）；參數或引數超過三個（即使整行不超過 100）。
+- **要**：兩個條件都不符合時，所有參數或引數必須寫在同一行，不可斷行。
+- **要**：整行長度的算法：從宣告或呼叫所在那一行的行首開始（含縮排與 `let descriptor =` 這類前綴），接到右括號成為一行，連同右括號後同一行的內容（回傳型別、`async`、`throws`、`{`，有 trailing closure 時連同它的簽章，例如 `{ oldValue, newValue in`），以字元計；trailing closure 的本體不算在內。
+- **要**：斷行時右括號單獨一行，對齊宣告或呼叫的起始欄位；回傳型別、`async throws`、`{` 接在右括號後同一行。有 trailing closure 時，closure 的 `{` 與簽章同樣接在右括號後：`) { item in`。
+- **要**：只有一個參數或引數時同樣適用：整行超過 100 就依本節規則斷行，未超過就寫在同一行，宣告端與呼叫端都一樣；參數型別含 closure、typed throws 或泛型時特別容易超過。斷行後右括號那一行（回傳型別、`throws`、`{`）仍超過 100 時，維持同一行，允許超過。
+- **要**：巢狀呼叫由外而內判斷。外層符合條件而斷行後，內層呼叫以自己所在的那一行（含縮排）重新套用本節；外層不符合條件時，內層也維持在同一行。但內層的參數或引數超過三個時，外層視同符合條件而斷行，因為內層斷行後右括號必須單獨一行對齊起始欄位，外層不斷行就做不到。
+- **要**：括號內的引數是多行本體的 closure，或是帶多行 trailing closure 的呼叫（例如 TCA 的 `store: Store(initialState: ...) { ... }`）時，不依上面的條件判斷，一律每個引數獨立一行；closure 本身的排版依「Closure 與 Trailing Closure」處理。
+- **避免**：未達斷行條件卻把參數或引數拆成多行，包含單一引數的 `#expect(`、`FetchDescriptor(` 這類呼叫。
 - **避免**：部分換行（前兩個參數同行、第三個換行），diff 中會讓無關的參數跟著移動。
 - **避免**：右括號緊接最後一個參數，回傳型別會藏在參數尾巴，且參數區塊與本體失去分界。
 - **避免**：為了塞進一行而縮短參數標籤或省略預設值。
@@ -105,7 +109,7 @@ func fetchProfile(
     ...
 }
 
-// 宣告：兩個參數且未超過 100，維持一行
+// 宣告：兩個參數且未超過 100，寫在同一行，不可斷行
 /// 取得使用者的個人資料
 ///
 /// - Parameters:
@@ -133,6 +137,16 @@ let profile = try await service.fetchProfile(
     includeDetails: true,
     cachePolicy: .reloadIgnoringCache,
     timeout: .seconds(10)
+)
+
+// 呼叫：單一引數且未超過 100，寫在同一行，不可斷行
+let descriptor = FetchDescriptor<ProfileRecord>(predicate: #Predicate { $0.id == id })
+#expect(profile.nickname == "Leo")
+
+// 巢狀：外層超過 100 而斷行，內層在自己那一行重新判斷，未超過 100 就維持一行
+let request = URLRequest(
+    url: endpoint.url(relativeTo: configuration.baseURL),
+    cachePolicy: .reloadIgnoringLocalCacheData
 )
 
 // init：同上
@@ -484,11 +498,11 @@ let rows = viewModel.recentOrders
         OrderRow(order: order)
     }
 
-// 超過 100，步驟 2：單一引數也斷行，簽章接在右括號後
+// 超過 100，步驟 2：單一引數也斷行，簽章接在右括號後（整行長度含簽章）
 .onChange(
     of: viewModel.selectedAccount?.preferences.notificationSettings
-) { oldValue, newValue in
-    viewModel.syncNotificationSettings(from: oldValue, to: newValue)
+) { oldSettings, newSettings in
+    viewModel.syncNotificationSettings(from: oldSettings, to: newSettings)
 }
 
 // typed throws：只補 throws(E)，參數型別與回傳型別由指定目標推斷
@@ -564,6 +578,7 @@ var body: some View {
 - [ ] `if` / `guard` 多條件的續行沒有對齊第一個條件
 - [ ] `guard` 的 `else` 本體與 `else {` 寫在同一行（`guard let self else { return }` 除外）
 - [ ] 參數部分換行，或換行後右括號沒有單獨一行；只有一個參數的宣告或呼叫超過 100 卻沒有斷行
+- [ ] 未達斷行條件（整行不超過 100 且不超過三個）卻把參數或引數拆成多行，包含單一引數的 `#expect(`、`FetchDescriptor(`
 - [ ] 型別或 extension 開括號後沒空行、閉括號前有空行
 - [ ] enum 的 `case` 宣告之間、`switch` 的 `case` 之間沒空行；`switch {` 之後或 `}` 之前多了空行
 - [ ] 測試的 `// When`、`// Then` 前面沒空行，或 `// Given` 前面多了空行
