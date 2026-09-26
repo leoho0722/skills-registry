@@ -16,7 +16,7 @@ struct __NAME__Tests {
 
     // MARK: - Tests
 
-    /// 示範測試，替換為實際案例並依「行為_情境_預期」命名
+    /// 示範測試，替換為實際案例並依「方法或行為_情境_預期」命名，情境與預期用正體中文
     @Test
     func example() async throws {
         // Given

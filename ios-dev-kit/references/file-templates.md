@@ -618,10 +618,46 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - 同一邏輯多組輸入用 `@Test(arguments:)` 參數化，不複製貼上多個測試。
 - 非同步測試直接 `async throws`，不用 expectation。
 
-- **命名格式**：`<方法或行為>_<情境>_<預期>`，lowerCamel 加底線分段，不加 `test` 前綴（Swift Testing 靠 `@Test` 探測）。例：`fetchProfile_whenCacheHit_returnsCachedProfile`、`submit_withEmptyEmail_throwsValidationError`。`@Test("顯示名稱")` 只在名稱無法表達意圖時加。
+- **命名格式**：`<方法或行為>_<情境>_<預期>`，底線分三段，不加 `test` 前綴（Swift Testing 靠 `@Test` 探測）。方法或行為段照抄程式碼裡的名稱（方法名、TCA 的 Action 名稱），保留英文 lowerCamelCase，用名稱搜尋就找得到它的測試；情境與預期兩段用正體中文，簡短描述，不寫成完整句子。例：`fetchProfile_快取命中_回傳快取資料`、`submit_信箱空白_丟出驗證錯誤`、`saveButtonTapped_儲存失敗_顯示錯誤提示`。`@Test("顯示名稱")` 只在名稱無法表達意圖時加。
 - **三段註解必備**，即使某段只有一行；Given 為空時仍保留註解並留空行，讓結構一致。
+- **`// When`、`// Then` 前各空一行**，讓三段一眼分開；`// Given` 寫在本體第一行，依「函式本體不以空行開頭」前面不空行（`formatting.md` 空行規則）。
 - **一個測試只允許一組 When / Then**；需要驗證多個結果時用多個 `#expect`，需要多個動作時拆成多個測試或改用 `@Test(arguments:)`。
 - **`@Suite` 只在需要共用 setup、tag 或序列化執行（`.serialized`）時使用**，單純分組不加。
+- **`@MainActor` 只在絕對必要時才加，不要預設加上**：必要的定義是測試本體要存取 `@MainActor` 隔離的型別，例如 ViewModel、Coordinator、TCA 的 `TestStore`。Service、Client、Store、Model、Enum、FormatStyle 的測試不加。範圍越小越好：只有部分測試需要時標在那幾個測試方法上，整個測試型別都需要時（例如 TCA 的 `<Screen>FeatureTests`）才標在型別上。不為了消除並行檢查的警告而加，先找出實際需要主執行緒的是哪個型別。
+- **`@Suite(.serialized)` 只在絕對必要時才加，不要預設加上**：必要的定義是測試共用一個無法隔離的外部資源，例如 `UserDefaults.standard`、固定路徑的檔案、Keychain。Swift Testing 預設並行執行，序列化會拖慢整個測試。優先改成每個測試各自一份（以唯一名稱建立 `UserDefaults(suiteName:)`、每個測試用自己的暫存資料夾）讓測試能並行；真的無法隔離才序列化，並在 `@Suite` 的 `///` 寫明是哪個共用資源。
+
+第一個測試的對象是 `@MainActor` 的 ViewModel，所以只在這個測試方法標 `@MainActor`；第二個測的是一般 enum，不加：
+
+```swift
+/// 載入成功時，畫面狀態變成已載入並帶著取得的資料
+@Test
+@MainActor
+func load_服務成功_狀態變成已載入() async {
+    // Given
+    let service = MockProfileService()
+    service.fetchProfileResult = .success(.fixture(name: "Leo"))
+    let viewModel = ProfileViewModel(profileService: service)
+
+    // When
+    await viewModel.load()
+
+    // Then
+    #expect(viewModel.state == .loaded(.fixture(name: "Leo")))
+    #expect(service.fetchProfileCallCount == 1)
+}
+
+/// 設定頁不需要登入就能呼叫；沒有前置條件時 Given 仍保留註解並空一行
+@Test
+func requiresAuth_設定頁_不需登入() {
+    // Given
+
+    // When
+    let requiresAuth = Endpoint.settings.requiresAuth
+
+    // Then
+    #expect(requiresAuth == false)
+}
+```
 
 ### tests/UITests.swift
 
@@ -629,7 +665,7 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 
 - 型別用 `final class` 繼承 `XCTestCase`，`app` 在 `setUpWithError` 建立並 `launch()`，`tearDownWithError` 釋放。
 - `continueAfterFailure = false`，UI 流程一步失敗後續步驟沒有意義。
-- 測試方法沿用 `test` 前綴（XCTest 靠前綴探測），本體同樣採 Given / When / Then。
+- 測試方法沿用 `test` 前綴（XCTest 靠前綴探測），命名為 `test<方法或行為>_<情境>_<預期>`，方法或行為段首字大寫接在 `test` 後，其餘同單元測試：`testLogin_帳密正確_進入首頁`。本體同樣採 Given / When / Then。
 - 元素查詢一律透過 accessibility identifier，不用顯示文字或索引定位。
 
 - **launch argument 固定 `-uiTesting`**，在 `setUpWithError` 以 `app.launchArguments = ["-uiTesting"]` 傳入；App 端在根部檢查 `CommandLine.arguments` 含此旗標時注入 Preview stub，UI Test 不打真實 API。需要特定資料情境時用 `app.launchEnvironment["UITEST_SCENARIO"]` 傳場景名稱。
@@ -643,3 +679,4 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - [ ] 所有宣告（含 `private` 成員與每個 `case`）都有 `///` doc comment；樣板的示範成員附有示範說明，替換為實際內容時必須同步改寫，不可留下「示範」「替換時改寫」字樣
 - [ ] 檔名與主要型別名稱一致
 - [ ] View 另開 Computed Properties 區；ViewModel 給 View 讀的衍生狀態不在 Computed Properties
+- [ ] 測試不必要地加上 `@MainActor`（測試對象不是 `@MainActor` 型別，或只有部分測試需要卻標在整個型別上）或 `@Suite(.serialized)`（沒有無法隔離的共用資源）

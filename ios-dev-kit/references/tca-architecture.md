@@ -515,7 +515,7 @@ extension CategoryService {
 
 單元測試規則沿用 `project-structure.md` 的「測試目錄」，差別只在 Feature 型別取代 ViewModel：
 
-- **要**：每個 Feature 型別一個 `<Screen>FeatureTests.swift`，從 `tca/FeatureTests.swift` 複製，位置鏡像到 Feature 模組層級；型別標 `@MainActor`。
+- **要**：每個 Feature 型別一個 `<Screen>FeatureTests.swift`，從 `tca/FeatureTests.swift` 複製，位置鏡像到 Feature 模組層級；型別標 `@MainActor`，因為每個測試都用到 `@MainActor` 的 `TestStore`。測 Service 本身的 `<Feature>ServiceTests.swift` 不用 `TestStore`，不加 `@MainActor`（`file-templates.md` 測試一節）。
 - **要**：一律用 `TestStore`，**不關 exhaustivity**：每個 `send` 與 `receive` 都寫出完整的狀態變化，未接收的 Action 與未斷言的變化就是測試失敗。
 - **要**：`receive` 用 case key path（`store.receive(\.profileResponse.success)`），不依賴 `Action: Equatable`。成功值為 `Void` 的 `Result` 不可再接 `.success`（Swift 6.3.3 會在 IR 產生階段崩潰，已驗證），改為 `store.receive(\.xxxResponse)`。
 - **要**：Service 沒有 Mock。`TestStore` 的 `withDependencies` 只覆寫這個測試用到的 closure（`$0.categoryService.addCategory = ...`），不整個替換 Service；沒覆寫的 closure 被呼叫時，`testValue` 的 `unimplemented` 會讓測試失敗。時間、UUID 等系統依賴用 TCA 內建的 `continuousClock`、`uuid` 覆寫，不自建。
@@ -529,7 +529,7 @@ extension CategoryService {
 ```swift
 /// 新增類別時儲存失敗，畫面要顯示錯誤提示
 @Test
-func addButtonTapped_saveFails_showsAlert() async {
+func addButtonTapped_儲存失敗_顯示錯誤提示() async {
     // Given
     let failingAdd: CategoryService.AddCategory = { _ in
         throw .saveFailed
@@ -546,7 +546,7 @@ func addButtonTapped_saveFails_showsAlert() async {
 
 /// 按下儲存時，把輸入的名稱交給 Service 一次
 @Test
-func saveButtonTapped_validName_addsCategoryOnce() async {
+func saveButtonTapped_名稱有效_新增類別一次() async {
     // Given
     let addedNames = LockIsolated<[String]>([])
     let store = TestStore(initialState: CategoryListFeature.State()) {
@@ -566,7 +566,7 @@ func saveButtonTapped_validName_addsCategoryOnce() async {
 
 /// Service 本身：名稱前後的空白要先去掉再存
 @Test
-func addCategory_withSurroundingSpaces_savesTrimmedName() async throws {
+func addCategory_名稱前後有空白_存入去掉空白的名稱() async throws {
     // Given
     let store = MockCategoryStore()
     let service = withDependencies {

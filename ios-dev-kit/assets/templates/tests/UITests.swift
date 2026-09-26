@@ -34,7 +34,7 @@ final class __NAME__UITests: XCTestCase {
 
     // MARK: - Tests
 
-    /// 示範測試，替換為實際案例
+    /// 示範測試，替換為實際案例並依「test方法或行為_情境_預期」命名，情境與預期用正體中文
     func testExample() throws {
         // Given
 

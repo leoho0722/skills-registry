@@ -173,6 +173,7 @@ init(
 | 頂層宣告之間（型別與 extension、extension 與 extension） | 1 |
 | 函式內邏輯區塊之間 | 最多 1，不連續兩個空行 |
 | 函式本體的第一行之前與最後一行之後 | 0，本體不以空行開頭或結尾 |
+| 測試本體的 `// When`、`// Then` 之前 | 1；`// Given` 寫在本體第一行，前面不空行 |
 | 檔尾 | 1 個換行 |
 
 - **要**：空行只用來分隔「不同的東西」（不同成員、不同邏輯段落），同一段邏輯內的連續敘述不空行。
@@ -565,6 +566,7 @@ var body: some View {
 - [ ] 參數部分換行，或換行後右括號沒有單獨一行；只有一個參數的宣告或呼叫超過 100 卻沒有斷行
 - [ ] 型別或 extension 開括號後沒空行、閉括號前有空行
 - [ ] enum 的 `case` 宣告之間、`switch` 的 `case` 之間沒空行；`switch {` 之後或 `}` 之前多了空行
+- [ ] 測試的 `// When`、`// Then` 前面沒空行，或 `// Given` 前面多了空行
 - [ ] MARK 順序錯置，或同一區塊拆成兩個 extension
 - [ ] private 的 computed property 放在 Computed Properties，或非 private 的放在 Private Method
 - [ ] 區內 static 沒排在 instance 之前；Private Method 區內 method 排在 property 之前；static stored property 放在 extension
