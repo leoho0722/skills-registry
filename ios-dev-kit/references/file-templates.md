@@ -618,7 +618,7 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - 同一邏輯多組輸入用 `@Test(arguments:)` 參數化，不複製貼上多個測試。
 - 非同步測試直接 `async throws`，不用 expectation。
 
-- **命名格式**：`<方法或行為>_<情境>_<預期>`，底線分三段，不加 `test` 前綴（Swift Testing 靠 `@Test` 探測）。方法或行為段照抄程式碼裡的名稱（方法名、TCA 的 Action 名稱），保留英文 lowerCamelCase，用名稱搜尋就找得到它的測試；情境與預期兩段用正體中文，簡短描述，不寫成完整句子。例：`fetchProfile_快取命中_回傳快取資料`、`submit_信箱空白_丟出驗證錯誤`、`saveButtonTapped_儲存失敗_顯示錯誤提示`。`@Test("顯示名稱")` 只在名稱無法表達意圖時加。
+- **命名格式**：`<方法或行為>_<情境>_<預期>`，底線分三段，不加 `test` 前綴（Swift Testing 靠 `@Test` 探測）。方法或行為段照抄程式碼裡的名稱（方法名、TCA 的 Action 名稱），保留英文 lowerCamelCase，用名稱搜尋就找得到它的測試；TCA 送出巢狀 Action 時取哪一層見 `tca-architecture.md` 測試一節；情境與預期兩段用正體中文，簡短描述，不寫成完整句子。例：`fetchProfile_快取命中_回傳快取資料`、`submit_信箱空白_丟出驗證錯誤`、`saveButtonTapped_儲存失敗_顯示錯誤提示`。`@Test("顯示名稱")` 只在名稱無法表達意圖時加。
 - **三段註解必備**，即使某段只有一行；Given 為空時仍保留註解並留空行，讓結構一致。
 - **`// When`、`// Then` 前各空一行**，讓三段一眼分開；`// Given` 寫在本體第一行，依「函式本體不以空行開頭」前面不空行（`formatting.md` 空行規則）。
 - **三段註解寫在同一縮排層級**，不寫進 TCA `send` 或 `do` / `catch` 的 closure 裡。整個測試本體包在 `withDependencies` 或專案自訂的隔離 helper（例如 `withIsolatedStorage`）的 closure 內時，三段註解一起放進該 closure，`// Given` 寫在 closure 本體第一行。TCA 只有 `send` 時 `// Then` 的寫法見 `tca-architecture.md` 測試一節。
