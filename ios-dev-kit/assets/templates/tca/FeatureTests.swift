@@ -27,7 +27,9 @@ struct __NAME__FeatureTests {
             __NAME__Feature()
         } withDependencies: {
             $0.__SERVICE_LOWER_CAMEL__Service.example = {
-                exampleCallCount.withValue { $0 += 1 }
+                exampleCallCount.withValue {
+                    $0 += 1
+                }
                 return "stub"
             }
         }

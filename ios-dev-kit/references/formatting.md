@@ -495,10 +495,11 @@ import Testing
 
 - **要**：最後一個參數是 closure 時一律用 trailing closure：`.task { }`、`map { }`、`Button("Save") { }`。
 - **要**：連續多個 closure 參數時一律用多重 trailing closure 語法，第一個 closure 省略標籤，其餘以 `} label: {` 形式接在後面；不寫成 `Button(action: { }, label: { })`。
-- **要**：`$0` 只用於單一表達式且只有一個參數的 closure；closure 超過一行，或有兩個以上參數，一律具名。唯一例外是 TCA 測試的 `send`、`receive`、`withDependencies`，見 `tca-architecture.md` 的「測試」。
+- **要**：本體是單一表達式、只有一個參數的 closure 一律用 `$0`，即使因為行寬斷成多行也一樣；本體不是單一表達式（兩個以上敘述，或 `do` / `catch` 這類敘述），或有兩個以上參數，一律具名。巢狀 closure 各自判斷：內層是單一表達式時同樣用 `$0`；內層要用到外層的參數時外層具名，因為內層取不到外層的 `$0`。例外是修改 `inout` 值的 closure：TCA 測試的 `send`、`receive`、`withDependencies`（見 `tca-architecture.md` 的「測試」），以及 `@Shared` 的 `withLock`、`LockIsolated` 的 `withValue` 這類參數為 `inout` 的 closure。這些 closure 的 `$0` 固定代表要修改的值，不會被誤讀，本體有多個敘述也用 `$0`。
 - **要**：只有在 closure 會被物件長期持有（儲存在屬性、傳給第三方 SDK 的 callback、`NotificationCenter` observer）時才加 `[weak self]`；`Task { }`、SwiftUI modifier、`map` / `filter` 這類即時執行的 closure 不加。
 - **要**：寫了 `[weak self]` 就在 closure 第一行 `guard let self else { return }`，之後直接用 `self`；不用 `self?.` 逐行解包。
 - **要**：多行 closure 的 `{` 與呼叫同行，`}` 單獨一行對齊呼叫起始，本體縮排 4 格；單行 closure 前後各留一個空格：`{ $0.id }`。
+- **要**：寫在另一個 closure 本體內的 closure 一律寫成多行，即使放得進一行，讓每一層 closure 的範圍一眼看得出來。SwiftUI 的 View builder、modifier 與 action closure（`VStack { }`、`.task { }`、`.refreshable { }`、`Button { }` 等）不論位置一律寫成多行，直接接在 `body` 根層的也一樣。其他 closure 直接寫在函式本體、computed property 或 accessor 內、不在另一個 closure 裡時，仍可單行，例如 `.filter { $0.isActive }`、`Task { await load() }`。
 - **要**：capture list、參數與 `in` 一律和 `{` 寫在同一行。整行超過 100 時依序處理：
   1. 鏈式呼叫在 `.` 之前斷行，讓帶 closure 的那一段自成一行。
   2. 呼叫的引數每個一行、右括號單獨一行，`) { item in` 接在右括號後；呼叫端只有一個引數也照做。
@@ -522,6 +523,19 @@ Button {
     Label("Save", systemImage: "square.and.arrow.down")
 }
 
+// 修改 inout 值的 closure：本體有兩個敘述也用 $0
+state.$cart.withLock {
+    let item = CartItem(product: selectedProduct, quantity: selectedQuantity)
+    $0.items.append(item)
+}
+
+// 內層要用到外層的參數，外層具名
+let itemRows = sections.map { section in
+    section.items.map {
+        ItemRow(item: $0, sectionTitle: section.title)
+    }
+}
+
 // 兩個以上參數必須具名
 let merged = zip(names, scores).map { name, score in
     "\(name): \(score)"
@@ -538,8 +552,8 @@ client.onMessage = { [weak self] message in
 let rows = viewModel.recentOrders
     .filter { $0.isVisible }
     .prefix(maxVisibleCount)
-    .map { order in
-        OrderRow(order: order)
+    .map {
+        OrderRow(order: $0)
     }
 
 // 超過 100，步驟 2：單一引數也斷行，簽章接在右括號後（整行長度含簽章）
@@ -565,6 +579,7 @@ try await database.write { context throws(PersistenceError) in
 ## SwiftUI View Body 排版
 
 - **要**：modifier 一行一個，前置 `.` 縮排一層；即使只有一個 modifier 也換行，不與 View 同行。
+- **要**：View builder、modifier 與 action 帶的 closure 一律寫成多行，直接接在 `body` 根層的也一樣，見「Closure 與 Trailing Closure」。
 - **要**：modifier 依下表四組順序排列，未列出的 modifier 依其效果歸入對應組；同組內依需求排列，因為 `padding` 與 `background` 的先後會改變結果，不強制字母排序。
 - **要**：子 View 抽取依 `file-templates.md` 的「`body` 只放大框架」規則，不設行數門檻。
 - **要**：Private Views 以內容命名，不加 `View` 後綴：`header`、`statsSection`、`emptyState`；接受參數的用 `func`，名稱同樣不加後綴：`row(for item: Item)`。
@@ -608,8 +623,8 @@ var body: some View {
         .toolbar {
             settingsButton
         }
-        .sheet(item: $viewModel.presentedSheet) { sheet in
-            sheetContent(for: sheet)
+        .sheet(item: $viewModel.presentedSheet) {
+            sheetContent(for: $0)
         }
     }
     .task {
@@ -641,7 +656,8 @@ var body: some View {
 - [ ] protocol 遵循的 extension 排在 Internal Method 之前或 Private Method 之後
 - [ ] import 未依字母排序、重複 import `SwiftUI` 已涵蓋的模組、非 UI 層 import `SwiftUI`
 - [ ] `@testable import` 前沒有空行
-- [ ] 多個 closure 參數沒用多重 trailing closure；多行或多參數 closure 用 `$0`（TCA 測試的 `send`、`receive`、`withDependencies` 除外）
+- [ ] 寫在另一個 closure 本體內的 closure 寫成單行；SwiftUI 的 View builder、modifier 或 action closure 寫成單行，包含 `body` 根層的
+- [ ] 多個 closure 參數沒用多重 trailing closure；本體不是單一表達式或有多個參數的 closure 用 `$0`（修改 `inout` 值的 closure 除外：TCA 測試的 `send`、`receive`、`withDependencies` 與 `withLock`、`withValue`）；單一表達式、單一參數的 closure 沒用 `$0`，包含斷成多行的（內層要用到外層參數時除外）
 - [ ] closure 簽章移到 `{` 下一行、在 `=` 後斷行；closure 多標了推斷得出的參數型別、`async` 或回傳型別
 - [ ] `[weak self]` 後沒有 `guard let self`，或出現 `self?.`、`unowned`
 - [ ] modifier 與 View 同行、順序違反四組排列

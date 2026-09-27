@@ -477,9 +477,15 @@ extension DashboardViewModel {
 /// 儀表板畫面骨架：顯示時載入資料並開始監聽回前景事件
 var body: some View {
     content
-        .task { await viewModel.load() }
-        .task { await viewModel.observeForeground() }
-        .refreshable { viewModel.reload() }
+        .task {
+            await viewModel.load()
+        }
+        .task {
+            await viewModel.observeForeground()
+        }
+        .refreshable {
+            viewModel.reload()
+        }
 }
 ```
 

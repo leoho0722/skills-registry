@@ -528,7 +528,7 @@ extension CategoryService {
 - **要**：測試本體 Given / When / Then，受測的那一次 `send` 連同它的狀態 closure 都算 When，`receive` 與 `#expect` 為 Then。三個標記的位置照 `file-templates.md` 測試一節：寫在同一縮排層級，不寫進 `send` 的 closure。
 - **要**：只有 `send`、沒有 `receive` 的測試，`// Then` 不寫進 `send` 的 closure：`send` 之後空一行寫 `// Then`，再用 `#expect(store.state.x == 值)` 斷言關鍵結果。`send` 的 closure 屬於 When，Then 段要有自己的斷言。有 `receive` 時照舊，`receive` 放 Then。
 - **要**：前置狀態能直接設進初始 State 的就直接設，不用 `send` 走一遍：先 `var initial = CategoryListFeature.State()`、`initial.errorMessage = "儲存失敗"`，再建 `TestStore(initialState: initial)`。必須跑過 reducer 或 effect 才會有的前置狀態（例如正在執行的計時 effect），Given 可以 `send`／`receive`，一樣寫出完整的狀態變化。When 只留受測的那一次 `send`；Given 裡用來建立前置狀態的 `send` 不算 `file-templates.md`「一個測試只允許一組 When / Then」的第二個動作。
-- **要**：`send`、`receive` 的狀態斷言 closure 與 `withDependencies` 的 closure 用 `$0`，多行也一樣，不另取參數名。這是 TCA 官方寫法，這三處的 `$0` 固定代表要修改的 State 或依賴，不會被誤讀；也是 `formatting.md` 的 `$0` 規則唯一的例外，其他 closure 照常具名。
+- **要**：`send`、`receive` 的狀態斷言 closure 與 `withDependencies` 的 closure 用 `$0`，本體有多個敘述也一樣，不另取參數名。這是 TCA 官方寫法，這三處的 `$0` 固定代表要修改的 State 或依賴，不會被誤讀，屬於 `formatting.md` `$0` 規則的「修改 `inout` 值的 closure」例外；其他 closure 照常具名。
 - **避免**：`exhaustivity = .off`；測 View；在測試裡直接呼叫 `Feature().reduce(into:action:)`；為 `Path` / `Destination` 子 reducer 單獨開測試檔（它們透過父 Feature 的測試覆蓋，除非本身是獨立畫面）。
 
 ```swift
@@ -602,7 +602,9 @@ func saveButtonTapped_名稱有效_新增類別一次() async {
         CategoryListFeature()
     } withDependencies: {
         $0.categoryService.addCategory = { name in
-            addedNames.withValue { $0.append(name) }
+            addedNames.withValue {
+                $0.append(name)
+            }
         }
     }
 

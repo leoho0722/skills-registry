@@ -186,7 +186,9 @@ var body: some View {
             }
         }
         .navigationTitle("Profile")
-        .task { await viewModel.load() }
+        .task {
+            await viewModel.load()
+        }
     }
 }
 ```
