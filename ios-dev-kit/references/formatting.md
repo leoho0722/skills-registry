@@ -272,6 +272,50 @@ computed properties 與方法依存取層級分區：非 private 的放 Computed
 
 用不到的區塊直接省略，不留空的 MARK；順序不可調換。Protocol 遵循各自獨立一個 extension，以 protocol 名稱作為 MARK 名稱（例如 `// MARK: - __NAME__ServiceProtocol`、`// MARK: - Codable`），**排在 Internal Method 之後、Private Method 之前**；多個 protocol 遵循依 protocol 名稱字母排序。閱讀順序因此固定為：型別是什麼 → 自己提供什麼 → 履行什麼契約 → 內部怎麼做。
 
+覆寫父類別的成員（`override`）比照 protocol 遵循：獨立一個 extension，以父類別名稱作為 MARK 名稱（例如 `// MARK: - URLProtocol`），同樣**排在 Internal Method 之後、Private Method 之前**，不寫在型別本體。同時有 protocol 遵循時，父類別的 extension 排在所有 protocol 之前，和型別宣告行 `: 父類別, Protocol` 的順序一致。區內依父類別的宣告順序排，`class` 成員依區內排序排在 instance 成員之前。
+
+Swift 只允許在 extension 覆寫 Objective-C 宣告的成員（UIKit、AppKit 與 `URLProtocol`、`Operation` 等 Foundation 類別），或 Swift 以 `@objc dynamic` 宣告的成員（Swift 6.4 已驗證）。以下情況編譯器不允許在 extension 覆寫，覆寫改寫在型別本體、緊接在 Init 之後，同樣以 `// MARK: - <父類別名稱>` 分區：
+
+- 父類別是純 Swift 類別，或成員只標 `@objc` 沒加 `dynamic`。
+- 子類別是泛型類別：泛型類別的 extension 不能有 `@objc` 成員。
+
+designated init 的 `override init` 不論哪種情況都放本體的 Init 區，extension 只能宣告 convenience init。
+
+- **避免**：為了能在 extension 覆寫，替自己的父類別加上 `@objc dynamic`。這會把派發方式從 vtable 改成 Objective-C 訊息派發，等於為了排版改動 runtime 行為；這種情況照上述例外寫在本體。
+
+```swift
+// MARK: - URLProtocol
+
+extension MockURLProtocol {
+
+    /// 攔截所有請求，不論網址
+    ///
+    /// - Parameter request: 即將送出的請求
+    /// - Returns: 一律為 `true`
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    /// 不改寫請求，原樣使用
+    ///
+    /// - Parameter request: 即將送出的請求
+    /// - Returns: 傳入的請求本身
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    /// 以 `requestHandler` 產生回應並回報給 client
+    override func startLoading() {
+        ...
+    }
+
+    /// 停止載入，取消尚未送出的回應
+    override func stopLoading() {
+        ...
+    }
+}
+```
+
 型別專屬的額外分區（View 的 `Body`、`Private Views`、`Preview`，Coordinator 與流程型 Coordinator 的 `Destinations`，FormatStyle 的 `Convenience`，TCA Feature 型別的 `State`、`Action`、`Dependencies`、`Body`）以各樣板為準，位置見 `file-templates.md` 與 `tca-architecture.md` 對應一節；不自創其他分區名稱。
 
 ### 區內排序
@@ -587,6 +631,7 @@ var body: some View {
 - [ ] 區內 static 沒排在 instance 之前；Private Method 區內 method 排在 property 之前；static stored property 放在 extension
 - [ ] Private Method 的 helper 沒有依呼叫者在前、深度優先；Internal Method 沒有依使用先後；protocol 實作與 Preview stub、Mock 的順序和 protocol 宣告不一致
 - [ ] 巢狀型別另開 extension 或加 MARK 分區
+- [ ] 覆寫父類別的成員寫在型別本體或併入其他 extension，而非獨立的 `// MARK: - <父類別名稱>` extension（Swift 不允許在 extension 覆寫時除外）；父類別的 extension 沒有排在 protocol 遵循之前；為了在 extension 覆寫而替自己的父類別加 `@objc dynamic`
 - [ ] 手寫實作的 protocol 遵循寫在型別行而非 extension；自動合成的反而拆了 extension
 - [ ] protocol 遵循的 extension 排在 Internal Method 之前或 Private Method 之後
 - [ ] import 未依字母排序、重複 import `SwiftUI` 已涵蓋的模組、非 UI 層 import `SwiftUI`
