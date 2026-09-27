@@ -503,7 +503,7 @@ import Testing
   1. 鏈式呼叫在 `.` 之前斷行，讓帶 closure 的那一段自成一行。
   2. 呼叫的引數每個一行、右括號單獨一行，`) { item in` 接在右括號後；呼叫端只有一個引數也照做。
   3. 前兩步做完仍超過（例如賦值左側很長），維持同一行，允許超過 100。
-- **要**：closure 要指定給 typed throws 的函式型別、且本體會 throw 時，簽章只補 `throws(E)`：`{ name throws(ValidationError) in`，沒有參數時寫 `{ () throws(ValidationError) in`（省略 `()` 無法編譯）；參數型別、`async`、回傳型別仍省略。Swift 6 的 closure 不會從指定目標推斷錯誤型別，一律推斷為 `throws(any Error)`，賦值給屬性、當作 init 引數、本體只呼叫 typed throws 方法都一樣，所以 `throws(E)` 不可省略；本體不會 throw 時什麼都不用標。
+- **要**：closure 要指定給 typed throws 的函式型別、且本體會 throw 時，簽章只補 `throws(E)`：`{ name throws(ValidationError) in`，沒有參數時寫 `{ () throws(ValidationError) in`（省略 `()` 無法編譯）；參數型別、`async`、回傳型別仍省略。Swift 6 的 closure 不會從指定目標推斷錯誤型別，一律推斷為 `throws(any Error)`，賦值給屬性、當作 init 引數、本體只呼叫 typed throws 方法都一樣，所以 `throws(E)` 不可省略；本體不會 throw 時什麼都不用標。唯一例外是 `let` 加上函式型別宣告、而且位置在函式本體、不在任何 closure 裡（`let failingAdd: CategoryService.AddCategory = { _ in throw .saveFailed }`），這時 Swift 推斷得出 typed throws，closure 不用標註；同樣的 `let` 寫在 `withDependencies { }`、`Task { }` 等 closure 本體內就推不出來，仍要補 `throws(E)`（Swift 6.4 已驗證）。
 - **避免**：明確標註 closure 的參數型別與回傳型別，只在編譯器推斷失敗時加。
 - **避免**：把 closure 簽章移到 `{` 的下一行，或在 `=` 之後斷行把 `{` 移到續行。
 - **避免**：closure 內用 `return` 回傳單一表達式，單一表達式省略 `return`。
