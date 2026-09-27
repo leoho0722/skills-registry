@@ -522,11 +522,12 @@ extension CategoryService {
 - **要**：失敗或特定回傳的 closure 先以 typealias 宣告成常數再注入：`let failingAdd: CategoryService.AddCategory = { _ in throw .saveFailed }`。以 `let` 加型別宣告時 Swift 推斷得出 typed throws，closure 不用任何標註；直接賦值給屬性則要依 `formatting.md` 補 `throws(E)`。
 - **要**：要驗證呼叫次數或收到的參數時，用 `LockIsolated` 記錄，取代 Mock 的 `callCount` 與 `receivedArguments`。
 - **要**：Service 本身的邏輯在 `<Feature>ServiceTests.swift` 測，位置同 `project-structure.md` 的測試目錄：以 `withDependencies` 把 Client / Store 換成 Mock，再取 `<Feature>Service.liveValue` 測正式實作。Client / Store 的 Mock 沿用 `tests/MockService.swift`，把 `Service` 換成 `Client` / `Store`。`testValue` 是給 Feature 測試用的替身，裡面沒有邏輯，不測它。驗證 Service 丟出的錯誤時用 `file-templates.md` 測試一節的 `actualError` 寫法，不用 `#expect(throws:)`。
-- **要**：測試名稱的方法或行為段寫受測 Feature 自己的 Action case，也就是 `send` 最外層的那一層，和受測 Feature `core` 的 `switch` case 對得上；子層的動作寫進情境段。`view` 分組不算一層，改取裡面的 case：`.view(.task)` 寫 `task_`；`.binding(...)` 寫 `binding_`。父層送子層動作時照最外層取名，`path`、`destination` 同理：
+- **要**：測試名稱的方法或行為段寫受測 Feature 自己的 Action case，也就是 When 那一次 `send` 最外層的那一層，和受測 Feature `core` 的 `switch` case 對得上；子層的動作寫進情境段。`view` 分組不算一層，改取裡面的 case：`.view(.task)` 寫 `task_`；`.binding(...)` 寫 `binding_`。父層送子層動作時照最外層取名，`path`、`destination` 同理：
   - `.lookupManagements(.element(id: id, action: .view(.saveButtonTapped)))` 寫 `lookupManagements_分類改名_同步更新訂單`，不寫內層的 `saveButtonTapped_`。
   - `.destination(.presented(.add(.view(.saveButtonTapped))))` 寫 `destination_新增頁按下儲存_關閉新增頁`。
-- **要**：測試本體 Given / When / Then，`send` 連同它的狀態 closure 都算 When，`receive` 與 `#expect` 為 Then。三個標記的位置照 `file-templates.md` 測試一節：寫在同一縮排層級，不寫進 `send` 的 closure。
+- **要**：測試本體 Given / When / Then，受測的那一次 `send` 連同它的狀態 closure 都算 When，`receive` 與 `#expect` 為 Then。三個標記的位置照 `file-templates.md` 測試一節：寫在同一縮排層級，不寫進 `send` 的 closure。
 - **要**：只有 `send`、沒有 `receive` 的測試，`// Then` 不寫進 `send` 的 closure：`send` 之後空一行寫 `// Then`，再用 `#expect(store.state.x == 值)` 斷言關鍵結果。`send` 的 closure 屬於 When，Then 段要有自己的斷言。有 `receive` 時照舊，`receive` 放 Then。
+- **要**：前置狀態能直接設進初始 State 的就直接設，不用 `send` 走一遍：先 `var initial = CategoryListFeature.State()`、`initial.errorMessage = "儲存失敗"`，再建 `TestStore(initialState: initial)`。必須跑過 reducer 或 effect 才會有的前置狀態（例如正在執行的計時 effect），Given 可以 `send`／`receive`，一樣寫出完整的狀態變化。When 只留受測的那一次 `send`；Given 裡用來建立前置狀態的 `send` 不算 `file-templates.md`「一個測試只允許一組 When / Then」的第二個動作。
 - **要**：`send`、`receive` 的狀態斷言 closure 與 `withDependencies` 的 closure 用 `$0`，多行也一樣，不另取參數名。這是 TCA 官方寫法，這三處的 `$0` 固定代表要修改的 State 或依賴，不會被誤讀；也是 `formatting.md` 的 `$0` 規則唯一的例外，其他 closure 照常具名。
 - **避免**：`exhaustivity = .off`；測 View；在測試裡直接呼叫 `Feature().reduce(into:action:)`；為 `Path` / `Destination` 子 reducer 單獨開測試檔（它們透過父 Feature 的測試覆蓋，除非本身是獨立畫面）。
 
@@ -563,6 +564,33 @@ func unpaidOnlyToggled_開啟_只顯示未付款() async {
 
     // Then
     #expect(store.state.showsUnpaidOnly)
+}
+
+/// 計時中按下停止要取消計時；正在執行的 effect 無法設進初始 State，所以 Given 用 send／receive 啟動
+@Test
+func stopButtonTapped_計時中_停止計時() async {
+    // Given
+    let clock = TestClock()
+    let store = TestStore(initialState: StopwatchFeature.State()) {
+        StopwatchFeature()
+    } withDependencies: {
+        $0.continuousClock = clock
+    }
+    await store.send(.view(.startButtonTapped)) {
+        $0.isRunning = true
+    }
+    await clock.advance(by: .seconds(1))
+    await store.receive(\.timerTicked) {
+        $0.elapsedSeconds = 1
+    }
+
+    // When
+    await store.send(.view(.stopButtonTapped)) {
+        $0.isRunning = false
+    }
+
+    // Then
+    #expect(store.state.isRunning == false)
 }
 
 /// 按下儲存時，把輸入的名稱交給 Service 一次
@@ -622,5 +650,6 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 - [ ] `@Shared` 帶 persistence key；跨 Feature 模組共享
 - [ ] 測試關閉 exhaustivity；Feature 測試整個替換 Service 而非只覆寫用到的 closure；用 Mock class 記錄 Service 呼叫而非 `LockIsolated`；`receive` 依賴 `Action: Equatable`
 - [ ] 父層測試的名稱第一段寫了子層的內層 Action（如 `saveButtonTapped_`）而非受測 Feature 最外層的 case；`view` 分組被當成一層寫成 `view_`
+- [ ] 能直接設進初始 State 的前置狀態卻在 Given 用 `send` 走一遍；When 有兩個以上的 `send`
 - [ ] `// Then` 寫進 `send` 的 closure；只有 `send` 的測試在 `send` 之後缺 `// Then` 與 `#expect(store.state...)`
 - [ ] Feature 型別超過 300 行卻未拆 `Path` / `Destination` 或子 Feature

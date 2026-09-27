@@ -623,7 +623,7 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - **`// When`、`// Then` 前各空一行**，讓三段一眼分開；`// Given` 寫在本體第一行，依「函式本體不以空行開頭」前面不空行（`formatting.md` 空行規則）。
 - **三段註解寫在同一縮排層級**，不寫進 TCA `send` 或 `do` / `catch` 的 closure 裡。整個測試本體包在 `withDependencies` 或專案自訂的隔離 helper（例如 `withIsolatedStorage`）的 closure 內時，三段註解一起放進該 closure，`// Given` 寫在 closure 本體第一行。TCA 只有 `send` 時 `// Then` 的寫法見 `tca-architecture.md` 測試一節。
 - **驗證丟出的錯誤用 `actualError` 寫法**：Given 宣告 `var actualError: E?`；When 只寫 `do { try await … } catch { actualError = error }`，When 與 `catch` 裡都不斷言；Then 先 `let error = try #require(actualError)`，再對 `error` 斷言，測試方法因此標 `throws`。不用 `let error = #expect(throws:)`，它會在 When 裡放一個斷言。`do` 本體只丟同一種 typed error 時，`catch` 的 `error` 就是該型別，直接指定、不用轉型。
-- **一個測試只允許一組 When / Then**；需要驗證多個結果時用多個 `#expect`，需要多個動作時拆成多個測試或改用 `@Test(arguments:)`。
+- **一個測試只允許一組 When / Then**；需要驗證多個結果時用多個 `#expect`，需要多個動作時拆成多個測試或改用 `@Test(arguments:)`。TCA 在 Given 用 `send` 建立前置狀態不算第二個動作，見 `tca-architecture.md` 測試一節。
 - **`@Suite` 只在需要共用 setup、tag 或序列化執行（`.serialized`）時使用**，單純分組不加。
 - **`@MainActor` 只在絕對必要時才加，不要預設加上**：必要的定義是測試本體要存取 `@MainActor` 隔離的型別，例如 ViewModel、Coordinator、TCA 的 `TestStore`。Service、Client、Store、Model、Enum、FormatStyle 的測試不加。範圍越小越好：只有部分測試需要時標在那幾個測試方法上，整個測試型別都需要時（例如 TCA 的 `<Screen>FeatureTests`）才標在型別上。不為了消除並行檢查的警告而加，先找出實際需要主執行緒的是哪個型別。
 - **`@Suite(.serialized)` 只在絕對必要時才加，不要預設加上**：必要的定義是測試共用一個無法隔離的外部資源，例如 `UserDefaults.standard`、固定路徑的檔案、Keychain。Swift Testing 預設並行執行，序列化會拖慢整個測試。優先改成每個測試各自一份（以唯一名稱建立 `UserDefaults(suiteName:)`、每個測試用自己的暫存資料夾）讓測試能並行；真的無法隔離才序列化，並在 `@Suite` 的 `///` 寫明是哪個共用資源。
