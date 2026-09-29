@@ -18,7 +18,7 @@ Leo Ho 個人 Swift 排版規範。若專案有 `.swiftformat` 或 `.swift-forma
 
 | 項目 | 規則 |
 |---|---|
-| 縮排 | 4 個空格，不用 tab；續行（斷行後的下一行）同樣縮排 4 格 |
+| 縮排 | 4 個空格，不用 tab；續行（斷行後的下一行）同樣縮排 4 格，例外見「換行與斷行」 |
 | 每行長度上限 | 100 字元，含縮排；超過時依「換行與斷行」一節處理，不以縮短命名或刪除標籤來壓行 |
 | 單檔長度上限 | 300 行（不含檔頭與空行）；超過時依 `file-templates.md` 的規則以 extension 分檔，不放寬上限 |
 | 大括號 | 開括號與宣告同行（`func foo() {`），閉括號單獨一行並對齊宣告起始；不使用 Allman 風格 |
@@ -38,6 +38,7 @@ Xcode 設定對應：Settings → Text Editing → Indentation 設 Spaces / 4；
 - **避免**：`if` / `guard` 的條件續行用固定 4 格，會與本體同層而失去視覺分界。
 - **避免**：在以下三處斷行，超過 100 也維持一行：`import`、`case` 宣告、closure 簽章（依「Closure 與 Trailing Closure」的處理順序做完仍超過時）。函式簽章不在此列，只有一個參數也依「參數與引數對齊」斷行。
 - **要**：`switch` 的每個 `case` 本體一律另起一行縮排 4 格，即使只有一個表達式；不寫成 `case .x: value` 單行，`default` 同樣適用。`case` 之間的空行見「空行規則」。
+- **要**：`switch` 的多 pattern `case` 清單整行超過 100 時，在逗號之後斷行：每行排滿，在不超過 100 的最後一個逗號之後才斷，不依語意分組，也不每個 pattern 各佔一行；續行比 `case` 多縮排 **8 格**，與縮排 4 格的 case 本體錯開，一眼分得出是 pattern 還是本體；`:` 接在最後一個 pattern 之後。這是「續行固定 4 格」的例外。上面不斷行清單裡的「`case` 宣告」指 enum 的 case 宣告，不含 switch 的 pattern 清單。
 
 運算子放行首：
 
@@ -71,7 +72,15 @@ guard let profile = viewModel.profile,
 }
 ```
 
-`while` 同 `if` 對齊（6 格）。條件對齊只適用於 `if` / `guard` / `while` 的條件列表；運算子斷行與其他敘述的續行仍固定 4 格，兩者不混用。
+`while` 同 `if` 對齊（6 格）。條件對齊只適用於 `if` / `guard` / `while` 的條件列表；運算子斷行與其他敘述的續行仍固定 4 格，兩者不混用。唯一例外是 `switch` 的 `case` pattern 清單，續行 8 格：
+
+```swift
+switch action {
+case .view(.settleButtonTapped), .view(.deleteCampaignButtonTapped), .settleConfirmation(.dismiss),
+        .deleteConfirmation(.dismiss), .campaignDeleted:
+    return .none
+}
+```
 
 ## 參數與引數對齊
 
@@ -640,6 +649,7 @@ var body: some View {
 - [ ] 運算子放行尾而非續行行首
 - [ ] `switch` 的 `case` 本體與 `case` 寫在同一行
 - [ ] `if` / `guard` 多條件的續行沒有對齊第一個條件
+- [ ] `switch` 的多 pattern `case` 清單斷行後，續行不是比 `case` 多 8 格，或沒有排滿 100 就提早斷行
 - [ ] `guard` 的 `else` 本體與 `else {` 寫在同一行（`guard let self else { return }` 除外）
 - [ ] 參數部分換行，或換行後右括號沒有單獨一行；只有一個參數的宣告或呼叫超過 100 卻沒有斷行
 - [ ] 未達斷行條件（整行不超過 100 且不超過三個）卻把參數或引數拆成多行，包含單一引數的 `#expect(`、`FetchDescriptor(`
