@@ -35,7 +35,7 @@ extension RuntimeEnvironment {
             "XCTestBundlePath",
             "XCTestBundleInjectPath",
             "XCTestConfigurationFilePath",
-            "XCTestSessionIdentifier"
+            "XCTestSessionIdentifier",
         ].contains { environment[$0] != nil }
         let hasTestArgument = CommandLine.arguments.contains { argument in
             let url = URL(fileURLWithPath: argument)

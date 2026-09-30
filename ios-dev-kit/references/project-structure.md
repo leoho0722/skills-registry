@@ -186,14 +186,14 @@ let package = Package(
     name: "Shared",
     platforms: [.iOS(.v18)],
     products: [
-        .library(name: "Shared", targets: ["Shared"])
+        .library(name: "Shared", targets: ["Shared"]),
     ],
     dependencies: [
-        .package(path: "../Core")
+        .package(path: "../Core"),
     ],
     targets: [
         .target(name: "Shared", dependencies: ["Core"]),
-        .testTarget(name: "SharedTests", dependencies: ["Shared"])
+        .testTarget(name: "SharedTests", dependencies: ["Shared"]),
     ],
     swiftLanguageModes: [.v6]
 )
@@ -243,16 +243,16 @@ let package = Package(
     name: "ProfileFeature",
     platforms: [.iOS(.v18)],
     products: [
-        .library(name: "ProfileFeature", targets: ["ProfileFeature"])
+        .library(name: "ProfileFeature", targets: ["ProfileFeature"]),
     ],
     dependencies: [
         .package(path: "../../Core"),
         .package(path: "../../DesignSystem"),
-        .package(path: "../../Shared")
+        .package(path: "../../Shared"),
     ],
     targets: [
         .target(name: "ProfileFeature", dependencies: ["Core", "DesignSystem", "Shared"]),
-        .testTarget(name: "ProfileFeatureTests", dependencies: ["ProfileFeature"])
+        .testTarget(name: "ProfileFeatureTests", dependencies: ["ProfileFeature"]),
     ],
     swiftLanguageModes: [.v6]
 )

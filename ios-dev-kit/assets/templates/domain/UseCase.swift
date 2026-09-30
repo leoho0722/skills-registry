@@ -5,8 +5,6 @@
 //  Created by __AUTHOR__ on __DATE__.
 //
 
-import Foundation
-
 // MARK: - Protocol
 
 /// __NAME__ 這個跨 Service 流程的入口，替換時改寫成這個流程對使用者的意義

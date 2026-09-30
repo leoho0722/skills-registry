@@ -7,8 +7,6 @@
 
 #if DEBUG
 
-import Foundation
-
 /// 給 Preview 與測試用的 `__NAME__ServiceProtocol` 假實作，只回傳固定資料，不連線
 struct Preview__NAME__Service {
 

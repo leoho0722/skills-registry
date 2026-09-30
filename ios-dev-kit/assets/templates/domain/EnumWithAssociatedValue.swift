@@ -5,8 +5,6 @@
 //  Created by __AUTHOR__ on __DATE__.
 //
 
-import Foundation
-
 /// __NAME__ 的所有可能狀態，部分狀態附帶資料；替換時改寫成這個狀態機代表什麼
 enum __NAME__: Equatable, Sendable {
 

@@ -5,7 +5,6 @@
 //  Created by __AUTHOR__ on __DATE__.
 //
 
-import Foundation
 import Observation
 
 @MainActor

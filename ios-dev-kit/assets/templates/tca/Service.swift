@@ -5,8 +5,6 @@
 //  Created by __AUTHOR__ on __DATE__.
 //
 
-import Foundation
-
 /// __NAME__ 相關操作的入口，替換時改寫成這組操作對使用者的意義；
 /// 正式實作在 `liveValue`、測試預設值在 `testValue`、Preview 假資料在 `previewValue`
 struct __NAME__Service: Sendable {

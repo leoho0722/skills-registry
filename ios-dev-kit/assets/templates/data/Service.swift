@@ -5,8 +5,6 @@
 //  Created by __AUTHOR__ on __DATE__.
 //
 
-import Foundation
-
 // MARK: - Protocol
 
 /// __NAME__ 相關操作的入口，替換時改寫成這組操作對使用者的意義

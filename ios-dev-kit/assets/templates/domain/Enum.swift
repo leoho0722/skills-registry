@@ -5,8 +5,6 @@
 //  Created by __AUTHOR__ on __DATE__.
 //
 
-import Foundation
-
 /// __NAME__ 的所有可能值，替換時改寫成這個分類代表什麼
 enum __NAME__: __RAW_TYPE__, CaseIterable, Codable, Sendable {
 

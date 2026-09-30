@@ -7,8 +7,6 @@
 
 #if DEBUG
 
-import Foundation
-
 // MARK: - DependencyKey
 
 extension __NAME__Service {

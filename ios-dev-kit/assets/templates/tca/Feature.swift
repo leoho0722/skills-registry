@@ -6,7 +6,6 @@
 //
 
 import ComposableArchitecture
-import Foundation
 
 /// __NAME__ 畫面要顯示什麼、事件發生後做什麼，都由它決定；替換時改寫此說明
 @Reducer

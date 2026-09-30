@@ -34,6 +34,7 @@ Xcode 設定對應：Settings → Text Editing → Indentation 設 Spaces / 4；
 - **要**：`guard` 的 `else {` 與最後一個條件同行；`if` 的 `{` 與最後一個條件同行。
 - **要**：`guard` 的 `else` 本體一律另起一行，即使只有 `return` 或 `throw`。唯一例外是 `[weak self]` 之後的 `guard let self else { return }`，維持一行（見「Closure 與 Trailing Closure」）。
 - **要**：超長字串不斷行，允許超過 100；需要多行時用 `"""` 多行字串字面值。
+- **要**：陣列、字典字面值寫成多行時，每個元素獨立一行、縮排 4 格，`]` 單獨一行對齊起始欄位；最後一個元素後面一律加逗號，新增或刪除最後一個元素時 diff 只動一行。單行字面值不加尾隨逗號。唯一引數是字面值時 `]` 與右括號貼合成 `])`，見「參數與引數對齊」。
 - **避免**：用 `+` 串接字串來壓行，會讓搜尋字串失效。
 - **避免**：`if` / `guard` 的條件續行用固定 4 格，會與本體同層而失去視覺分界。
 - **避免**：在以下三處斷行，超過 100 也維持一行：`import`、`case` 宣告、closure 簽章（依「Closure 與 Trailing Closure」的處理順序做完仍超過時）。函式簽章不在此列，只有一個參數也依「參數與引數對齊」斷行。
@@ -93,9 +94,10 @@ case .view(.settleButtonTapped), .view(.deleteCampaignButtonTapped), .settleConf
 - **要**：只有一個參數或引數時同樣適用：整行超過 100 就依本節規則斷行，未超過就寫在同一行，宣告端與呼叫端都一樣；參數型別含 closure、typed throws 或泛型時特別容易超過。斷行後右括號那一行（回傳型別、`throws`、`{`）仍超過 100 時，維持同一行，允許超過。
 - **要**：巢狀呼叫由外而內判斷。外層符合條件而斷行後，內層呼叫以自己所在的那一行（含縮排）重新套用本節；外層不符合條件時，內層也維持在同一行。但內層的參數或引數超過三個時，外層視同符合條件而斷行，因為內層斷行後右括號必須單獨一行對齊起始欄位，外層不斷行就做不到。
 - **要**：括號內的引數是多行本體的 closure，或是帶多行 trailing closure 的呼叫（例如 TCA 的 `store: Store(initialState: ...) { ... }`）時，不依上面的條件判斷，一律每個引數獨立一行；closure 本身的排版依「Closure 與 Trailing Closure」處理。
+- **要**：呼叫端（含 macro，例如 `@Test(arguments:)`）只有一個引數，而且這個引數是陣列或字典字面值、整行超過 100 而要斷行時，一律比照 trailing closure 把括號與字面值貼合：`[` 接在 `(arguments: ` 之後同一行，結尾寫成 `])` 對齊呼叫的起始欄位，元素寫法見「換行與斷行」。不把引數拆到獨立一行，右括號也不單獨一行。有兩個以上引數時不適用，照本節規則每個引數各一行、右括號單獨一行。這是上面「右括號單獨一行」與下面「避免右括號緊接最後一個參數」的例外。
 - **避免**：未達斷行條件卻把參數或引數拆成多行，包含單一引數的 `#expect(`、`FetchDescriptor(` 這類呼叫。
 - **避免**：部分換行（前兩個參數同行、第三個換行），diff 中會讓無關的參數跟著移動。
-- **避免**：右括號緊接最後一個參數，回傳型別會藏在參數尾巴，且參數區塊與本體失去分界。
+- **避免**：右括號緊接最後一個參數，回傳型別會藏在參數尾巴，且參數區塊與本體失去分界；唯一引數是陣列、字典字面值時的 `])` 除外。
 - **避免**：為了塞進一行而縮短參數標籤或省略預設值。
 
 ```swift
@@ -151,6 +153,12 @@ let profile = try await service.fetchProfile(
 // 呼叫：單一引數且未超過 100，寫在同一行，不可斷行
 let descriptor = FetchDescriptor<ProfileRecord>(predicate: #Predicate { $0.id == id })
 #expect(profile.nickname == "Leo")
+
+// 呼叫：唯一引數是陣列字面值且超過 100，括號與字面值貼合，最後一個元素後加逗號
+@Test(arguments: [
+    SearchCase(query: "mika", selectedOrderID: "BL-2604-017"),
+    SearchCase(query: "Aesop", selectedOrderID: "BL-2604-016"),
+])
 
 // 巢狀：外層超過 100 而斷行，內層在自己那一行重新判斷，未超過 100 就維持一行
 let request = URLRequest(
@@ -480,7 +488,7 @@ extension ProfileViewModel {
 - **要**：依模組名稱字母排序，不分大小寫，不分系統或第三方，一行一個。
 - **要**：`@testable import` 放在所有一般 import 之後，中間空一行；多個 `@testable import` 之間同樣字母排序。
 - **要**：不重複 import 已被其他模組帶入的模組：`import SwiftUI` 已涵蓋 `Foundation` 與 `Observation`，寫了 `SwiftUI` 就不再寫那兩個；`import XCTest` 已涵蓋 `Foundation`。唯一例外是編譯器明確要求顯式 import 時（例如 Swift 6 對 `@Observable` 巨集在某些 target 的要求），依錯誤訊息補上。
-- **要**：不使用的 import 移除，包含 Xcode 樣板預設加的。
+- **要**：只 import 用到的模組，寫到需要時才加；不使用的 import 移除，包含 Xcode 樣板預設加的。是否用到以 build 為準，不靠肉眼判斷：Swift 不會警告沒用到的 import，缺 import 才會編譯失敗，所以先不加、編譯器要求時再補。開啟 `MemberImportVisibility`（Swift 6 的 upcoming feature）時，只用到某模組為其他型別加的擴充成員也算使用，例如 Foundation 為 `String` 加的 `trimmingCharacters(in:)`；沒開啟時同一 module 其他檔的 import 會讓這類成員外溢，拿掉 import 仍編得過不代表沒用到。kit 的樣板同樣只 import 骨架本身用到的模組，填入內容後需要 Foundation 再補。
 - **避免**：import 子模組或單一符號（`import struct Foundation.Date`、`import UIKit.UIColor`），一律整個模組。
 - **避免**：ViewModel、Model、Service、UseCase 這些非 UI 層 `import SwiftUI` 或 `UIKit`；需要 `@Observable` 時明確 `import Observation`。
 - **避免**：`#if canImport(...)` 條件 import，除非確實要跨平台編譯。
@@ -489,7 +497,7 @@ extension ProfileViewModel {
 // App target 的 View
 import SwiftUI
 
-// ViewModel：非 UI 層，不 import SwiftUI
+// ViewModel：非 UI 層，不 import SwiftUI；有用到 Foundation 的型別才 import Foundation
 import Foundation
 import Observation
 
@@ -652,6 +660,8 @@ var body: some View {
 - [ ] `switch` 的多 pattern `case` 清單斷行後，續行不是比 `case` 多 8 格，或沒有排滿 100 就提早斷行
 - [ ] `guard` 的 `else` 本體與 `else {` 寫在同一行（`guard let self else { return }` 除外）
 - [ ] 參數部分換行，或換行後右括號沒有單獨一行；只有一個參數的宣告或呼叫超過 100 卻沒有斷行
+- [ ] 唯一引數是陣列或字典字面值且要斷行時，沒有寫成 `(label: [` 與 `])` 貼合；兩個以上引數卻用了貼合寫法
+- [ ] 多行陣列、字典字面值的最後一個元素後面沒加逗號，或單行字面值加了尾隨逗號
 - [ ] 未達斷行條件（整行不超過 100 且不超過三個）卻把參數或引數拆成多行，包含單一引數的 `#expect(`、`FetchDescriptor(`
 - [ ] 型別或 extension 開括號後沒空行、閉括號前有空行
 - [ ] enum 的 `case` 宣告之間、`switch` 的 `case` 之間沒空行；`switch {` 之後或 `}` 之前多了空行
@@ -664,7 +674,7 @@ var body: some View {
 - [ ] 覆寫父類別的成員寫在型別本體或併入其他 extension，而非獨立的 `// MARK: - <父類別名稱>` extension（Swift 不允許在 extension 覆寫時除外）；父類別的 extension 沒有排在 protocol 遵循之前；為了在 extension 覆寫而替自己的父類別加 `@objc dynamic`
 - [ ] 手寫實作的 protocol 遵循寫在型別行而非 extension；自動合成的反而拆了 extension
 - [ ] protocol 遵循的 extension 排在 Internal Method 之前或 Private Method 之後
-- [ ] import 未依字母排序、重複 import `SwiftUI` 已涵蓋的模組、非 UI 層 import `SwiftUI`
+- [ ] import 未依字母排序、重複 import `SwiftUI` 已涵蓋的模組、非 UI 層 import `SwiftUI`；留著沒用到的 import（含樣板或 Xcode 預設帶的），或是否用到沒以 build 確認
 - [ ] `@testable import` 前沒有空行
 - [ ] 寫在另一個 closure 本體內的 closure 寫成單行；SwiftUI 的 View builder、modifier 或 action closure 寫成單行，包含 `body` 根層的
 - [ ] 多個 closure 參數沒用多重 trailing closure；本體不是單一表達式或有多個參數的 closure 用 `$0`（修改 `inout` 值的 closure 除外：TCA 測試的 `send`、`receive`、`withDependencies` 與 `withLock`、`withValue`）；單一表達式、單一參數的 closure 沒用 `$0`，包含斷成多行的（內層要用到外層參數時除外）
