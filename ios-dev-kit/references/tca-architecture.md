@@ -98,14 +98,14 @@ Features/<Feature>/
 1. `State`：`@ObservableState struct State: Equatable`
 2. `Action`：`enum Action` 與其內的 `View`、`Delegate`
 3. `Dependencies`：全部 `@Dependency` 屬性，一律 `private`
-4. `Body`：`var body: some Reducer<State, Action>`
+4. `Body`：`var body: some ReducerOf<Self>`
 
 本體以外依既有規範以同檔 extension 分區，順序固定：
 
 1. `Nested Types`（extension）：`Path`、`Destination`、`CancelID` 等 Feature 專屬型別；順序固定 `Path` → `Destination` → `CancelID` → 其他依字母排序。`@Reducer enum` 放 extension 內與放本體內效果相同，已驗證。
 2. `Private Method`（`private extension`）：第一個方法固定是 `core(state:action:)`，其後是抽出的 Effect 方法，依 `formatting.md` 的呼叫者在前、深度優先排列；`core` 排第一本身就符合這條通則。有 private static method 時也排在 `core` 之後，這是 `formatting.md`「區內排序」static 在前的例外，讓 reducer 的入口一打開就看得到；private computed property 仍依該節排在所有方法之前。
 
-`State` 與 `Action` 必須在本體：`@Reducer` 巨集只會替本體內的 `Action` 加上 `@CasePathable`，搬到 extension 會失去 case key path。`@Dependency` 是 property wrapper，展開後是 stored property，Swift 不允許 extension 宣告 stored property，所以也必須在本體；官方文件一律寫在 `Action` 之後、`body` 之前，本規範以 `Dependencies` 區名固定這個位置。`body` 留本體則比照 SwiftUI `View` 的 Body 例外。`body` 的型別一律寫 `some Reducer<State, Action>`，不寫 `some ReducerOf<Self>`：後者要經過 `Self` 解析 `State` 與 `Action`，在部分專案會觸發編譯器的 circular reference 錯誤，直接寫出兩個型別就不經過 `Self`。`@Reducer`、`@ObservableState`、`@CasePathable` 各自獨立一行，寫在被修飾的宣告正上方，doc comment 在巨集之上；`@Dependency(\.xxx)` 則與 `private var xxx` 寫在同一行，整行超過 100 字元才在 `)` 之後換行。用不到的區塊直接省略，不留空 MARK。
+`State` 與 `Action` 必須在本體：`@Reducer` 巨集只會替本體內的 `Action` 加上 `@CasePathable`，搬到 extension 會失去 case key path。`@Dependency` 是 property wrapper，展開後是 stored property，Swift 不允許 extension 宣告 stored property，所以也必須在本體；官方文件一律寫在 `Action` 之後、`body` 之前，本規範以 `Dependencies` 區名固定這個位置。`body` 留本體則比照 SwiftUI `View` 的 Body 例外。`body` 的型別寫 `some ReducerOf<Self>`，與 TCA 官方文件的範例一致；TCA 1.25.5 時這個寫法曾讓 `@Reducer` 巨集展開出現 circular reference 錯誤，1.26.2 已實測不再重現。`@Reducer`、`@ObservableState`、`@CasePathable` 各自獨立一行，寫在被修飾的宣告正上方，doc comment 在巨集之上；`@Dependency(\.xxx)` 則與 `private var xxx` 寫在同一行，整行超過 100 字元才在 `)` 之後換行。用不到的區塊直接省略，不留空 MARK。
 
 完整骨架如下，方法本體省略：
 
@@ -182,7 +182,7 @@ struct ProfileFeature {
     // MARK: - Body
 
     /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`
-    var body: some Reducer<State, Action> {
+    var body: some ReducerOf<Self> {
         Reduce(core)
             .ifLet(\.$destination, action: \.destination)
     }
@@ -293,7 +293,7 @@ private extension ProfileFeature {
     // MARK: - Body
 
     /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`
-    var body: some Reducer<State, Action> {
+    var body: some ReducerOf<Self> {
         Reduce(core)
             .ifLet(\.$destination, action: \.destination)
     }
@@ -669,7 +669,7 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 
 - [ ] TCA 專案出現 ViewModel、Coordinator、`@Entry`、`EnvironmentValues+Services.swift`，或 MVVM 專案出現 `@Reducer`
 - [ ] Feature 型別本體分區順序不是 State → Action → Dependencies → Body；`Path` / `Destination` / `CancelID` 寫在本體內而非 Nested Types extension；`Destination.State` 缺 `Equatable` extension；alert 建構方法沒寫在 `extension <Screen>Feature.Destination.State`
-- [ ] `body` 的型別寫成 `some ReducerOf<Self>` 而非 `some Reducer<State, Action>`；`@Dependency(\.xxx)` 與 `private var xxx` 未超過 100 字元卻拆成兩行
+- [ ] `@Dependency(\.xxx)` 與 `private var xxx` 未超過 100 字元卻拆成兩行
 - [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；`core` 不是 Private Method 區的第一個方法；`core` 的 `switch` 或整個 `Action` 的分派移到輔助型別
 - [ ] `State` 的 computed property 另開 `extension <Screen>Feature.State`，而非寫在 `State` 本體；`State` 本體順序不是 stored → 非 private computed → init → nested type → 方法
 - [ ] `State` 缺 `@ObservableState` 或 `Equatable`；`State` 持有 Service；外部注入的值宣告成 `var` 或在宣告處給了預設值
