@@ -3,7 +3,7 @@ name: ios-dev-kit
 description: Leo Ho 個人的 iOS/macOS Swift 開發規範，涵蓋 coding style（命名、存取控制、optional、error handling、concurrency、doc comment）、code formatting 排版（縮排、換行、MARK 分區、import 排序、SwiftUI body）、新檔案的 file template（View、ViewModel、Coordinator、Service、Mock、測試）、專案目錄結構（Feature-first 分層、A/B/C 三種 SPM package 方案、DesignSystem、測試目錄）與 TCA（The Composable Architecture）專案的 Reducer、導航、DependencyKey、TestStore 規範。Use when writing, modifying, or reviewing any Swift / SwiftUI / UIKit code, creating new Swift files, Features, or iOS projects, or when the user mentions coding style、排版、格式、命名規則、檔案樣板、專案結構、SPM package、Coordinator、依賴注入、單元測試、code review、Swift 慣例、TCA、Composable Architecture、Reducer、Store、TestStore、@Dependency。
 metadata:
   author: "Leo Ho"
-  version: "3.8.0"
+  version: "3.9.0"
 ---
 
 # iOS Dev Kit：個人 Swift 開發規範
@@ -35,7 +35,7 @@ metadata:
 1. **新檔案一律從 `assets/templates/` 的樣板複製**，替換全部佔位符並刪除未用的空插槽；不得手寫骨架。（`file-templates.md`）
 2. **所有宣告一律有 `///`，無例外**：有參數寫 `- Parameter`、有回傳寫 `- Returns`、會 throw 寫 `- Throws`；白話且精簡。（`coding-style.md` 註解一節）
 3. **禁止 `!`、`try!`、`as!`**，只有兩個例外：`IBOutlet` 的隱式解包，以及 `static let` 中左側完全由字面值組成的強制解包。（`coding-style.md` Optional 一節）
-4. **單元測試一律 Swift Testing，UI Test 才用 XCTest**；測試本體 Given / When / Then。（`file-templates.md` tests 一節）
+4. **單元測試一律 Swift Testing，只有 UI Test 與效能測試用 XCTest**；測試本體 Given / When / Then。（`file-templates.md` tests 一節）
 5. **async/await 是唯一的非同步模型**：禁 GCD、自建 Combine pipeline、`Task.detached`、`nonisolated(unsafe)`；`@unchecked Sendable` 只允許 Mock 與包裝非 Sendable 的第三方物件。（`coding-style.md` Concurrency 一節）
 6. **分層依賴單向**：Presentation → Domain ← Data，三者皆可依賴 Core；Service 不依賴同層 Service；跨 Feature 只引用對方 Domain 的 Model 與 Error；不得補 Repository / Interactor / Presenter。TCA 專案的 Presentation 依 `tca-architecture.md`，其餘不變。（`project-structure.md` 分層原則）
 7. **Service / Client / Store / Database 的 protocol 一律 `Sendable` 加 typed throws**，以 init 注入且不給預設值；禁 `.shared` 與 DI container。唯一例外是 TCA 專案：以 `DependencyKey` 註冊、Feature 型別以 `@Dependency` 取用，Service 改為 `Sendable` 的 struct 裝 closure（closure 同樣 typed throws），Client / Store / Database 仍為 protocol 並 init 注入。（`file-templates.md` Service 一節、`tca-architecture.md` 依賴注入）

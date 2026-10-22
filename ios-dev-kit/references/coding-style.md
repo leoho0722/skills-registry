@@ -13,6 +13,7 @@ Leo Ho 個人 Swift 開發規範。參考 [Swift API Design Guidelines](https://
     - [enum case](#enum-case)
   - [存取控制](#存取控制)
   - [型別選擇](#型別選擇)
+  - [函式拆分](#函式拆分)
   - [Optional 處理](#optional-處理)
     - [強制解包 `!` 的唯一例外](#強制解包--的唯一例外)
   - [Error Handling](#error-handling)
@@ -232,9 +233,26 @@ enum Layout {
 }
 ```
 
+## 函式拆分
+
+- **要**：只在一處使用的小段邏輯留在原處，不抽成 helper：一兩行的計算寫在呼叫端，只被一個 computed property 使用的格式化直接寫在該 property 內。
+- **要**：有自己的輸入與輸出、約 15 行以上的獨立演算法，才抽成函式或 local function（寫在使用它的函式內的 `func`）。被兩處以上使用的邏輯不受本節限制。
+- **要**：View 的子 View 依 `file-templates.md` 的「`body` 只放大框架」抽取，不看行數；TCA `core` 的 case 超過十行時依 `tca-architecture.md` 抽成 Private Method，兩者都不套用本節的門檻。
+- **避免**：只被呼叫一次、只有幾行的 private helper，讀者得跳到別處才看得懂原本那一段。
+
+```swift
+// Bundle 的擴充：只被這個 property 使用的格式化，直接寫在 property 內，不另抽 helper
+/// App 的版本號與建置編號，例如「1.2.0 (45)」
+var appVersion: String {
+    let version = infoDictionary?["CFBundleShortVersionString"] as? String ?? "-"
+    let build = infoDictionary?["CFBundleVersion"] as? String ?? "-"
+    return "\(version) (\(build))"
+}
+```
+
 ## Optional 處理
 
-- **要**：`guard let` 優先於 `if let`：需要提早離開的用 `guard let`，只有在 nil 時仍要繼續執行後續邏輯才用 `if let`。`guard` 的 `else` 只放 `return`、`throw`、`continue`、`break`，不放其他邏輯。
+- **要**：`guard let` 優先於 `if let`：需要提早離開的用 `guard let`，只有在 nil 時仍要繼續執行後續邏輯才用 `if let`。`guard` 的 `else` 只放 `return`、`throw`、`continue`、`break`，不放其他邏輯；離開前先記錄警告或 log 不算其他邏輯，禁止的是業務邏輯，例如改變狀態、呼叫 Service。
 - **要**：同名解包用簡寫 `guard let profile`、`if let profile`，不寫 `guard let profile = profile`。
 - **要**：多個 Optional 用逗號串在同一個 `guard let` / `if let`，巢狀不超過一層。
 - **要**：optional chaining 最多兩層（`user?.profile?.avatar`），更深就先 `guard let` 拆開，否則 nil 的來源無法辨識。
@@ -319,8 +337,8 @@ return fresh
 - **要**：`Task` 被取消時（`CancellationError` 或 `Task.isCancelled`）直接 `return`，不顯示錯誤給使用者。
 - **要**：`try?` 只用於「操作失敗後，使用者原本要做的事仍做得成」的情況：快取讀寫、清理暫存、分析追蹤、記住偏好、預先載入、解析可選欄位；同一行加註解寫明「失敗可忽略，因為 …」。
 - **避免**：`try?` 用在主要資料的讀寫、必要欄位解析、任何影響使用者可見結果的操作；這些一律 `do catch`。
-- **避免**：空的 `catch {}`，以及只 `print` 不處理的 `catch`。
-- **避免**：`fatalError` / `precondition` 用於執行期可能發生的狀況；它們只用於違反程式不變量的邏輯錯誤。
+- **避免**：空的 `catch {}`，以及只 `print` 不處理的 `catch`。只有註解的 `catch` 也算空的：錯誤確實可以忽略時改用 `try?`，並在同一行附上理由（見上方 `try?` 的規則），不能忽略就要處理。`catch` 內有實際敘述（例如只有 `return`）就不算空的。
+- **避免**：`fatalError` / `precondition` 用於執行期可能發生的狀況；它們只用於違反程式不變量的邏輯錯誤，也就是程式或測試本身寫錯，例如 Preview 假資料或測試環境無法建立、測試替身注入的錯誤和 closure 的 typed throws 型別不符。呼叫前一行用 `//` 寫明為什麼無法繼續。
 
 ```swift
 // Service：typed throws，包裝底層錯誤
@@ -500,7 +518,7 @@ var body: some View {
 - **要**：`init` 一律有摘要，說明建立出來的東西是什麼、需要什麼；參數依上一條寫。
 - **要**：enum case 帶 associated value 時，每個 value 都以 `- Parameter` / `- Parameters:` 說明，寫法與函式參數相同；沒有 label 的 value 以型別名稱小寫作為名稱（`- Parameter profile:`）。
 - **要**：摘要與參數之外還需要補充時用 `- Note:`，放在 `- Throws:` 之後；一個 `- Note:` 講一件事，例如使用前提、效能特性、與其他方法的關係、平台限制。不用自由段落補充，也不用 `- Important:`、`- Warning:`、`- Remark:` 等其他標記。
-- **要**：正體中文，技術名詞、型別名、識別字保留英文並以反引號標示。
+- **要**：正體中文，技術名詞、型別名、識別字保留英文。只有程式碼識別字（型別、成員、關鍵字、檔名）加反引號；sheet、alert、reducer、iPad 這類一般概念詞不加，即使它們是英文。`//` 註解同樣適用。
 - **要**：用白話文寫，目標是**完全不懂程式的人也能看懂這段程式碼在做什麼**：說使用者看得到的結果與情境，不說實作機制；能用日常詞就不用術語，非用術語不可時在同一句用括號解釋。例如「取得使用者的個人資料；最近抓過就用上次的，不再連網路」，而不是「透過 cache-aside 策略 fetch profile entity」。
 - **要**：白話但精簡。摘要一句話說完，補充段落每句只講一件事；先寫完再刪，刪到再刪一個字就少一個資訊為止。判斷標準：每個詞拿掉後意思有沒有變，沒變就刪。
 - **避免**：冗言贅字：「這個函式的用途是用來 …」直接寫「…」；「基本上」「其實」「進行 … 的動作」「相關的」「一些」；同一件事換句話再說一次；把摘要已經說過的內容在補充段落重複。
@@ -573,12 +591,13 @@ private extension ProfileViewModel {
 - [ ] 命名：`Manager` / `Handler` / `Provider` 用在不符本意的型別、`Helper` / `Util` 後綴、`get` 前綴、否定式 `Bool`、以型別當後綴（`userArray`）、`Id` 而非 `ID`、泛型用單字母
 - [ ] 存取控制：成員未從 `private` 起手、明寫 `internal`、出現 `fileprivate`、為測試放寬存取層級、屬性包裝與存取控制順序顛倒
 - [ ] 型別：`class` 未加 `final`、不打算被覆寫的型別成員寫 `class` 而非 `static`、可變共享狀態用 `class` 加 lock 而非 `actor`、`typealias` 給基本型別取別名、tuple 跨函式邊界、只有一個實作卻定義 protocol
-- [ ] Optional：`if let` 用在該提早離開的地方、`guard` 的 `else` 內有邏輯、optional chaining 超過兩層、`??` 掩蓋錯誤、`Bool?`、`.none`
+- [ ] 函式拆分：只在一處使用、只有幾行的邏輯抽成 helper；約 15 行以上的獨立演算法沒有抽出
+- [ ] Optional：`if let` 用在該提早離開的地方、`guard` 的 `else` 內有業務邏輯（離開前記錄 log 不算）、optional chaining 超過兩層、`??` 掩蓋錯誤、`Bool?`、`.none`
 - [ ] 強制解包：`!` 左側含變數、`try!`、`as!`、`IBOutlet` 以外的隱式解包、字面值 `!` 出現在一般方法內而非 `static let`
 - [ ] Error：全域 `AppError`、Error 帶 raw value、Service 方法未用 typed throws、Service 外洩 `URLError` / `DecodingError`、`catch` 子句分散而非通用 `catch` 內 `switch`
-- [ ] Error：`try?` 用在主要資料讀寫或必要欄位、`try?` 未附「失敗可忽略」註解、空的 `catch`、只 `print` 的 `catch`、`CancellationError` 顯示給使用者、`fatalError` 用於執行期狀況
+- [ ] Error：`try?` 用在主要資料讀寫或必要欄位、`try?` 未附「失敗可忽略」註解、空的 `catch`（含只有註解的）、只 `print` 的 `catch`、`CancellationError` 顯示給使用者、`fatalError` 用於執行期狀況或呼叫前沒有 `//` 說明原因
 - [ ] Concurrency：completion handler、自建 Combine pipeline、`DispatchQueue`、`Thread.sleep`、可並行的請求循序 `await`
 - [ ] Concurrency：`@MainActor` 標在方法而非型別、Service / Model 標 `@MainActor`、`@unchecked Sendable` 壓警告、`nonisolated(unsafe)`、`DispatchQueue.main.async`
 - [ ] Task：`Task.detached`、`init` 內建 Task、可重複觸發的 Task 未持有與取消、`catch` 內未先檢查 `Task.isCancelled`
 - [ ] 註解：任何宣告缺 `///`（含 `private`、`case`、`init`、protocol 實作）、有參數缺 `- Parameter`、有回傳缺 `- Returns`、會 throw 缺 `- Throws`、associated value 缺 `- Parameter`
-- [ ] 註解：術語與縮寫、複述名稱、冗言贅字、實作端複製 protocol 的句子、`// TODO` 沒有 issue 編號、被註解掉的程式碼、複述程式碼的 `//`
+- [ ] 註解：術語與縮寫、複述名稱、冗言贅字、實作端複製 protocol 的句子、`// TODO` 沒有 issue 編號、被註解掉的程式碼、複述程式碼的 `//`、一般概念詞（sheet、alert、iPad）加了反引號

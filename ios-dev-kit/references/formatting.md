@@ -20,8 +20,7 @@ Leo Ho 個人 Swift 排版規範。若專案有 `.swiftformat` 或 `.swift-forma
 |---|---|
 | 縮排 | 4 個空格，不用 tab；續行（斷行後的下一行）同樣縮排 4 格，例外見「換行與斷行」 |
 | 每行長度上限 | 100 字元，含縮排；超過時依「換行與斷行」一節處理，不以縮短命名或刪除標籤來壓行 |
-| 單檔長度上限 | 300 行（不含檔頭與空行）；超過時依 `file-templates.md` 的規則以 extension 分檔，不放寬上限 |
-| 大括號 | 開括號與宣告同行（`func foo() {`），閉括號單獨一行並對齊宣告起始；不使用 Allman 風格 |
+| 大括號 | 開括號與宣告同行（`func foo() {`），閉括號單獨一行並對齊宣告起始；宣告的本體一律另起一行，見「換行與斷行」；不使用 Allman 風格 |
 | 檔尾 | 保留一個換行，不多不少 |
 | 尾隨空白 | 不允許，包含空行與只含縮排的行 |
 
@@ -33,11 +32,12 @@ Xcode 設定對應：Settings → Text Editing → Indentation 設 Spaces / 4；
 - **要**：`if` / `guard` 有多個條件且整行超過 100 時，每個條件獨立一行；第一個條件與關鍵字同行，其餘條件**對齊第一個條件的起始欄位**（`guard` 加一個空格後為第 6 欄、`if` 加一個空格後為第 3 欄），這是 Xcode 自動縮排的預設行為。
 - **要**：`guard` 的 `else {` 與最後一個條件同行；`if` 的 `{` 與最後一個條件同行。
 - **要**：`guard` 的 `else` 本體一律另起一行，即使只有 `return` 或 `throw`。唯一例外是 `[weak self]` 之後的 `guard let self else { return }`，維持一行（見「Closure 與 Trailing Closure」）。
+- **要**：函式、`init`、subscript、computed property 的本體一律另起一行，閉括號單獨一行，即使本體只有一個表達式：不寫 `var total: Decimal { order.total }`、`var id: Self { self }`。例外是 computed property 內 `get` / `set` 的本體只有一個表達式時可以寫成一行，例如 TCA `DependencyValues` 屬性的 `get { self[Key.self] }`。作為引數傳入的 closure（`map { $0.id }`、trailing closure）不是宣告本體，依「Closure 與 Trailing Closure」判斷。
 - **要**：超長字串不斷行，允許超過 100；需要多行時用 `"""` 多行字串字面值。
 - **要**：陣列、字典字面值寫成多行時，每個元素獨立一行、縮排 4 格，`]` 單獨一行對齊起始欄位；最後一個元素後面一律加逗號，新增或刪除最後一個元素時 diff 只動一行。單行字面值不加尾隨逗號。唯一引數是字面值時 `]` 與右括號貼合成 `])`，見「參數與引數對齊」。
 - **避免**：用 `+` 串接字串來壓行，會讓搜尋字串失效。
 - **避免**：`if` / `guard` 的條件續行用固定 4 格，會與本體同層而失去視覺分界。
-- **避免**：在以下三處斷行，超過 100 也維持一行：`import`、`case` 宣告、closure 簽章（依「Closure 與 Trailing Closure」的處理順序做完仍超過時）。函式簽章不在此列，只有一個參數也依「參數與引數對齊」斷行。
+- **避免**：在以下四處斷行，超過 100 也維持一行：`import`、`case` 宣告、closure 簽章（依「Closure 與 Trailing Closure」的處理順序做完仍超過時）、沒有參數的函式宣告與函式型別（沒有參數就無處可斷，不在 `)` 之後拆行）。有參數的函式簽章不在此列，只有一個參數也依「參數與引數對齊」斷行。
 - **要**：`switch` 的每個 `case` 本體一律另起一行縮排 4 格，即使只有一個表達式；不寫成 `case .x: value` 單行，`default` 同樣適用。`case` 之間的空行見「空行規則」。
 - **要**：`switch` 的多 pattern `case` 清單整行超過 100 時，在逗號之後斷行：每行排滿，在不超過 100 的最後一個逗號之後才斷，不依語意分組，也不每個 pattern 各佔一行；續行比 `case` 多縮排 **8 格**，與縮排 4 格的 case 本體錯開，一眼分得出是 pattern 還是本體；`:` 接在最後一個 pattern 之後。這是「續行固定 4 格」的例外。上面不斷行清單裡的「`case` 宣告」指 enum 的 case 宣告，不含 switch 的 pattern 清單。
 
@@ -85,7 +85,7 @@ case .view(.settleButtonTapped), .view(.deleteCampaignButtonTapped), .settleConf
 
 ## 參數與引數對齊
 
-適用於函式與方法的宣告、`init` 宣告，以及所有呼叫端（含 `#expect` 這類 macro），四者同一套規則。斷不斷行完全由下列條件決定，非此即彼，不是可以自由選擇的風格。
+適用於函式與方法的宣告、`init` 宣告、函式型別的 `typealias`，以及所有呼叫端（含 `#expect` 這類 macro），同一套規則。斷不斷行完全由下列條件決定，非此即彼，不是可以自由選擇的風格。函式型別斷行時，`)` 與 `async`、`throws`、回傳型別接在同一行；沒有參數的函式型別無處可斷，維持一行。
 
 - **要**：符合以下任一條件就斷行，每個參數或引數獨立一行，續行縮排 4 格：整行超過 100 字元（即使參數不超過三個）；參數或引數超過三個（即使整行不超過 100）。
 - **要**：兩個條件都不符合時，所有參數或引數必須寫在同一行，不可斷行。
@@ -93,7 +93,7 @@ case .view(.settleButtonTapped), .view(.deleteCampaignButtonTapped), .settleConf
 - **要**：斷行時右括號單獨一行，對齊宣告或呼叫的起始欄位；回傳型別、`async throws`、`{` 接在右括號後同一行。有 trailing closure 時，closure 的 `{` 與簽章同樣接在右括號後：`) { item in`。
 - **要**：只有一個參數或引數時同樣適用：整行超過 100 就依本節規則斷行，未超過就寫在同一行，宣告端與呼叫端都一樣；參數型別含 closure、typed throws 或泛型時特別容易超過。斷行後右括號那一行（回傳型別、`throws`、`{`）仍超過 100 時，維持同一行，允許超過。
 - **要**：巢狀呼叫由外而內判斷。外層符合條件而斷行後，內層呼叫以自己所在的那一行（含縮排）重新套用本節；外層不符合條件時，內層也維持在同一行。但內層的參數或引數超過三個時，外層視同符合條件而斷行，因為內層斷行後右括號必須單獨一行對齊起始欄位，外層不斷行就做不到。
-- **要**：括號內的引數是多行本體的 closure，或是帶多行 trailing closure 的呼叫（例如 TCA 的 `store: Store(initialState: ...) { ... }`）時，不依上面的條件判斷，一律每個引數獨立一行；closure 本身的排版依「Closure 與 Trailing Closure」處理。
+- **要**：括號內的引數是多行本體的 closure，或是帶多行 trailing closure 的呼叫（例如 TCA 的 `store: Store(initialState: ...) { ... }`）時，不依上面的條件判斷，一律每個引數獨立一行；closure 本身的排版依「Closure 與 Trailing Closure」處理。建構裝 closure 的依賴 struct 同樣不依條件判斷，一律每個引數獨立一行，見「Closure 與 Trailing Closure」。
 - **要**：呼叫端（含 macro，例如 `@Test(arguments:)`）只有一個引數，而且這個引數是陣列或字典字面值、整行超過 100 而要斷行時，一律比照 trailing closure 把括號與字面值貼合：`[` 接在 `(arguments: ` 之後同一行，結尾寫成 `])` 對齊呼叫的起始欄位，元素寫法見「換行與斷行」。不把引數拆到獨立一行，右括號也不單獨一行。有兩個以上引數時不適用，照本節規則每個引數各一行、右括號單獨一行。這是上面「右括號單獨一行」與下面「避免右括號緊接最後一個參數」的例外。
 - **避免**：未達斷行條件卻把參數或引數拆成多行，包含單一引數的 `#expect(`、`FetchDescriptor(` 這類呼叫。
 - **避免**：部分換行（前兩個參數同行、第三個換行），diff 中會讓無關的參數跟著移動。
@@ -141,6 +141,13 @@ static func wrapStorage<Value>(
 ) throws(ProfileStorageError) -> Value {
     ...
 }
+
+// 函式型別 typealias：同一套規則，超過 100 依參數斷行，) 與 effects、回傳型別同行
+/// `renameCategory` 的函式型別
+typealias RenameCategory = @Sendable (
+    _ id: Category.ID,
+    _ newName: String
+) async throws(PersistenceError) -> Category
 
 // 呼叫：與宣告同一套規則
 let profile = try await service.fetchProfile(
@@ -275,6 +282,11 @@ func result(for statusCode: Int) -> RequestResult {
 ```
 
 ## MARK 分區與順序
+
+**一個檔案只宣告一個頂層型別。** 同檔有多個型別時，每個型別都有自己的 `// MARK: - Internal Method` 這類固定區名，區名重複出現，Xcode 的 jump bar 分不出哪一區屬於哪個型別。只在同檔使用的輔助型別改成巢狀型別（`coding-style.md` 存取控制），其他各自一檔。例外有兩種：
+
+- protocol 與它的正式實作同檔（`data/Service.swift`、`domain/UseCase.swift` 樣板）：protocol 本體只有要求、不分區，不會讓區名重複。
+- TCA `@Reducer enum` 產生的 `Destination.State`：本體由巨集產生、無法加成員，alert 建構方法與 `Equatable` 遵循寫在 `extension <Screen>Feature.Destination.State`，見 `tca-architecture.md` 的「Tree：畫面內的 Destination」。
 
 本節的分區適用於頂層型別（檔案內直接宣告的型別）；巢狀型別不分區，見下方「巢狀型別」。型別本體只放 stored properties 與 Init，其餘一律以同檔 extension 分區，每區以 `// MARK: - <區名>` 開頭，順序固定：
 
@@ -442,9 +454,10 @@ private extension ProfileViewModel {
 ### Extension 的使用時機
 
 - **要**：extension 只用於三件事：依上述順序分區、遵循 protocol、為非自己的型別加功能。
-- **要**：為非自己的型別（`Date`、`String`、`View`、系統或第三方型別）加功能時，放 `Core/Extensions/`，預設一個型別一檔 `<Type>+Extensions.swift`，檔內依功能以 `// MARK: - <功能>` 分區。該檔超過 300 行，或其中某個功能明顯自成一組（例如 `Date` 的相對時間計算）時，拆成 `<Type>+<Feature>.swift`，一個關注點一檔；拆分後不再保留 `<Type>+Extensions.swift`，全部改為功能命名，同一型別不混用兩種檔名。唯一例外是 `EnvironmentValues+Services.swift`，它是 `@Entry` 清單而非一般擴充。
+- **要**：為非自己的型別（`Date`、`String`、`View`、系統或第三方型別）加功能時，放 `Core/Extensions/`，預設一個型別一檔 `<Type>+Extensions.swift`，檔內依功能以 `// MARK: - <功能>` 分區。其中某個功能明顯自成一組（例如 `Date` 的相對時間計算）時，拆成 `<Type>+<Feature>.swift`，一個關注點一檔；拆分後不再保留 `<Type>+Extensions.swift`，全部改為功能命名，同一型別不混用兩種檔名。唯一例外是 `EnvironmentValues+Services.swift`，它是 `@Entry` 清單而非一般擴充。
 - **避免**：同一區塊拆成兩個 extension，例如兩個 `// MARK: - Internal Method`。
-- **避免**：跨檔 extension 自己的型別，除非依 `file-templates.md` 的分檔規則（單檔超過 300 行時以 `<Name>+<Domain>.swift` 分檔）。
+- **避免**：跨檔 extension 自己的型別，除非依 `file-templates.md` 的分檔規則（責任單一但方法多的型別，依子領域以 `<Name>+<Domain>.swift` 分檔）。
+- **避免**：SwiftUI View 用跨檔 extension 分檔。View 大到需要拆檔時，優先把區塊抽成獨立的 View 型別，傳入必要的值與 closure（位置與檔名見 `project-structure.md` 的「Presentation 依畫面分資料夾」）。跨檔 extension 取不到 View 的 `private` `@State`、`@Environment`，為了編譯降成 internal 會破壞封裝；確實抽不動時先問使用者，不自行降低存取層級。
 - **避免**：用 extension 對非自己的型別加 protocol 遵循（retroactive conformance），會與其他模組的遵循衝突；需要時改用 wrapper 型別。
 
 ### 巢狀型別
@@ -452,9 +465,10 @@ private extension ProfileViewModel {
 六區分區只適用於頂層型別。巢狀型別（Nested Types 內宣告的型別、TCA Feature 型別本體內的 `State` / `Action`）的所有成員一律就地寫在自己的本體，包含 computed property、方法與 protocol 實作，不另開 extension、不加 MARK。
 
 - **要**：本體內的順序比照頂層分區：case / stored property → init → nested type → 非 private computed property → 非 private 方法 → private computed property → private 方法；每一組內 static 在前，computed property 依依賴順序，方法依呼叫者在前。
+- **例外**：TCA Feature 型別的 `State` 把非 private computed property 排在 init 之前，順序見 `tca-architecture.md` 的「State」。
 - **要**：protocol 要求的成員（`var id`、`encode(to:)`）視為一般成員，依種類與存取層級排入上述順序，不另成一組。
-- **要**：巢狀型別大到需要分區才讀得懂時，代表它該成為獨立檔案，依 `file-templates.md` 的 Nested Types 判斷標準移到 `domain/`；TCA 的 `State` 受巨集限制不能移出，以單檔 300 行上限控制。
-- **避免**：`extension Outer.Nested` 為巢狀型別另開分區。
+- **要**：巢狀型別大到需要分區才讀得懂時，代表它該成為獨立檔案，依 `file-templates.md` 的 Nested Types 判斷標準移到 `domain/`；TCA 的 `State` 受巨集限制不能移出，過大時依 `tca-architecture.md` 的「拆分」抽出子 Feature 來縮小。
+- **避免**：`extension Outer.Nested` 為巢狀型別另開分區。唯一例外是 TCA 巨集產生的 `Destination.State`，見「MARK 分區與順序」開頭的「一個檔案只宣告一個頂層型別」。
 
 ```swift
 // MARK: - Nested Types
@@ -517,11 +531,16 @@ import Testing
 - **要**：寫了 `[weak self]` 就在 closure 第一行 `guard let self else { return }`，之後直接用 `self`；不用 `self?.` 逐行解包。
 - **要**：多行 closure 的 `{` 與呼叫同行，`}` 單獨一行對齊呼叫起始，本體縮排 4 格；單行 closure 前後各留一個空格：`{ $0.id }`。
 - **要**：寫在另一個 closure 本體內的 closure 一律寫成多行，即使放得進一行，讓每一層 closure 的範圍一眼看得出來。SwiftUI 的 View builder、modifier 與 action closure（`VStack { }`、`.task { }`、`.refreshable { }`、`Button { }` 等）不論位置一律寫成多行，直接接在 `body` 根層的也一樣。其他 closure 直接寫在函式本體、computed property 或 accessor 內、不在另一個 closure 裡時，仍可單行，例如 `.filter { $0.isActive }`、`Task { await load() }`。
+- **要**：以下三種呼叫即使放得進一行，也一律寫成多行：
+  1. 建構裝 closure 的依賴 struct（TCA Service 的 `liveValue`、`testValue`、`previewValue`，以及測試內直接建構的 Service）：型別名稱與左括號同行（`Self(`），每個引數各占一行，`)` 單獨一行。這是「參數與引數對齊」未達條件必須寫成一行的例外。
+  2. 多重 trailing closure：`Binding {`、本體、`} set: {`、本體、`}` 逐行排列，不寫成 `Binding { draft.name } set: { draft.name = $0 }`。SwiftUI 的 `Button { } label: { }` 本來就依上一條寫成多行。
+  3. 把可能失敗的操作包起來、轉成領域錯誤的 helper（例如 `PersistenceError.mapFetch { }`、`mapSave { }`）：`{` 接在呼叫後，被包住的操作在本體自成一行，`}` 單獨一行。
 - **要**：capture list、參數與 `in` 一律和 `{` 寫在同一行。整行超過 100 時依序處理：
   1. 鏈式呼叫在 `.` 之前斷行，讓帶 closure 的那一段自成一行。
   2. 呼叫的引數每個一行、右括號單獨一行，`) { item in` 接在右括號後；呼叫端只有一個引數也照做。
   3. 前兩步做完仍超過（例如賦值左側很長），維持同一行，允許超過 100。
 - **要**：closure 要指定給 typed throws 的函式型別、且本體會 throw 時，簽章只補 `throws(E)`：`{ name throws(ValidationError) in`，沒有參數時寫 `{ () throws(ValidationError) in`（省略 `()` 無法編譯）；參數型別、`async`、回傳型別仍省略。Swift 6 的 closure 不會從指定目標推斷錯誤型別，一律推斷為 `throws(any Error)`，賦值給屬性、當作 init 引數、本體只呼叫 typed throws 方法都一樣，所以 `throws(E)` 不可省略。唯一例外是 `let` 加上函式型別宣告、而且位置在函式本體、不在任何 closure 裡（`let failingAdd: CategoryService.AddCategory = { _ in throw .saveFailed }`），這時 Swift 推斷得出 typed throws，closure 不用標註；同樣的 `let` 寫在 `withDependencies { }`、`Task { }` 等 closure 本體內就推不出來，仍要補 `throws(E)`（Swift 6.4 已驗證）。本體不會 throw 時什麼都不用標；唯一例外是 closure 傳給以 closure 的 thrown type 推斷泛型錯誤型別、且該泛型有約束的 API（例如 `func write<R, Failure: StorageFailureWrapping>(_ body: (ModelContext) throws(Failure) -> R) async throws(Failure) -> R`），這時 `throws(E)` 用來決定泛型，本體不會 throw 也要標：省略時泛型推成 `Never`，不符合約束而無法編譯。泛型沒有約束時省略可以編譯，照常不標。
+- **要**：closure 本體內的 `do` / `catch` 要拿到型別化的錯誤時，寫 `do throws(E) { } catch { }`。Swift 只在函式本體內依 `do` 本體推斷 `catch` 的 `error` 型別；寫在任何 closure 內（TCA 的 `.run`、`withDependencies`、`Task`）時，即使 `do` 本體只呼叫同一種 typed throws，`error` 仍是 `any Error`，接不進 `Result<T, E>` 或 `E?`（Swift 6.4 已驗證）。函式本體內照常寫 `do`，不用標註。
 - **避免**：明確標註 closure 的參數型別與回傳型別，只在編譯器推斷失敗時加。
 - **避免**：把 closure 簽章移到 `{` 的下一行，或在 `=` 之後斷行把 `{` 移到續行。
 - **避免**：closure 內用 `return` 回傳單一表達式，單一表達式省略 `return`。
@@ -538,6 +557,36 @@ Button {
     viewModel.save()
 } label: {
     Label("Save", systemImage: "square.and.arrow.down")
+}
+
+// 多重 trailing closure 即使放得進一行也逐行排列
+let nameBinding = Binding {
+    draft.name
+} set: {
+    draft.name = $0
+}
+
+// 建構裝 closure 的依賴 struct：即使放得進一行也每個引數一行，) 單獨一行
+static var testValue: Self {
+    Self(
+        fetchCategories: unimplemented("CategoryService.fetchCategories", placeholder: []),
+        addCategory: unimplemented("CategoryService.addCategory")
+    )
+}
+
+// 錯誤對應 helper：被包住的操作自成一行
+let records = try PersistenceError.mapFetch {
+    try context.fetch(descriptor)
+}
+
+// closure 內的 do / catch：要拿到型別化的錯誤就寫 do throws(E)
+return .run { send in
+    do throws(ProfileError) {
+        let profile = try await service.fetchProfile()
+        await send(.profileResponse(.success(profile)))
+    } catch {
+        await send(.profileResponse(.failure(error)))
+    }
 }
 
 // 修改 inout 值的 closure：本體有兩個敘述也用 $0
@@ -659,13 +708,16 @@ var body: some View {
 - [ ] `if` / `guard` 多條件的續行沒有對齊第一個條件
 - [ ] `switch` 的多 pattern `case` 清單斷行後，續行不是比 `case` 多 8 格，或沒有排滿 100 就提早斷行
 - [ ] `guard` 的 `else` 本體與 `else {` 寫在同一行（`guard let self else { return }` 除外）
-- [ ] 參數部分換行，或換行後右括號沒有單獨一行；只有一個參數的宣告或呼叫超過 100 卻沒有斷行
+- [ ] 函式、`init`、subscript、computed property 的本體與宣告寫在同一行（`get` / `set` 只有一個表達式時除外）
+- [ ] 參數部分換行，或換行後右括號沒有單獨一行；只有一個參數的宣告或呼叫超過 100 卻沒有斷行；有參數的函式型別 `typealias` 達斷行條件卻沒依參數斷行，或沒有參數的函式宣告、函式型別在 `)` 之後拆行
 - [ ] 唯一引數是陣列或字典字面值且要斷行時，沒有寫成 `(label: [` 與 `])` 貼合；兩個以上引數卻用了貼合寫法
 - [ ] 多行陣列、字典字面值的最後一個元素後面沒加逗號，或單行字面值加了尾隨逗號
 - [ ] 未達斷行條件（整行不超過 100 且不超過三個）卻把參數或引數拆成多行，包含單一引數的 `#expect(`、`FetchDescriptor(`
 - [ ] 型別或 extension 開括號後沒空行、閉括號前有空行
 - [ ] enum 的 `case` 宣告之間、`switch` 的 `case` 之間沒空行；`switch {` 之後或 `}` 之前多了空行
 - [ ] 測試的 `// When`、`// Then` 前面沒空行，或 `// Given` 前面多了空行
+- [ ] 一個檔案宣告兩個以上的頂層型別（protocol 與實作同檔、TCA `Destination.State` 的 extension 除外）
+- [ ] SwiftUI View 用跨檔 extension 分檔，或為了分檔把 `private` 的 `@State`、`@Environment` 降成 internal
 - [ ] MARK 順序錯置，或同一區塊拆成兩個 extension
 - [ ] private 的 computed property 放在 Computed Properties，或非 private 的放在 Private Method
 - [ ] 區內 static 沒排在 instance 之前；Private Method 區內 method 排在 property 之前；static stored property 放在 extension
@@ -677,6 +729,8 @@ var body: some View {
 - [ ] import 未依字母排序、重複 import `SwiftUI` 已涵蓋的模組、非 UI 層 import `SwiftUI`；留著沒用到的 import（含樣板或 Xcode 預設帶的），或是否用到沒以 build 確認
 - [ ] `@testable import` 前沒有空行
 - [ ] 寫在另一個 closure 本體內的 closure 寫成單行；SwiftUI 的 View builder、modifier 或 action closure 寫成單行，包含 `body` 根層的
+- [ ] 建構裝 closure 的依賴 struct（`Self(...)`）、多重 trailing closure、錯誤對應 helper 的 closure 寫成一行
+- [ ] closure 內的 `do` / `catch` 要把 `error` 當成 typed error 用，卻沒寫 `do throws(E)`
 - [ ] 多個 closure 參數沒用多重 trailing closure；本體不是單一表達式或有多個參數的 closure 用 `$0`（修改 `inout` 值的 closure 除外：TCA 測試的 `send`、`receive`、`withDependencies` 與 `withLock`、`withValue`）；單一表達式、單一參數的 closure 沒用 `$0`，包含斷成多行的（內層要用到外層參數時除外）
 - [ ] closure 簽章移到 `{` 下一行、在 `=` 後斷行；closure 多標了推斷得出的參數型別、`async` 或回傳型別
 - [ ] `[weak self]` 後沒有 `guard let self`，或出現 `self?.`、`unowned`

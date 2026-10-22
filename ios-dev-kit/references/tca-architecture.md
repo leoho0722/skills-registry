@@ -35,7 +35,7 @@ TCA 是 **Presentation 層的第二種架構**，與 MVVM + Coordinator 並列�
 本檔內「Feature」有兩種用法，依上下文區分：
 
 | 用語 | 意義 | 例子 |
-|---|---|---|
+| --- | --- | --- |
 | Feature 模組 | `project-structure.md` 定義的功能單位，一個資料夾 | `Features/Profile/` |
 | Feature 型別 | TCA 的 `@Reducer` 型別，一個畫面一個 | `EditProfileFeature` |
 
@@ -44,7 +44,7 @@ TCA 是 **Presentation 層的第二種架構**，與 MVVM + Coordinator 並列�
 ### MVVM 與 TCA 的對應
 
 | MVVM + Coordinator | TCA | 說明 |
-|---|---|---|
+| --- | --- | --- |
 | `<Screen>ViewModel` | `<Screen>Feature` | 狀態與邏輯的所在 |
 | ViewModel 的 `State` / `Action` nested type | Feature 的 `State` / `Action` | 位置改在型別本體 |
 | `<Feature>Coordinator` 的 `Route` | 根 Feature 的 `Path` | Stack 導航 |
@@ -73,7 +73,7 @@ Features/<Feature>/
 │       ├── <Screen>Feature.swift         # tca/Feature.swift
 │       ├── <Screen>Feature+Path.swift    # 選用，Path / Destination 子 reducer 過大時拆檔
 │       ├── <Screen>View.swift            # tca/FeatureView.swift
-│       └── <Screen>View+<Part>.swift     # 選用，同 MVVM
+│       └── <Screen><Part>View.swift      # 選用，同 MVVM
 ├── Domain/                               # 同 MVVM
 ├── Data/
 │   ├── <Feature>Service.swift            # tca/Service.swift
@@ -98,14 +98,14 @@ Features/<Feature>/
 1. `State`：`@ObservableState struct State: Equatable`
 2. `Action`：`enum Action` 與其內的 `View`、`Delegate`
 3. `Dependencies`：全部 `@Dependency` 屬性，一律 `private`
-4. `Body`：`var body: some ReducerOf<Self>`
+4. `Body`：`var body: some Reducer<State, Action>`
 
 本體以外依既有規範以同檔 extension 分區，順序固定：
 
-5. `Nested Types`（extension）：`Path`、`Destination`、`CancelID` 等 Feature 專屬型別；順序固定 `Path` → `Destination` → `CancelID` → 其他依字母排序。`@Reducer enum` 放 extension 內與放本體內效果相同，已驗證。
-6. `Private Method`（`private extension`）：第一個方法固定是 `core(state:action:)`，其後是抽出的 Effect 方法，依 `formatting.md` 的呼叫者在前、深度優先排列；`core` 排第一本身就符合這條通則。有 private static method 時也排在 `core` 之後，這是 `formatting.md`「區內排序」static 在前的例外，讓 reducer 的入口一打開就看得到；private computed property 仍依該節排在所有方法之前。
+1. `Nested Types`（extension）：`Path`、`Destination`、`CancelID` 等 Feature 專屬型別；順序固定 `Path` → `Destination` → `CancelID` → 其他依字母排序。`@Reducer enum` 放 extension 內與放本體內效果相同，已驗證。
+2. `Private Method`（`private extension`）：第一個方法固定是 `core(state:action:)`，其後是抽出的 Effect 方法，依 `formatting.md` 的呼叫者在前、深度優先排列；`core` 排第一本身就符合這條通則。有 private static method 時也排在 `core` 之後，這是 `formatting.md`「區內排序」static 在前的例外，讓 reducer 的入口一打開就看得到；private computed property 仍依該節排在所有方法之前。
 
-`State` 與 `Action` 必須在本體：`@Reducer` 巨集只會替本體內的 `Action` 加上 `@CasePathable`，搬到 extension 會失去 case key path。`@Dependency` 是 property wrapper，展開後是 stored property，Swift 不允許 extension 宣告 stored property，所以也必須在本體；官方文件一律寫在 `Action` 之後、`body` 之前，本規範以 `Dependencies` 區名固定這個位置。`body` 留本體則比照 SwiftUI `View` 的 Body 例外。`@Reducer`、`@ObservableState`、`@CasePathable`、`@Dependency` 各自獨立一行，寫在被修飾的宣告正上方，doc comment 在巨集之上；`@Dependency(\.xxx)` 與 `private var xxx` 也分兩行，避免 key path 拉長單行。用不到的區塊直接省略，不留空 MARK。
+`State` 與 `Action` 必須在本體：`@Reducer` 巨集只會替本體內的 `Action` 加上 `@CasePathable`，搬到 extension 會失去 case key path。`@Dependency` 是 property wrapper，展開後是 stored property，Swift 不允許 extension 宣告 stored property，所以也必須在本體；官方文件一律寫在 `Action` 之後、`body` 之前，本規範以 `Dependencies` 區名固定這個位置。`body` 留本體則比照 SwiftUI `View` 的 Body 例外。`body` 的型別一律寫 `some Reducer<State, Action>`，不寫 `some ReducerOf<Self>`：後者要經過 `Self` 解析 `State` 與 `Action`，在部分專案會觸發編譯器的 circular reference 錯誤，直接寫出兩個型別就不經過 `Self`。`@Reducer`、`@ObservableState`、`@CasePathable` 各自獨立一行，寫在被修飾的宣告正上方，doc comment 在巨集之上；`@Dependency(\.xxx)` 則與 `private var xxx` 寫在同一行，整行超過 100 字元才在 `)` 之後換行。用不到的區塊直接省略，不留空 MARK。
 
 完整骨架如下，方法本體省略：
 
@@ -150,7 +150,7 @@ struct ProfileFeature {
         /// Service 回傳個人資料的結果
         ///
         /// - Parameter result: 成功帶回資料，失敗帶回錯誤
-        case profileResponse(Result<Profile, any Error>)
+        case profileResponse(Result<Profile, ProfileError>)
 
         /// 使用者在畫面上的操作
         @CasePathable
@@ -177,13 +177,12 @@ struct ProfileFeature {
     // MARK: - Dependencies
 
     /// 讀取與更新個人資料的 Service
-    @Dependency(\.profileService)
-    private var service
+    @Dependency(\.profileService) private var service
 
     // MARK: - Body
 
     /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`
-    var body: some ReducerOf<Self> {
+    var body: some Reducer<State, Action> {
         Reduce(core)
             .ifLet(\.$destination, action: \.destination)
     }
@@ -232,19 +231,47 @@ private extension ProfileFeature {
 ### State
 
 - **要**：一律 `@ObservableState` 且遵循 `Equatable`，否則 `TestStore` 無法比對狀態。
-- **要**：只放畫面需要的最小狀態；能從其他狀態算出的值改為 computed property，放同一個 `State` 內、stored property 之後。`State` 是巢狀型別，依 `formatting.md` 的「巢狀型別」就地寫，不另開 `extension <Screen>Feature.State`。
+- **要**：只放畫面需要的最小狀態；能從其他狀態算出的值改為 computed property，放同一個 `State` 內。`State` 是巢狀型別，依 `formatting.md` 的「巢狀型別」就地寫，不另開 `extension <Screen>Feature.State`。
+- **要**：`State` 本體的順序固定為 stored property → 非 private computed property → init → nested type → 方法（非 private 方法 → private computed property → private 方法）。這是 `formatting.md`「巢狀型別」把 init 排在 computed property 之前的例外，讓推導出的狀態緊接在它的來源之後，不被 init 隔開。
+- **要**：由外部注入的值（父層或 App 進入點建立 `State` 時帶入，例如 App 版本、設定快照）用 `let`，宣告處不給預設值，只從 init 帶入。宣告處放佔位值再於 init 覆寫，會讓「沒注入」和「注入了佔位值」分不出來；不給預設值時，漏了注入編譯器就會擋下。
 - **要**：子畫面的狀態以 `@Presents var destination: Destination.State?` 或 `var path = StackState<Path.State>()` 持有，見「導航」。
 - **避免**：把 Service 或 Client 放進 `State`；把 `Model` 的欄位攤平複製進 `State`，直接持有 `Model`。
+
+```swift
+    /// 設定畫面的全部狀態
+    @ObservableState
+    struct State: Equatable {
+
+        /// App 的版本號，由 App 進入點帶入，畫面只顯示不修改
+        let appVersion: String
+
+        /// 使用者目前的偏好設定
+        var preferences: Preferences
+
+        /// 是否開啟了任何一種通知，決定要不要顯示通知細項
+        var hasAnyNotification: Bool {
+            preferences.notifiesOnShipping || preferences.notifiesOnPayment
+        }
+
+        /// 依 App 啟動時讀到的設定建立狀態
+        ///
+        /// - Parameter snapshot: App 啟動時讀到的版本與偏好設定
+        init(snapshot: SettingsSnapshot) {
+            appVersion = snapshot.appVersion
+            preferences = snapshot.preferences
+        }
+    }
+```
 
 ### Action
 
 `Action` 固定三組，依來源分：
 
 | 組別 | 宣告 | 誰能送 | 命名 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 使用者操作 | `case view(View)`，`View` 為 `@CasePathable enum` | 只有對應的 View | 以「發生了什麼」命名：`saveButtonTapped`、`task`、`searchTextChanged(String)`；不用命令式 `save`、`load`；畫面出現固定叫 `task`，不用 `onAppear` |
 | 交給父層的結果 | `case delegate(Delegate)`，`Delegate` 為 `@CasePathable enum`，遵循 `Equatable` | 只有本 Feature 的 `body` | 以「結果」命名：`finished(Order)`、`cancelled`、`profileUpdated(Profile)` |
-| 內部回應 | 直接平放在 `Action` | 只有本 Feature 的 Effect | `<名詞>Response(Result<..., any Error>)`；導航相關為 `path(...)`、`destination(...)` |
+| 內部回應 | 直接平放在 `Action` | 只有本 Feature 的 Effect | `<名詞>Response(Result<..., <Service 的錯誤型別>>)`，例如 `Result<Profile, ProfileError>`，與 Service 的 typed throws 一致，不用 `any Error`；導航相關為 `path(...)`、`destination(...)` |
 
 - **要**：`Action` 內 case 順序固定 `view` → `delegate` → `path` / `destination` → 其他內部回應依字母排序；nested enum 順序 `View` → `Delegate`。
 - **要**：`body` 收到 `.delegate` 一律 `return .none`，由父 reducer 在自己的 `body` 處理。
@@ -256,7 +283,7 @@ private extension ProfileFeature {
 - **要**：`body` 只負責組合，本畫面自己的邏輯放 Private Method 的 `core(state: inout State, action: Action) -> Effect<Action>`，`body` 以 `Reduce(core)` 引用；不在 `body` 內寫 `Reduce { state, action in ... }` 閉包。
 - **要**：`body` 的組合順序固定：`BindingReducer()`（有才寫）→ `Scope`（固定子 Feature）→ `Reduce(core)`；`.ifLet` 與 `.forEach` 以 modifier 形式接在 `Reduce(core)` 之後。
 - **要**：`core` 內 `switch action` 的 case 順序與 `Action` 宣告順序一致；每個 case 本體換行、case 之間空一行，同 `formatting.md`。
-- **要**：Effect 只用 `.run`，內部是 async/await；`Task.detached`、GCD、Combine 依鐵則 5 禁用。Service 的 typed throws 在 `.run` 內以 `do` / `catch` 接住，轉成 `Result` 送回 Action。
+- **要**：Effect 只用 `.run`，內部是 async/await；`Task.detached`、GCD、Combine 依鐵則 5 禁用。Service 的 typed throws 在 `.run` 內以 `do throws(<Service 的錯誤型別>) { } catch { }` 接住，轉成 `Result` 送回 Action：`.run` 是 closure，一般 `do` / `catch` 的 `error` 在這裡是 `any Error`，放不進 `Result<T, E>`（`formatting.md` 的「Closure 與 Trailing Closure」）。
 - **要**：畫面出現時要啟動的 Effect（初次載入、`AsyncStream` / `.values` 監聽）一律綁在 `.view(.task)`，由 View 的 `.task` modifier 觸發，離開畫面時 SwiftUI 自動取消，不需要 `CancelID`。
 - **要**：只有使用者動作觸發、且需要手動取消或去重的 Effect（搜尋防抖、可取消的送出）才用 `CancelID`（Nested Types 內的 `enum`）配 `.cancellable(id:cancelInFlight:)` 與 `.cancel(id:)`。
 - **要**：同一個 case 超過十行時，把 Effect 或狀態更新抽成 Private Method，方法名稱以動詞開頭並回傳 `Effect<Action>`，排在 `core` 之後。
@@ -266,7 +293,7 @@ private extension ProfileFeature {
     // MARK: - Body
 
     /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`
-    var body: some ReducerOf<Self> {
+    var body: some Reducer<State, Action> {
         Reduce(core)
             .ifLet(\.$destination, action: \.destination)
     }
@@ -288,12 +315,12 @@ private extension ProfileFeature {
             state.isLoading = true
             return loadProfile()
 
-        case let .profileResponse(.success(profile)):
+        case .profileResponse(.success(let profile)):
             state.isLoading = false
             state.profile = profile
             return .none
 
-        case let .profileResponse(.failure(error)):
+        case .profileResponse(.failure(let error)):
             state.isLoading = false
             state.errorMessage = error.localizedDescription
             return .none
@@ -308,7 +335,7 @@ private extension ProfileFeature {
     /// - Returns: 載入個人資料的 Effect
     func loadProfile() -> Effect<Action> {
         .run { send in
-            do {
+            do throws(ProfileError) {
                 let profile = try await service.fetchProfile()
                 await send(.profileResponse(.success(profile)))
             } catch {
@@ -321,17 +348,20 @@ private extension ProfileFeature {
 
 ### 拆分
 
-單檔 300 行上限沿用 `formatting.md`，超過依序處理：
+Feature 型別過大、需要拆檔時依序處理：
 
 1. `Path` / `Destination` 子 reducer 過大，搬到 `<Screen>Feature+Path.swift` 或 `<Screen>Feature+Destination.swift`，內容是 `extension <Screen>Feature` 內的 `@Reducer enum`。
 2. 還是長，代表這個畫面做太多事：把可獨立的區塊抽成子 Feature 型別，以 `Scope` 組合。
 3. 一個畫面資料夾內出現第二個 Feature 型別且它有自己的 View，就是另一個畫面，另開資料夾。
 
+- **避免**：為了縮短主檔，把 `core` 的 `switch` 或整個 `Action` 的分派移到輔助型別或其他檔案。`core` 與它的 `switch` 一律留在 Feature 主檔，主檔太長時依上面的順序抽子 Feature。
+
 ## View
 
 從 `tca/FeatureView.swift` 複製。分區與 `presentation/View.swift` 相同（Properties → Body → Private Views → Nested Types → Private Method → Preview），差別只在 Properties 與 Init：
 
-- **要**：唯一的 stored property 是 `@Bindable var store: StoreOf<<Screen>Feature>`，由父 View 以 `store.scope` 或 App 進入點以 `Store(initialState:reducer:)` 建立後傳入；不寫 Init。
+- **要**：狀態只來自 `@Bindable var store: StoreOf<<Screen>Feature>`，由父 View 以 `store.scope` 或 App 進入點以 `Store(initialState:reducer:)` 建立後傳入；不寫 Init。除了 `store`，可以另外持有無障礙與版面需要的值：`@Environment` 的環境值（`locale`、`dynamicTypeSize`、`horizontalSizeClass` 或專案自訂的版面分類）、`@ScaledMetric`、`static let` 常數；`@State` 的限制見下方。
+- **要**：Properties 的順序固定為 `static let` → `@Environment` → `@ScaledMetric` → `@Bindable var store` → `@State` / `@FocusState` → `@Binding` → 一般 `let` / `var`，同一組內依名稱字母排序。
 - **要**：畫面出現時的載入固定寫 `.task { await store.send(.view(.task)).finish() }`，不用 `onAppear`；`finish()` 讓 Effect 跟著 View 生命週期，離開畫面自動取消。
 - **要**：畫面只讀 `store` 的狀態、只送 `store.send(.view(...))`；`@State` 只允許純 UI 狀態（捲動位置、焦點、動畫旗標）且 Feature 完全不碰。
 - **要**：`body` 只放大框架，內容抽 Private Views；格式化用 `FormatStyle`，同鐵則 8。
@@ -355,6 +385,7 @@ TCA 原生導航取代 Coordinator：Stack 導航由根 Feature 的 `Path` 管�
 - **要**：View 以 `.sheet(item: $store.scope(\.destination?.<case>, action: \.destination.<case>))` 綁定；alert 用 `.alert($store.scope(\.destination?.alert, action: \.destination.alert))`。
 - **要**：一個畫面只有一個 `destination`，所有可呈現的目的地都是它的 case；不為 sheet 與 alert 各開一個 optional。
 - **要**：`@Reducer enum` 產生的 `Path.State` / `Destination.State` 不會自動 `Equatable`，在 Nested Types extension 之後補一個 `// MARK: - Equatable` 的空 extension：`extension <Screen>Feature.Destination.State: Equatable {}`，否則父 `State` 無法 `Equatable`。
+- **要**：建構 alert、confirmationDialog 的方法（`static func deleteConfirmation(name:) -> Self`）寫在 `extension <Screen>Feature.Destination.State`，以 `// MARK: - Internal Method` 分區，排在 Nested Types 之後、`Equatable` 之前。`Destination.State` 由巨集產生，本體無法加成員，這是 `formatting.md`「巢狀型別」不另開 extension 的唯一例外，也是「一個檔案只宣告一個頂層型別」的例外之一；`Destination` 拆到 `<Screen>Feature+Destination.swift` 時，這兩個 extension 一起搬過去。
 - **避免**：跨畫面的 push 走 `Destination`（那是 `Path` 的事）；`Destination` 的 case 指向其他 Feature 模組的畫面。
 
 ### 動詞對應
@@ -362,7 +393,7 @@ TCA 原生導航取代 Coordinator：Stack 導航由根 Feature 的 `Path` 管�
 `FlowCoordinator` 的四個動詞在 TCA 專案對應如下，命名固定，讓流程型 Feature 模組（Onboarding、Checkout）兩種架構讀起來一致：
 
 | FlowCoordinator | TCA：子畫面送出 | TCA：根 Feature 收到後 |
-|---|---|---|
+| --- | --- | --- |
 | `proceed(from:)` | `.delegate(.proceeded)` 或帶資料的 `.delegate(.proceeded(<Output>))` | `state.path.append(.<next>(...))` |
 | `pop()` | 不送 action，交給系統返回手勢與返回鍵 | `.forEach` 自動移除 |
 | `finish(with:)` | `.delegate(.finished(<Output>))` | 清空 `path`，再向自己的父層送 `.delegate(.finished(<Output>))` |
@@ -386,7 +417,7 @@ Feature 型別直接取用的 Service 改用 TCA 慣例的 struct 裝 closure；
 
 - **要**：`<Feature>Service` 是遵循 `Sendable` 的 struct，每個操作一個 closure 屬性，型別一律 `@Sendable` 加 typed throws；TCA 專案不出現 `<Feature>ServiceProtocol`、`Preview<Feature>Service`、`Mock<Feature>Service`。
 - **要**：每個 closure 屬性一律宣告 typealias，名稱為屬性名稱首字大寫（`addCategory` → `AddCategory`），放 Nested Types，順序與屬性一致，參數名稱保留在 typealias 內。完整的 `///`（`- Parameter`、`- Returns`、`- Throws`）寫在屬性上，因為呼叫端的 Quick Help 顯示的是屬性的說明；typealias 只寫一行「`addCategory` 的函式型別」。
-- **要**：Service 直接遵循 `DependencyKey`（`extension <Feature>Service: DependencyKey`），不另建 Key enum。Feature 型別以 `@Dependency(\.<feature>Service)` 換行接 `private var service` 取用，放 Dependencies 區，`Effect` 內直接用捕獲的 `service`。
+- **要**：Service 直接遵循 `DependencyKey`（`extension <Feature>Service: DependencyKey`），不另建 Key enum。Feature 型別以 `@Dependency(\.<feature>Service) private var service` 同一行取用，放 Dependencies 區，`Effect` 內直接用捕獲的 `service`。
 - **要**：`liveValue` 是 computed property（`static var`），在裡面以 `@Dependency` 取得 Client / Store，再組出每個 closure；本體會 throw 的 closure 依 `formatting.md` 只補 `throws(E)`。不寫成 `static let`：`static let` 只在第一次取用時建立，之後固定住當時的 Client / Store，測 Service 時無法用 `withDependencies` 換成 Mock。
 - **要**：`testValue` 必須宣告，每個 closure 都是 `unimplemented("<Feature>Service.<屬性>")`，有回傳值的加 `placeholder:`，填空集合、`nil`、空字串這類中性的值。少了 `testValue`，測試在 `withDependencies` 只覆寫一個 closure 時，其他 closure 會悄悄改用 `previewValue`，不會報錯（swift-dependencies 在設定依賴期間的預設行為，已實測）。
 - **要**：`previewValue` 放在 `+Preview` 檔，整檔 `#if DEBUG`，getter 第一行 `assert(RuntimeEnvironment.allowsPreviewStub, ...)`，closure 只回傳固定的假資料。
@@ -637,10 +668,13 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 ## 常見錯誤檢查清單
 
 - [ ] TCA 專案出現 ViewModel、Coordinator、`@Entry`、`EnvironmentValues+Services.swift`，或 MVVM 專案出現 `@Reducer`
-- [ ] Feature 型別本體分區順序不是 State → Action → Dependencies → Body；`Path` / `Destination` / `CancelID` 寫在本體內而非 Nested Types extension；`Destination.State` 缺 `Equatable` extension
-- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；`core` 不是 Private Method 區的第一個方法
-- [ ] `State` 的 computed property 另開 `extension <Screen>Feature.State`，而非寫在 `State` 本體
-- [ ] `State` 缺 `@ObservableState` 或 `Equatable`；`State` 持有 Service
+- [ ] Feature 型別本體分區順序不是 State → Action → Dependencies → Body；`Path` / `Destination` / `CancelID` 寫在本體內而非 Nested Types extension；`Destination.State` 缺 `Equatable` extension；alert 建構方法沒寫在 `extension <Screen>Feature.Destination.State`
+- [ ] `body` 的型別寫成 `some ReducerOf<Self>` 而非 `some Reducer<State, Action>`；`@Dependency(\.xxx)` 與 `private var xxx` 未超過 100 字元卻拆成兩行
+- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；`core` 不是 Private Method 區的第一個方法；`core` 的 `switch` 或整個 `Action` 的分派移到輔助型別
+- [ ] `State` 的 computed property 另開 `extension <Screen>Feature.State`，而非寫在 `State` 本體；`State` 本體順序不是 stored → 非 private computed → init → nested type → 方法
+- [ ] `State` 缺 `@ObservableState` 或 `Equatable`；`State` 持有 Service；外部注入的值宣告成 `var` 或在宣告處給了預設值
+- [ ] 內部回應的 `Result` 錯誤型別寫成 `any Error` 而非 Service 的錯誤型別；`.run` 內接 typed error 的 `do` 沒寫 `throws(E)`
+- [ ] TCA View 以 `@Environment` 取無障礙與版面以外的值（例如 Service）；Properties 順序不是 `static let` → `@Environment` → `@ScaledMetric` → `store` → `@State` / `@FocusState` → `@Binding` → 一般 `let` / `var`
 - [ ] `Action` 缺 `view` / `delegate` 分組；View 送了 `view` 以外的 action；view case 用命令式命名
 - [ ] `body` 收到 `.delegate` 沒有 `return .none`；`.delegate` 在本 Feature 內被處理
 - [ ] Effect 用 `.run` 以外的方式；`Reduce` 內直接呼叫 Service；畫面出現的載入用 `onAppear` 而非 `.task` 加 `finish()`
@@ -654,4 +688,4 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 - [ ] 父層測試的名稱第一段寫了子層的內層 Action（如 `saveButtonTapped_`）而非受測 Feature 最外層的 case；`view` 分組被當成一層寫成 `view_`
 - [ ] 能直接設進初始 State 的前置狀態卻在 Given 用 `send` 走一遍；When 有兩個以上的 `send`
 - [ ] `// Then` 寫進 `send` 的 closure；只有 `send` 的測試在 `send` 之後缺 `// Then` 與 `#expect(store.state...)`
-- [ ] Feature 型別超過 300 行卻未拆 `Path` / `Destination` 或子 Feature
+- [ ] Feature 型別拆分時沒有依「拆分」的順序（先搬 `Path` / `Destination`，再抽子 Feature）

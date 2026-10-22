@@ -42,7 +42,7 @@ struct __NAME__Feature {
         /// 示範內部回應：Service 完成後的結果，替換為實際內容
         ///
         /// - Parameter result: 成功或失敗
-        case exampleResponse(Result<String, any Error>)
+        case exampleResponse(Result<String, __SERVICE_ERROR__>)
 
         /// 使用者在畫面上的操作，以「發生了什麼」命名，不用命令式
         @CasePathable
@@ -64,13 +64,12 @@ struct __NAME__Feature {
     // MARK: - Dependencies
 
     /// 示範依賴：本畫面用到的 Service，由 TCA 依賴系統提供，替換為實際內容
-    @Dependency(\.__SERVICE_LOWER_CAMEL__Service)
-    private var service
+    @Dependency(\.__SERVICE_LOWER_CAMEL__Service) private var service
 
     // MARK: - Body
 
     /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`
-    var body: some ReducerOf<Self> {
+    var body: some Reducer<State, Action> {
         Reduce(core)
     }
 }
@@ -96,7 +95,7 @@ private extension __NAME__Feature {
         case .view(.task):
             state.isLoading = true
             return .run { send in
-                do {
+                do throws(__SERVICE_ERROR__) {
                     let value = try await service.example()
                     await send(.exampleResponse(.success(value)))
                 } catch {
@@ -104,7 +103,7 @@ private extension __NAME__Feature {
                 }
             }
 
-        case let .exampleResponse(.success(value)):
+        case .exampleResponse(.success(let value)):
             state.isLoading = false
             state.text = value
             return .send(.delegate(.finished))

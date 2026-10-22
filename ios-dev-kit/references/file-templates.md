@@ -52,17 +52,18 @@ Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/template
 | `__NAME__` | 主要型別名稱（不含後綴），UpperCamelCase；唯一例外是 `tca/DependencyKey.swift`，填含後綴的完整型別名稱，例如 `APIClient` |
 | `__NAME_LOWER_CAMEL__` | `__NAME__` 的 lowerCamelCase 形式，用於 static 便利存取子與 `DependencyValues` 的屬性名 |
 | `__SERVICE_LOWER_CAMEL__` | TCA 樣板內 Feature 型別所依賴的 Service 名稱（不含後綴）的 lowerCamelCase 形式，用於 `@Dependency(\.__SERVICE_LOWER_CAMEL__Service)` 與測試的覆寫 |
+| `__SERVICE_ERROR__` | TCA 樣板內 Feature 型別所依賴 Service 的 closure 丟出的錯誤型別，例如 `ProfileError`、`PersistenceError`，用於內部回應的 `Result` 與 `.run` 內的 `do throws(...)` |
 | `__VALUE_TYPE__` | 被格式化的輸入型別，例如 `Date`、`Decimal`、`String` |
 | `__OUTPUT_TYPE__` | 流程完成時交出的產出型別，例如 `Order`、`Account` |
 | `__RAW_TYPE__` | enum 的 raw type，依需求決定，例如 `String`、`Int` |
 | `__FILE_NAME__` | 檔名（含 `.swift`） |
 | `__PROJECT__` | 專案／模組名稱 |
-| `__DATE__` | 建立日期，格式 `YYYY/MM/DD` |
+| `__DATE__` | 建立日期，格式 `YYYY/M/D`，月與日不補零，例如 `2026/9/20` |
 | `__AUTHOR__` | 作者，預設 `Leo Ho` |
 
 ## 檔頭規則
 
-- **要**：保留 Xcode 風格檔頭，四行固定為檔名、target 名稱、空行、`Created by <作者> on <日期>.`；日期格式 `YYYY/MM/DD`；測試檔的 target 名稱為 `<Project>Tests` 或 `<Project>UITests`。
+- **要**：保留 Xcode 風格檔頭，四行固定為檔名、target 名稱、空行、`Created by <作者> on <日期>.`；日期格式 `YYYY/M/D`，月與日不補零（`2026/9/20`），與 Xcode 新檔樣板產生的格式一致，不用每個新檔手改；測試檔的 target 名稱為 `<Project>Tests` 或 `<Project>UITests`。
 - **避免**：版權宣告、修改紀錄、作者以外的任何描述；檔頭不隨修改更新，建立後不再動。
 
 ## 各樣板說明
@@ -165,10 +166,12 @@ Text(post.publishedAt, format: .relativeDay)
 
 // ViewModel：暴露原始型別
 /// 訂單總金額，未格式化，由 View 決定顯示樣式
-var total: Decimal { order.total }
+var total: Decimal {
+    order.total
+}
 ```
 
-**Properties 的順序**固定為 `static let` → `@Environment` → `@State` → `@Binding` → 一般 `let` / `var`，同一組內依名稱字母排序；`static let` 排第一依 `formatting.md` 的區內排序。
+**Properties 的順序**固定為 `static let` → `@Environment` → `@ScaledMetric` → `@State` / `@FocusState` → `@Binding` → 一般 `let` / `var`，同一組內依名稱字母排序；`static let` 排第一依 `formatting.md` 的區內排序。TCA 的 View 在 `@ScaledMetric` 之後多一組 `@Bindable var store`，見 `tca-architecture.md` 的 View 一節。
 
 **`body` 只負責呈現大框架，一律保持簡潔。** `body` 內只允許容器（`NavigationStack`、`VStack`、`List`、`ScrollView` 等）、子 View 的呼叫，以及套在整個畫面上的 modifier（`navigationTitle`、`toolbar`、`task`、`sheet`）。任何實際內容，包括單一 `Text` 加幾個 modifier，都抽到 Private Views 成為具名的子 View。判斷標準：讀 `body` 應該能在三秒內說出這個畫面由哪幾塊組成，而不需要知道每塊長什麼樣。
 
@@ -364,7 +367,7 @@ init?(rawValue: String) {
 - **associated value 超過一個時強制加 label**，單一值可省略：`case loaded(Profile)`、`case failed(code: Int, message: String)`。
 - **payload 超過三個欄位改用 struct**：`case loaded(ProfilePayload)`，struct 依 `domain/Model.swift` 樣板建立。
 - **`Equatable` 無法自動合成時**（associated value 含 closure 或非 `Equatable` 型別），手寫 `==` 放 `// MARK: - Internal Method` extension，只比對有意義的欄位並以註解說明忽略了什麼。
-- **switch 內統一用 `case .x(let v)`**，`let` 放在各個 value 前，不用 `case let .x(v)`；與樣板一致。
+- **pattern 綁定 associated value 統一用 `case .x(let v)`**，`let` 放在各個 value 前，不用 `case let .x(v)`；`switch`、`if case`、`guard case` 一體適用，與樣板一致。
 - **switch 同樣禁止 `default`**。
 
 ### domain/UseCase.swift
@@ -425,7 +428,7 @@ Protocol 與正式實作同檔，protocol 先、實作後；protocol 遵循放�
    typealias ProfileServiceProtocol = ProfileFetching & ProfileUpdating
    ```
 
-2. **責任單一但方法確實多（例如包一整組 API endpoint 的 client），單檔超過 `formatting.md` 的長度上限時用 extension 分檔。** 主檔只放 protocol、型別宣告、stored properties 與 init；每個子領域一個 `<Name>+<Domain>.swift`，內容是 `extension <Name>` 實作該領域的方法。Protocol 遵循仍宣告在主檔。
+2. **責任單一但方法確實多（例如包一整組 API endpoint 的 client）時，依子領域用 extension 分檔。** 主檔只放 protocol、型別宣告、stored properties 與 init；每個子領域一個 `<Name>+<Domain>.swift`，內容是 `extension <Name>` 實作該領域的方法。Protocol 遵循仍宣告在主檔。
 
    ```text
    Data/
@@ -486,7 +489,9 @@ extension ProfileService: ProfileServiceProtocol {
     /// - Parameter id: 使用者識別碼
     /// - Returns: 快取或伺服器的個人資料
     /// - Throws: 快取沒有且伺服器抓取失敗時丟出
-    func fetchProfile(id: String) async throws -> Profile { ... }
+    func fetchProfile(id: String) async throws -> Profile {
+        ...
+    }
 }
 ```
 
@@ -613,9 +618,12 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 
 **Unit Test 一律採用 Swift Testing**（`import Testing`、`@Test`、`#expect` / `#require`），不使用 XCTest。既有的 XCTest 單元測試新增案例時亦改寫為 Swift Testing，不在同一檔案混用兩套框架。
 
+唯一的例外是效能測試：效能量測只有 XCTest 提供（`measure(metrics:options:block:)`、`XCTMetric`），Swift Testing 沒有對應的 API，所以效能測試用 XCTest，並獨立成 `<TypeUnderTest>PerformanceTests.swift`，不和 Swift Testing 的測試同檔；型別寫法與方法命名比照下方的 UI 測試。
+
 測試本體採 Given / When / Then 三段式，以 `// Given`、`// When`、`// Then` 註解分隔，不使用 Arrange / Act / Assert。
 
 - 測試型別用 `struct`，只有需要跨測試共享可變狀態或 `deinit` 清理時才改用 `final class`。
+- 測試型別不設 `// MARK: - Tests` 分區，`@Test` 方法直接接在 Properties 之後（有 `init` 時接在 Init 之後）；UI 測試的 `func test…()` 接在 Lifecycle 之後。其餘分區照樣板。
 - 斷言用 `#expect`；前置條件不成立就沒必要繼續時用 `try #require`。
 - 同一邏輯多組輸入用 `@Test(arguments:)` 參數化，不複製貼上多個測試。
 - 非同步測試直接 `async throws`，不用 expectation。
@@ -624,7 +632,7 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - **三段註解必備**，即使某段只有一行；Given 為空時仍保留註解並留空行，讓結構一致。
 - **`// When`、`// Then` 前各空一行**，讓三段一眼分開；`// Given` 寫在本體第一行，依「函式本體不以空行開頭」前面不空行（`formatting.md` 空行規則）。
 - **三段註解寫在同一縮排層級**，不寫進 TCA `send` 或 `do` / `catch` 的 closure 裡。整個測試本體包在 `withDependencies` 或專案自訂的隔離 helper（例如 `withIsolatedStorage`）的 closure 內時，三段註解一起放進該 closure，`// Given` 寫在 closure 本體第一行。TCA 只有 `send` 時 `// Then` 的寫法見 `tca-architecture.md` 測試一節。
-- **驗證丟出的錯誤用 `actualError` 寫法**：Given 宣告 `var actualError: E?`；When 只寫 `do { try await … } catch { actualError = error }`，When 與 `catch` 裡都不斷言；Then 先 `let error = try #require(actualError)`，再對 `error` 斷言，測試方法因此標 `throws`。不用 `let error = #expect(throws:)`，它會在 When 裡放一個斷言。`do` 本體只丟同一種 typed error 時，`catch` 的 `error` 就是該型別，直接指定、不用轉型。
+- **驗證丟出的錯誤用 `actualError` 寫法**：Given 宣告 `var actualError: E?`；When 只寫 `do { try await … } catch { actualError = error }`，When 與 `catch` 裡都不斷言；Then 先 `let error = try #require(actualError)`，再對 `error` 斷言，測試方法因此標 `throws`。不用 `let error = #expect(throws:)`，它會在 When 裡放一個斷言。`do` 本體只丟同一種 typed error 時，`catch` 的 `error` 就是該型別，直接指定、不用轉型；但這只在測試函式本體成立，整個本體包在 `withDependencies`、`withIsolatedStorage` 這類 closure 內時，`error` 是 `any Error`，要改寫 `do throws(E) { }`（`formatting.md` 的「Closure 與 Trailing Closure」）。
 - **一個測試只允許一組 When / Then**；需要驗證多個結果時用多個 `#expect`，需要多個動作時拆成多個測試或改用 `@Test(arguments:)`。TCA 在 Given 用 `send` 建立前置狀態不算第二個動作，見 `tca-architecture.md` 測試一節。
 - **`@Suite` 只在需要共用 setup、tag 或序列化執行（`.serialized`）時使用**，單純分組不加。
 - **`@MainActor` 只在絕對必要時才加，不要預設加上**：必要的定義是測試本體要存取 `@MainActor` 隔離的型別，例如 ViewModel、Coordinator、TCA 的 `TestStore`。Service、Client、Store、Model、Enum、FormatStyle 的測試不加。範圍越小越好：只有部分測試需要時標在那幾個測試方法上，整個測試型別都需要時（例如 TCA 的 `<Screen>FeatureTests`）才標在型別上。不為了消除並行檢查的警告而加，先找出實際需要主執行緒的是哪個型別。
@@ -686,7 +694,7 @@ func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
 
 ### tests/UITests.swift
 
-**唯一允許使用 XCTest 的情境是 UI Test**，因為 `XCUIApplication` 與 `XCUIElement` 只存在於 XCTest，Swift Testing 沒有對應能力。
+**允許使用 XCTest 的情境只有 UI Test 與效能測試**。UI Test 是因為 `XCUIApplication` 與 `XCUIElement` 只存在於 XCTest，Swift Testing 沒有對應能力；效能測試見上方 `tests/Tests.swift` 一節。
 
 - 型別用 `final class` 繼承 `XCTestCase`，`app` 在 `setUpWithError` 建立並 `launch()`，`tearDownWithError` 釋放。
 - `continueAfterFailure = false`，UI 流程一步失敗後續步驟沒有意義。
@@ -706,4 +714,7 @@ func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
 - [ ] View 另開 Computed Properties 區；ViewModel 給 View 讀的衍生狀態不在 Computed Properties
 - [ ] 測試的 `// Given`、`// When`、`// Then` 不在同一縮排層級，或寫進 `send`、`do` / `catch` 的 closure；整個本體包在 `withDependencies` 或自訂隔離 helper 的 closure 內時標記留在 closure 外
 - [ ] 驗證錯誤時用 `#expect(throws:)` 取回錯誤，或在 When、`catch` 裡斷言；Then 沒先 `try #require(actualError)` 就斷言
+- [ ] 檔頭日期補了零（`2026/09/20`），而非 `YYYY/M/D`
+- [ ] `switch`、`if case`、`guard case` 用了 `case let .x(v)`，而非 `case .x(let v)`
+- [ ] 測試檔設了 `// MARK: - Tests` 分區；效能測試以外的單元測試用 XCTest，或效能測試和 Swift Testing 的測試同檔
 - [ ] 測試不必要地加上 `@MainActor`（測試對象不是 `@MainActor` 型別，或只有部分測試需要卻標在整個型別上）或 `@Suite(.serialized)`（沒有無法隔離的共用資源）

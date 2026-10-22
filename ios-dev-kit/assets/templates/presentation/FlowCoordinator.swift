@@ -58,7 +58,9 @@ extension __NAME__Coordinator {
         case example
 
         /// 以自身作為識別，供 `.sheet(item:)` 使用
-        var id: Self { self }
+        var id: Self {
+            self
+        }
     }
 
     /// 流程的結束方式

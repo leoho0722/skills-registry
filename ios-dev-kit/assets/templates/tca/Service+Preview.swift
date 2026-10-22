@@ -17,7 +17,9 @@ extension __NAME__Service {
             RuntimeEnvironment.allowsPreviewStub,
             "__NAME__Service.previewValue 只能在 Preview、UI Test 或單元測試中使用"
         )
-        return Self(example: { "Preview" })
+        return Self(
+            example: { "Preview" }
+        )
     }
 }
 

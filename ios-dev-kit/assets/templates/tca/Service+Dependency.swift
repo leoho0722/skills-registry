@@ -14,12 +14,16 @@ extension __NAME__Service: DependencyKey {
     /// 正式 App 使用的實作，所需的 Client / Store 在此以 `@Dependency` 取得；
     /// 必須是 computed property，測試才能用 `withDependencies` 換掉 Client / Store
     static var liveValue: Self {
-        Self(example: { "Example" })
+        Self(
+            example: { "Example" }
+        )
     }
 
     /// 測試用的預設值，每個 closure 都未實作，測試沒覆寫就呼叫會直接失敗
     static var testValue: Self {
-        Self(example: unimplemented("__NAME__Service.example", placeholder: ""))
+        Self(
+            example: unimplemented("__NAME__Service.example", placeholder: "")
+        )
     }
 }
 

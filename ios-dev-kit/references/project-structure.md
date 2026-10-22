@@ -7,17 +7,29 @@ Leo Ho 個人 iOS 專案目錄結構規範。
 - [Project Structure（專案目錄結構）](#project-structure專案目錄結構)
   - [目錄](#目錄)
   - [分層原則](#分層原則)
-    - [Data 層內的兩種型別](#data-層內的兩種型別)
+    - [Data 層與 Core 的技術型別](#data-層與-core-的技術型別)
     - [UseCase（可選）](#usecase可選)
     - [Coordinator](#coordinator)
     - [依賴注入](#依賴注入)
   - [根目錄結構](#根目錄結構)
-    - [模組化策略](#模組化策略)
+    - [方案判斷](#方案判斷)
+    - [方案選擇](#方案選擇)
+    - [方案 A：單一 App target](#方案-a單一-app-target)
+    - [B 與 C 共通的 package 規則](#b-與-c-共通的-package-規則)
+    - [方案 B：底層抽成 local package](#方案-b底層抽成-local-package)
+    - [方案 C：每個 Feature 一個 package](#方案-c每個-feature-一個-package)
   - [Feature 模組結構](#feature-模組結構)
+    - [固定建立的內容](#固定建立的內容)
+    - [Presentation 依畫面分資料夾](#presentation-依畫面分資料夾)
+    - [Service 與拆分](#service-與拆分)
   - [共用程式碼的擺放](#共用程式碼的擺放)
+    - [DesignSystem](#designsystem)
     - [Formatters](#formatters)
   - [測試目錄](#測試目錄)
-    - [Mock 與 Preview stub](#mock-與-preview-stub)
+    - [測什麼](#測什麼)
+    - [Mocks 與 Fixtures](#mocks-與-fixtures)
+    - [Mock 與 Preview stub 的位置](#mock-與-preview-stub-的位置)
+    - [方案 B、C 的測試](#方案-bc-的測試)
   - [常見錯誤檢查清單](#常見錯誤檢查清單)
 
 ## 分層原則
@@ -25,7 +37,7 @@ Leo Ho 個人 iOS 專案目錄結構規範。
 架構是 **Feature-first 加內部分層的 MVVM 搭配 Coordinator**：第一刀依功能切成 Feature，每個 Feature 內再依技術層分成 Presentation / Domain / Data，跨 Feature 共用的技術能力放 Core。不是嚴格的 Clean Architecture：沒有 Repository 抽象、UseCase 是可選層、ViewModel 可直接依賴 Service protocol；agent 不得自行補上 Repository、Interactor、Presenter 等本規範沒有的層。Presentation 層另有 TCA 這個第二選擇，由使用者決定、一個專案只用一種；TCA 專案的 Presentation 與 Feature 模組結構見 `tca-architecture.md`，本檔其餘規則不變。
 
 | 層 | 放什麼 | 對應樣板 |
-|---|---|---|
+| --- | --- | --- |
 | Presentation | View、ViewModel、Coordinator | `presentation/*` |
 | Domain | Model、Enum、Error、UseCase（可選） | `domain/*` |
 | Data | Service（該 Feature 專屬）與其 Preview stub | `data/*` |
@@ -49,7 +61,7 @@ Presentation ──▶ Domain ◀── Data
 ### Data 層與 Core 的技術型別
 
 | 種類 | 職責 | 位置 | 可依賴 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Client | 遠端服務的技術入口（HTTP、WebSocket、第三方 SDK） | `Core/Networking/` | 系統 framework、第三方 SDK |
 | Store | 無 schema 的本機儲存（UserDefaults、Keychain、檔案、快取） | `Core/Storage/` | 系統 framework |
 | Database | 有 schema 與 migration 的結構化本機資料庫入口，SwiftData 以 `@ModelActor` 實作，一個 App 通常只有一個 | `Core/Persistence/` | SwiftData / Core Data |
@@ -80,7 +92,7 @@ init 注入為主；Service 透過 SwiftUI Environment 送到 View。方案 A �
 - **偵測結果與使用者的選擇不一致時**（例如偵測到 A 但使用者選 C），視為使用者要求遷移，依「方案選擇」的遷移方向處理，並在動手前列出會搬動的目錄讓使用者確認。
 
 | 偵測到 | 方案 |
-|---|---|
+| --- | --- |
 | 沒有 `Packages/` 目錄，所有程式碼在 App target 內 | A |
 | `Packages/` 內有 `Core`、`DesignSystem`、`Shared`，`Features/` 仍在 App target 且只有 `Presentation/` | B |
 | `Packages/Features/` 內有 `<Feature>Feature` package | C |
@@ -88,7 +100,7 @@ init 注入為主；Service 透過 SwiftUI Environment 送到 View。方案 A �
 ### 方案選擇
 
 | 方案 | 邊界由誰守 | 適合 | 不適合 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | A 單一 App target | 紀律與 code review | 單人或小團隊、只有一個 App target、Feature 少於八個 | 已知會有 Widget 或第二個 App |
 | B 底層抽成 local package | 底層不可反向依賴由編譯器守，Feature 之間仍靠紀律 | 一開始就有第二個 target，或底層要與另一個 App 共用，但 Feature 由同一組人開發 | 多組人平行開發 |
 | C 每個 Feature 一個 package | 全部由編譯器守 | 多組人各自負責 Feature、Feature 超過八個、Feature 要進多個 App | 單人專案，設定與 `public` 噪音的成本高於收益 |
@@ -277,7 +289,7 @@ Features/<Feature>/
 │   └── <Screen>/                         # 其他畫面，一個畫面一個資料夾
 │       ├── <Screen>View.swift
 │       ├── <Screen>ViewModel.swift
-│       └── <Screen>View+<Part>.swift     # 選用，過大的子 View 拆檔
+│       └── <Screen><Part>View.swift      # 選用，從過大的 View 抽出的獨立 View
 ├── Domain/
 │   ├── <Name>.swift                      # domain/Model.swift、domain/Enum.swift、domain/EnumWithAssociatedValue.swift
 │   ├── <Feature>Error.swift              # domain/Error.swift
@@ -301,7 +313,7 @@ Features/<Feature>/
 - **要**：每個畫面一個資料夾，內含該畫面的 View 與 ViewModel 各一個檔案；資料夾名、檔名前綴、型別前綴三者一致（`EditProfile/EditProfileView.swift` 內是 `EditProfileView`）。
 - **要**：根畫面固定放 `Root/`，型別命名 `<Feature>RootView` 與 `<Feature>RootViewModel`；它是 Feature 的進入點，`NavigationStack`、`navigationDestination`、`sheet` 三行只寫在這裡。套樣板時 `__NAME__` 填 `<Feature>Root`。
 - **要**：Coordinator 不屬於任何畫面，放 `Presentation/` 根。
-- **要**：只在同一畫面使用、且大到需要獨立檔案的子 View，放該畫面資料夾內，檔名 `<Screen>View+<Part>.swift`，內容是 `extension <Screen>View` 的 Private Views；跨畫面共用的子 View 抽到 `Core/`，位置見「共用程式碼的擺放」。
+- **要**：只在同一畫面使用、且大到需要獨立檔案的子 View，抽成獨立的 View 型別放該畫面資料夾內，型別與檔名為 `<Screen><Part>View`（例如 `ProfileStatsView.swift`），需要的值與 closure 由原畫面傳入；不寫成跨檔的 `extension <Screen>View`，理由見 `formatting.md` 的「Extension 的使用時機」。跨畫面共用的子 View 抽到 `Core/`，位置見「共用程式碼的擺放」。
 - **避免**：一個畫面資料夾內出現第二個 ViewModel，那代表它是另一個畫面；畫面資料夾內放 Model 或 Service。
 
 ### Service 與拆分
@@ -313,7 +325,7 @@ Features/<Feature>/
 ## 共用程式碼的擺放
 
 | 東西 | 位置 | 何時放這裡 |
-|---|---|---|
+| --- | --- | --- |
 | Client / Store / Database | `Core/Networking/`、`Core/Storage/`、`Core/Persistence/` | 一開始就放，見「根目錄結構」 |
 | `@Entry` 清單、`RuntimeEnvironment` | `Core/Environment/` | 一開始就放 |
 | 對系統或第三方型別的擴充 | `Core/Extensions/<Type>+Extensions.swift` | 一開始就放，不在 Feature 內寫 extension |
@@ -413,7 +425,7 @@ DesignSystem/
 ### Mock 與 Preview stub 的位置
 
 | 型別 | 位置 |
-|---|---|
+| --- | --- |
 | `Mock<Name>Service` | 測試 target 的 `Mocks/`，不放主 target；TCA 專案的 Service 沒有 Mock，只有 Client / Store / Database 的 Mock |
 | `Preview<Name>Service` | 方案 A 在該 Feature 的 `Preview Content/`，Xcode 的 Development Assets 設定排除於 Release；方案 B、C 在 package 的 `Preview/`，整檔 `#if DEBUG`。TCA 專案的 Service 改為 `previewValue` extension（`<Feature>Service+Preview.swift`），位置相同 |
 

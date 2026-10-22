@@ -16,8 +16,6 @@ struct __NAME__FeatureTests {
 
     // MARK: - Properties
 
-    // MARK: - Tests
-
     /// 示範測試，替換為實際案例並依「方法或行為_情境_預期」命名，情境與預期用正體中文
     @Test
     func task_服務成功_通知父層完成() async {
