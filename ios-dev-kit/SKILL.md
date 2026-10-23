@@ -3,7 +3,7 @@ name: ios-dev-kit
 description: Leo Ho 個人的 iOS/macOS Swift 開發規範，涵蓋 coding style（命名、存取控制、optional、error handling、concurrency、doc comment）、code formatting 排版（縮排、換行、MARK 分區、import 排序、SwiftUI body）、新檔案的 file template（View、ViewModel、Coordinator、Service、Mock、測試）、專案目錄結構（Feature-first 分層、A/B/C 三種 SPM package 方案、DesignSystem、測試目錄）與 TCA（The Composable Architecture）專案的 Reducer、導航、DependencyKey、TestStore 規範。Use when writing, modifying, or reviewing any Swift / SwiftUI / UIKit code, creating new Swift files, Features, or iOS projects, or when the user mentions coding style、排版、格式、命名規則、檔案樣板、專案結構、SPM package、Coordinator、依賴注入、單元測試、code review、Swift 慣例、TCA、Composable Architecture、Reducer、Store、TestStore、@Dependency。
 metadata:
   author: "Leo Ho"
-  version: "3.10.0"
+  version: "4.0.0"
 ---
 
 # iOS Dev Kit：個人 Swift 開發規範
@@ -62,7 +62,7 @@ metadata:
 
 ### 建立新檔案
 
-1. 讀 `file-templates.md` 決定樣板類型；TCA 專案的 Feature 型別、View、Service、DependencyKey 與 Feature 測試改用 `tca/` 樣板，選擇表見 `file-templates.md`，規則見 `tca-architecture.md`。
+1. 讀 `file-templates.md` 決定樣板類型；TCA 專案的 Feature 型別、View、Service、Client / Store / Database 與 Feature 測試改用 `tca/` 樣板，選擇表見 `file-templates.md`，規則見 `tca-architecture.md`。
 2. 複製 `assets/templates/` 對應檔案，替換所有 `__PLACEHOLDER__` 佔位符。
 3. 刪除沒用到的空 MARK 區塊與空 extension；樣板保留它們只是作為插槽，實際檔案不留空區塊（見 `formatting.md`）。
 4. 所有宣告補上 `///`，樣板示範成員的說明一併改寫（見 `coding-style.md` 註解一節）。

@@ -283,10 +283,16 @@ func result(for statusCode: Int) -> RequestResult {
 
 ## MARK 分區與順序
 
-**一個檔案只宣告一個頂層型別。** 同檔有多個型別時，每個型別都有自己的 `// MARK: - Internal Method` 這類固定區名，區名重複出現，Xcode 的 jump bar 分不出哪一區屬於哪個型別。只在同檔使用的輔助型別改成巢狀型別（`coding-style.md` 存取控制），其他各自一檔。例外有兩種：
+**一個檔案只宣告一個頂層型別。** 同檔有多個型別時，每個型別都有自己的 `// MARK: - Internal Method` 這類固定區名，區名重複出現，Xcode 的 jump bar 分不出哪一區屬於哪個型別。只在同檔使用的輔助型別改成巢狀型別（`coding-style.md` 存取控制），其他各自一檔。例外有三種：
 
-- protocol 與它的正式實作同檔（`data/Service.swift`、`domain/UseCase.swift` 樣板）：protocol 本體只有要求、不分區，不會讓區名重複。
+- protocol 與它的正式實作同檔（`data/Service.swift`、`domain/UseCase.swift` 樣板）。
+- TCA 專案的 Client / Store / Database 主檔（`tca/Client.swift` 樣板）：protocol、正式實作、`<Name>Key`、`extension DependencyValues` 與 Preview stub `Preview<Name>` 同檔，見 `tca-architecture.md` 的「Client、Store、Database」。
 - TCA `@Reducer enum` 產生的 `Destination.State`：本體由巨集產生、無法加成員，alert 建構方法與 `Equatable` 遵循寫在 `extension <Screen>Feature.Destination.State`，見 `tca-architecture.md` 的「Tree：畫面內的 Destination」。
+
+前兩種例外用**群組標頭**區分各個頂層宣告：每個頂層宣告之前放一行 `// MARK: - <群組名>`，群組名與順序固定為 `Protocol` → `Implementation` → `DependencyKey` → `DependencyValues` → `Preview`，用不到的群組省略。群組標頭不屬於下方六區，只用在這兩種例外。群組底下照本節的六區分區，不同群組可以出現同名的區，例如 protocol 預設實作的 Private Method 與正式實作的 Private Method，jump bar 靠群組標頭分辨歸屬；同一個群組內仍不可重複。
+
+- **要**：protocol 有預設實作時，寫在 Protocol 群組內、protocol 本體之後：非 private 的預設實作放 `// MARK: - Internal Method` 的 `extension <Name>Protocol`，只給預設實作用的 helper 放 `// MARK: - Private Method` 的 `private extension <Name>Protocol`。
+- **要**：`Preview` 群組（Preview stub 型別與它的 extension）整組以一個 `#if DEBUG` 包住，排在檔尾。
 
 本節的分區適用於頂層型別（檔案內直接宣告的型別）；巢狀型別不分區，見下方「巢狀型別」。型別本體只放 stored properties 與 Init，其餘一律以同檔 extension 分區，每區以 `// MARK: - <區名>` 開頭，順序固定：
 
@@ -450,13 +456,14 @@ private extension ProfileViewModel {
 - **例外二**：class 的 `required init` 語言規定必須在本體，此時遵循宣告在型別行，該 init 留本體 Init 區，其餘實作仍放 extension。
 - **例外三**：巢狀型別（`Route`、`Sheet`、`CodingKeys`、TCA 的 `State`）遵循宣告在型別行並就地實作，不再拆 extension，見下方「巢狀型別」。
 - **例外四**：`@unchecked Sendable` 必須與型別宣告同行，不可放 extension。
+- **例外五**：TCA 的 `<Name>Key` enum 只為了遵循 `DependencyKey` 而存在，遵循宣告在型別行，`liveValue`、`previewValue` 寫在本體、不分區，見 `tca/Client.swift` 樣板。
 
 ### Extension 的使用時機
 
 - **要**：extension 只用於三件事：依上述順序分區、遵循 protocol、為非自己的型別加功能。
-- **要**：為非自己的型別（`Date`、`String`、`View`、系統或第三方型別）加功能時，放 `Core/Extensions/`，預設一個型別一檔 `<Type>+Extensions.swift`，檔內依功能以 `// MARK: - <功能>` 分區。其中某個功能明顯自成一組（例如 `Date` 的相對時間計算）時，拆成 `<Type>+<Feature>.swift`，一個關注點一檔；拆分後不再保留 `<Type>+Extensions.swift`，全部改為功能命名，同一型別不混用兩種檔名。唯一例外是 `EnvironmentValues+Services.swift`，它是 `@Entry` 清單而非一般擴充。
+- **要**：為非自己的型別（`Date`、`String`、`View`、系統或第三方型別）加功能時，放 `Core/Extensions/`，預設一個型別一檔 `<Type>+Extensions.swift`，檔內依功能以 `// MARK: - <功能>` 分區。其中某個功能明顯自成一組（例如 `Date` 的相對時間計算）時，拆成 `<Type>+<Feature>.swift`，一個關注點一檔；拆分後不再保留 `<Type>+Extensions.swift`，全部改為功能命名，同一型別不混用兩種檔名。唯一例外是 `EnvironmentValues+Services.swift`，它是 `@Entry` 清單而非一般擴充。TCA 專案的 `extension DependencyValues` 也不放這裡，寫在該依賴的主檔，位置見 `tca-architecture.md` 的「依賴注入」。
 - **避免**：同一區塊拆成兩個 extension，例如兩個 `// MARK: - Internal Method`。
-- **避免**：跨檔 extension 自己的型別，除非依 `file-templates.md` 的分檔規則（責任單一但方法多的型別，依子領域以 `<Name>+<Domain>.swift` 分檔）。
+- **避免**：跨檔 extension 自己的型別，包含依子領域拆出的 `<Name>+<Domain>.swift`。型別過大時依 `file-templates.md` 的「Protocol 過大時的處理順序」拆責任；責任單一的型別留在同一個檔案。唯一例外是 TCA 的 `<Screen>Feature+Path.swift`、`<Screen>Feature+Destination.swift`，見 `tca-architecture.md` 的「拆分」。
 - **避免**：SwiftUI View 用跨檔 extension 分檔。View 大到需要拆檔時，優先把區塊抽成獨立的 View 型別，傳入必要的值與 closure（位置與檔名見 `project-structure.md` 的「Presentation 依畫面分資料夾」）。跨檔 extension 取不到 View 的 `private` `@State`、`@Environment`，為了編譯降成 internal 會破壞封裝；確實抽不動時先問使用者，不自行降低存取層級。
 - **避免**：用 extension 對非自己的型別加 protocol 遵循（retroactive conformance），會與其他模組的遵循衝突；需要時改用 wrapper 型別。
 
@@ -716,7 +723,9 @@ var body: some View {
 - [ ] 型別或 extension 開括號後沒空行、閉括號前有空行
 - [ ] enum 的 `case` 宣告之間、`switch` 的 `case` 之間沒空行；`switch {` 之後或 `}` 之前多了空行
 - [ ] 測試的 `// When`、`// Then` 前面沒空行，或 `// Given` 前面多了空行
-- [ ] 一個檔案宣告兩個以上的頂層型別（protocol 與實作同檔、TCA `Destination.State` 的 extension 除外）
+- [ ] 一個檔案宣告兩個以上的頂層型別（protocol 與實作同檔、TCA Client / Store / Database 主檔、TCA `Destination.State` 的 extension 除外）
+- [ ] 同檔多個頂層宣告缺群組標頭，或群組順序不是 Protocol → Implementation → DependencyKey → DependencyValues → Preview；`Preview` 群組沒有整組包在 `#if DEBUG` 內
+- [ ] 跨檔 extension 自己的型別，包含 `<Name>+<Domain>.swift`（TCA 的 `<Screen>Feature+Path.swift`、`+Destination.swift` 除外）
 - [ ] SwiftUI View 用跨檔 extension 分檔，或為了分檔把 `private` 的 `@State`、`@Environment` 降成 internal
 - [ ] MARK 順序錯置，或同一區塊拆成兩個 extension
 - [ ] private 的 computed property 放在 Computed Properties，或非 private 的放在 Private Method
@@ -724,7 +733,7 @@ var body: some View {
 - [ ] Private Method 的 helper 沒有依呼叫者在前、深度優先；Internal Method 沒有依使用先後；protocol 實作與 Preview stub、Mock 的順序和 protocol 宣告不一致
 - [ ] 巢狀型別另開 extension 或加 MARK 分區
 - [ ] 覆寫父類別的成員寫在型別本體或併入其他 extension，而非獨立的 `// MARK: - <父類別名稱>` extension（Swift 不允許在 extension 覆寫時除外）；父類別的 extension 沒有排在 protocol 遵循之前；為了在 extension 覆寫而替自己的父類別加 `@objc dynamic`
-- [ ] 手寫實作的 protocol 遵循寫在型別行而非 extension；自動合成的反而拆了 extension
+- [ ] 手寫實作的 protocol 遵循寫在型別行而非 extension（TCA 的 `<Name>Key` 除外）；自動合成的反而拆了 extension
 - [ ] protocol 遵循的 extension 排在 Internal Method 之前或 Private Method 之後
 - [ ] import 未依字母排序、重複 import `SwiftUI` 已涵蓋的模組、非 UI 層 import `SwiftUI`；留著沒用到的 import（含樣板或 Xcode 預設帶的），或是否用到沒以 build 確認
 - [ ] `@testable import` 前沒有空行

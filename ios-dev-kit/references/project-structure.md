@@ -149,7 +149,7 @@ init 注入為主；Service 透過 SwiftUI Environment 送到 View。方案 A �
 - **`Package.swift` 固定 `swift-tools-version: 6.0`**，`swiftLanguageModes: [.v6]`，`platforms` 與 App 的 deployment target 一致；一個 package 一個 library target 加一個 test target，不在同一 package 內放多個 library。
 - **跨 module 使用的型別、init、stored property、方法標 `public`**；同 package 內跨 target 用 `package`。`public` struct 的 memberwise init 不會自動合成，要手寫 `public init`。Model 的 stored property 標 `public let`。
 - **只暴露必要的表面**：Feature package 對外只有 `<Feature>RootView`、Coordinator 與 Service protocol；ViewModel、其他畫面的 View、Preview stub 維持 internal。
-- **Preview stub 放 package 的 `Sources/<Module>/Preview/`**，整檔 `#if DEBUG`；package 沒有 Development Assets 機制。
+- **Preview stub 放 package 的 `Sources/<Module>/Preview/`**，整檔 `#if DEBUG`；package 沒有 Development Assets 機制。TCA 專案的 Preview stub 與 `previewValue` 寫在主檔，不建 `Preview/`。
 - **`@Entry` 隨 Service 所在 module 宣告**，檔名 `EnvironmentValues+<Feature>Service.swift`，放該 module 根目錄；App target 不再有集中檔。
 - **測試放各 package 的 `Tests/<Module>Tests/`**，Mock 放該 test target 的 `Mocks/`；App target 的測試只剩留在 App 內的東西。
 - **App target 以 local package 依賴引用**（Xcode 的 Add Local Package 或 `xcodeproj` 內的 `XCLocalSwiftPackageReference`），不用 remote URL。
@@ -427,7 +427,7 @@ DesignSystem/
 | 型別 | 位置 |
 | --- | --- |
 | `Mock<Name>Service` | 測試 target 的 `Mocks/`，不放主 target；TCA 專案的 Service 沒有 Mock，只有 Client / Store / Database 的 Mock |
-| `Preview<Name>Service` | 方案 A 在該 Feature 的 `Preview Content/`，Xcode 的 Development Assets 設定排除於 Release；方案 B、C 在 package 的 `Preview/`，整檔 `#if DEBUG`。TCA 專案的 Service 改為 `previewValue` extension（`<Feature>Service+Preview.swift`），位置相同 |
+| `Preview<Name>Service` | 方案 A 在該 Feature 的 `Preview Content/`，Xcode 的 Development Assets 設定排除於 Release；方案 B、C 在 package 的 `Preview/`，整檔 `#if DEBUG`。TCA 專案不用這兩個位置：Service 的 `previewValue` 與 Client / Store / Database 的 `Preview<Name>` 都寫在主檔，以 `#if DEBUG` 包住（`tca-architecture.md` 的「依賴注入」） |
 
 ### 方案 B、C 的測試
 

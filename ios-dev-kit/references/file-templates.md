@@ -24,7 +24,7 @@ Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/template
 | 被多個 ViewModel 重複使用的跨 Service 流程 | `domain/UseCase.swift` | `<Verb><Noun>UseCase.swift` |
 | 一個領域的錯誤型別 | `domain/Error.swift` | `<領域>Error.swift` |
 | Service / Client / Store / Database 的介面與實作 | `data/Service.swift`（Client / Store / Database 複製後將 `Service` 整批替換） | `<Name>Service.swift`、`<Name>Client.swift`、`<Name>Store.swift`、`<App>Database.swift` |
-| Service 的 Preview stub（固定回傳假資料） | `data/Service+Preview.swift` | `<Name>Service+Preview.swift` |
+| Service 的 Preview stub（固定回傳假資料）；TCA 專案不用 | `data/Service+Preview.swift` | `<Name>Service+Preview.swift` |
 | Service 的 Mock（記錄呼叫，測試用） | `tests/MockService.swift` | `Mock<Name>Service.swift` |
 | 單元測試（Swift Testing） | `tests/Tests.swift` | `<TypeUnderTest>Tests.swift` |
 | UI 測試（XCTest / XCUITest） | `tests/UITests.swift` | `<Screen>UITests.swift` |
@@ -33,13 +33,11 @@ Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/template
 | 執行環境判斷（Preview / UI Test / 單元測試），每個專案一份 | `core/RuntimeEnvironment.swift` | 固定 `RuntimeEnvironment.swift` |
 | TCA 專案：畫面的狀態與邏輯（Reducer） | `tca/Feature.swift` | `<Screen>Feature.swift`；根畫面為 `<Feature>RootFeature.swift` |
 | TCA 專案：SwiftUI 畫面 | `tca/FeatureView.swift` | `<Screen>View.swift`；根畫面為 `<Feature>RootView.swift` |
-| TCA 專案：Service（struct 裝 closure） | `tca/Service.swift` | `<Feature>Service.swift` |
-| TCA 專案：Service 的 `liveValue`、`testValue` 與 `DependencyValues` 屬性 | `tca/Service+Dependency.swift` | `<Feature>Service+Dependency.swift` |
-| TCA 專案：Service 的 `previewValue` | `tca/Service+Preview.swift` | `<Feature>Service+Preview.swift` |
-| TCA 專案：Client / Store / Database 的 DependencyKey 註冊 | `tca/DependencyKey.swift` | `<Name>+Dependency.swift`，例如 `APIClient+Dependency.swift` |
+| TCA 專案：Service（struct 裝 closure，`DependencyKey` 遵循、`previewValue` 與 `DependencyValues` 屬性同檔） | `tca/Service.swift` | `<Feature>Service.swift` |
+| TCA 專案：Client / Store / Database（protocol、正式實作、`<Name>Key` 註冊、`DependencyValues` 屬性與 Preview stub 同檔） | `tca/Client.swift`（Store / Database 複製後將 `Client` 整批替換） | `<Name>Client.swift`、`<Name>Store.swift`、`<App>Database.swift` |
 | TCA 專案：Feature 型別的單元測試（TestStore） | `tca/FeatureTests.swift` | `<Screen>FeatureTests.swift` |
 
-子資料夾對應 `project-structure.md` 的分層：`presentation/`、`domain/`、`data/`、`core/`、`tests/`；`tca/` 是 TCA 專案的七份樣板，取代 `presentation/` 的 View 與 ViewModel、`data/` 的 Service 與其 Preview stub、`tests/MockService.swift` 的 Service Mock、`core/EnvironmentValues+Services.swift`，以及 Feature 型別的 `tests/Tests.swift`；Client / Store / Database 在 TCA 專案仍用 `data/` 與 `tests/` 的樣板。填寫規則見 `tca-architecture.md`，MVVM 專案不使用。建 Feature 模組時，依要建的層去對應子資料夾取樣板；跨 Feature 共用的基礎型別放 `core/`。
+子資料夾對應 `project-structure.md` 的分層：`presentation/`、`domain/`、`data/`、`core/`、`tests/`；`tca/` 是 TCA 專案的五份樣板，取代 `presentation/` 的 View 與 ViewModel、`data/` 的兩份樣板、`tests/MockService.swift` 的 Service Mock、`core/EnvironmentValues+Services.swift`，以及 Feature 型別的 `tests/Tests.swift`；Client / Store / Database 的 Mock 在 TCA 專案仍用 `tests/MockService.swift`。填寫規則見 `tca-architecture.md`，MVVM 專案不使用。建 Feature 模組時，依要建的層去對應子資料夾取樣板；跨 Feature 共用的基礎型別放 `core/`。
 
 表中沒有的型別先不建樣板，等實際專案出現該型別再補，避免留下沒人用的空樣板；新增時同步在對應子資料夾放檔案並在此表加一列。
 
@@ -49,7 +47,7 @@ Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/template
 
 | 佔位符 | 意義 |
 |---|---|
-| `__NAME__` | 主要型別名稱（不含後綴），UpperCamelCase；唯一例外是 `tca/DependencyKey.swift`，填含後綴的完整型別名稱，例如 `APIClient` |
+| `__NAME__` | 主要型別名稱（不含後綴），UpperCamelCase |
 | `__NAME_LOWER_CAMEL__` | `__NAME__` 的 lowerCamelCase 形式，用於 static 便利存取子與 `DependencyValues` 的屬性名 |
 | `__SERVICE_LOWER_CAMEL__` | TCA 樣板內 Feature 型別所依賴的 Service 名稱（不含後綴）的 lowerCamelCase 形式，用於 `@Dependency(\.__SERVICE_LOWER_CAMEL__Service)` 與測試的覆寫 |
 | `__SERVICE_ERROR__` | TCA 樣板內 Feature 型別所依賴 Service 的 closure 丟出的錯誤型別，例如 `ProfileError`、`PersistenceError`，用於內部回應的 `Result` 與 `.run` 內的 `do throws(...)` |
@@ -385,7 +383,7 @@ init?(rawValue: String) {
 
 ### data/Service.swift
 
-Protocol 與正式實作同檔，protocol 先、實作後；protocol 遵循放在獨立 extension，以 protocol 名稱作 MARK。Preview stub 與 mock 各自獨立檔案，不與正式碼同檔：
+Protocol 與正式實作同檔，protocol 先、實作後，以 `// MARK: - Protocol`、`// MARK: - Implementation` 群組標頭分開（`formatting.md` 的「MARK 分區與順序」）；protocol 遵循放在獨立 extension，以 protocol 名稱作 MARK。Preview stub 與 mock 各自獨立檔案，不與正式碼同檔；TCA 專案的 Client / Store / Database 改用 `tca/Client.swift`，Preview stub 寫在主檔，見 `tca-architecture.md`：
 
 | 型別 | 位置 | 檔名 | 樣板 |
 |---|---|---|---|
@@ -398,7 +396,7 @@ Protocol 與正式實作同檔，protocol 先、實作後；protocol 遵循放�
 - `Preview Content/` 由 Xcode 的 Development Assets 設定排除於 Release，樣板仍以 `#if DEBUG` 包住作為雙重保險。
 - Mock 用 `final class` + `@unchecked Sendable`，這是 Service 選型表第四列以外唯一允許 `@unchecked` 的情境，理由是測試為單執行緒存取；型別上方的 doc comment 要保留這句說明。
 
-**Protocol 過大時的處理順序：先拆責任，再拆檔案，最後拆型別。**
+**Protocol 過大時的處理順序：先拆責任，再拆型別，不拆檔案。**
 
 1. **方法超過七個，先檢查是否混了多種責任。** 抓取、更新、快取、驗證是不同的事，依責任拆成多個小 protocol，需要整組能力時用 `typealias` 組合。ViewModel 只依賴用到的那個小 protocol，mock 也只需實作那幾個方法。
 
@@ -428,17 +426,9 @@ Protocol 與正式實作同檔，protocol 先、實作後；protocol 遵循放�
    typealias ProfileServiceProtocol = ProfileFetching & ProfileUpdating
    ```
 
-2. **責任單一但方法確實多（例如包一整組 API endpoint 的 client）時，依子領域用 extension 分檔。** 主檔只放 protocol、型別宣告、stored properties 與 init；每個子領域一個 `<Name>+<Domain>.swift`，內容是 `extension <Name>` 實作該領域的方法。Protocol 遵循仍宣告在主檔。
+2. **責任單一但方法確實多時，留在同一個檔案。** 不依子領域拆成 `<Name>+<Domain>.swift`：規範沒有單檔行數上限，跨檔 extension 只會讓同一個型別散在多個檔案（`formatting.md` 的「Extension 的使用時機」）。
 
-   ```text
-   Data/
-   ├── APIClient.swift            # protocol + struct + init
-   ├── APIClient+Profile.swift    # extension APIClient { profile 相關方法 }
-   ├── APIClient+Orders.swift
-   └── APIClient+Auth.swift
-   ```
-
-3. **兩者都做了還是長，代表這個型別在做太多事，拆成多個 Service。**
+3. **拆完責任還是做太多事，代表這個型別承擔了不只一件事，拆成多個型別。** Service 依 `project-structure.md` 的「Service 與拆分」，需要第二個 Service 就代表該拆出另一個 Feature。
 
 **Service protocol 一律遵循 `Sendable`**，因為 Service 會被注入到 `@MainActor` 的 ViewModel 與背景 Task，必須能跨 actor 傳遞。實作型別因此也必須是 `Sendable`，**依有無可變狀態決定型別**，三選一：
 
@@ -561,7 +551,7 @@ Data 層的型別分兩種：
 
 依賴圖因此固定為兩層且無環：mock 一個 Service 時不必連帶處理它底下的東西。
 
-**Client / Store / Database 共用 `data/Service.swift` 樣板**，複製後把 `Service` 字樣整批替換成 `Client`、`Store` 或 `Database`；Preview stub 與 Mock 樣板同樣處理，得到 `PreviewAPIClient`、`MockKeychainStore`、`MockAppDatabase`。不另建樣板，因為四者檔案結構相同；`Database` 的實作依 Service 選型表第二列改為 `actor`（SwiftData 用 `@ModelActor`）。
+**Client / Store / Database 共用 `data/Service.swift` 樣板**，複製後把 `Service` 字樣整批替換成 `Client`、`Store` 或 `Database`；Preview stub 與 Mock 樣板同樣處理，得到 `PreviewAPIClient`、`MockKeychainStore`、`MockAppDatabase`。不另建樣板，因為四者檔案結構相同；`Database` 的實作依 Service 選型表第二列改為 `actor`（SwiftData 用 `@ModelActor`）。TCA 專案的 Client / Store / Database 改用 `tca/Client.swift`，Preview stub 與正式碼同檔，Mock 照用 `tests/MockService.swift`。
 
 - Data 層與 Core 的後綴固定四選一：`Service`、`Client`、`Store`、`Database`；`Database` 只給有 schema 與 migration 的結構化資料庫入口，命名 `<App>Database`，一個 App 通常只有一個。`Manager`、`Handler`、`Provider` 只在職責確實符合該字本意時用於 Core 層，判斷表見 `coding-style.md` 的命名一節；`Helper` 與 `Util` 不使用。
 - 選型表同樣適用：Client 包 `URLSession` 通常是 `struct`；Store 包 SwiftData 的 `ModelContext` 這類非 `Sendable` 物件時用 `@ModelActor` 或 `actor`，落在選型表第二列。
@@ -575,7 +565,7 @@ Data 層的型別分兩種：
 
 ### data/Service+Preview.swift
 
-給 `#Preview` 用的固定回傳實作，型別名稱固定 `Preview<Name>Service`。方法內只回傳寫死的假資料或立即 `return`，不記錄呼叫、不含邏輯。放在 `Preview Content/`，整檔以 `#if DEBUG` 包住。
+給 `#Preview` 用的固定回傳實作，型別名稱固定 `Preview<Name>Service`。方法內只回傳寫死的假資料或立即 `return`，不記錄呼叫、不含邏輯。放在 `Preview Content/`，整檔以 `#if DEBUG` 包住。只用於 MVVM 專案；TCA 專案的 Preview stub 寫在 `tca/Client.swift` 主檔的 Preview 群組，Service 則寫成 `previewValue`。
 
 **init 內固定放一行 `assert(RuntimeEnvironment.allowsPreviewStub, ...)`**，正式 App 忘記在根部覆寫 `@Entry` 時，Debug 執行會立刻中止而非靜默使用 stub；Release 因 `assert` 被移除且整檔在 `#if DEBUG` 內，不受影響。`RuntimeEnvironment` 由 `core/RuntimeEnvironment.swift` 樣板建立，每個專案一份，放 `Core/Environment/`。
 
