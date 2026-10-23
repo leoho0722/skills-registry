@@ -625,6 +625,7 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - **驗證丟出的錯誤用 `actualError` 寫法**：Given 宣告 `var actualError: E?`；When 只寫 `do { try await … } catch { actualError = error }`，When 與 `catch` 裡都不斷言；Then 先 `let error = try #require(actualError)`，再對 `error` 斷言，測試方法因此標 `throws`。不用 `let error = #expect(throws:)`，它會在 When 裡放一個斷言。`do` 本體只丟同一種 typed error 時，`catch` 的 `error` 就是該型別，直接指定、不用轉型；但這只在測試函式本體成立，整個本體包在 `withDependencies`、`withIsolatedStorage` 這類 closure 內時，`error` 是 `any Error`，要改寫 `do throws(E) { }`（`formatting.md` 的「Closure 與 Trailing Closure」）。
 - **一個測試只允許一組 When / Then**；需要驗證多個結果時用多個 `#expect`，需要多個動作時拆成多個測試或改用 `@Test(arguments:)`。TCA 在 Given 用 `send` 建立前置狀態不算第二個動作，見 `tca-architecture.md` 測試一節。
 - **`@Suite` 只在需要共用 setup、tag 或序列化執行（`.serialized`）時使用**，單純分組不加。
+- **測試型別過大時，依受測行為拆成獨立的測試型別，不以 `extension` 跨檔拆分**（`formatting.md` 的「Extension 的使用時機」）：每個型別一個檔案，型別與檔名為 `<TypeUnderTest><行為>Tests`，行為段用 UpperCamelCase 英文（例如 `RootFeatureNavigationTests.swift`），與 `<TypeUnderTest>Tests.swift` 放同一個資料夾。`@MainActor`、`.serialized` 依拆出的型別各自判斷，只標在需要的那幾個上。多個測試型別共用的 helper 不留在其中一個型別內，移到測試 target 的 Fixtures、Mocks 或專案共用的測試 helper。參數化測試的資料型別同樣拆成獨立型別，不寫成 `extension` 分檔。
 - **`@MainActor` 只在絕對必要時才加，不要預設加上**：必要的定義是測試本體要存取 `@MainActor` 隔離的型別，例如 ViewModel、Coordinator、TCA 的 `TestStore`。Service、Client、Store、Model、Enum、FormatStyle 的測試不加。範圍越小越好：只有部分測試需要時標在那幾個測試方法上，整個測試型別都需要時（例如 TCA 的 `<Screen>FeatureTests`）才標在型別上。不為了消除並行檢查的警告而加，先找出實際需要主執行緒的是哪個型別。
 - **`@Suite(.serialized)` 只在絕對必要時才加，不要預設加上**：必要的定義是測試共用一個無法隔離的外部資源，例如 `UserDefaults.standard`、固定路徑的檔案、Keychain。Swift Testing 預設並行執行，序列化會拖慢整個測試。優先改成每個測試各自一份（以唯一名稱建立 `UserDefaults(suiteName:)`、每個測試用自己的暫存資料夾）讓測試能並行；真的無法隔離才序列化，並在 `@Suite` 的 `///` 寫明是哪個共用資源。
 
@@ -707,4 +708,5 @@ func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
 - [ ] 檔頭日期補了零（`2026/09/20`），而非 `YYYY/M/D`
 - [ ] `switch`、`if case`、`guard case` 用了 `case let .x(v)`，而非 `case .x(let v)`
 - [ ] 測試檔設了 `// MARK: - Tests` 分區；效能測試以外的單元測試用 XCTest，或效能測試和 Swift Testing 的測試同檔
+- [ ] 測試型別以 `extension` 跨檔拆分（`<TypeUnderTest>Tests+<行為>.swift`），而非拆成獨立的 `<TypeUnderTest><行為>Tests`
 - [ ] 測試不必要地加上 `@MainActor`（測試對象不是 `@MainActor` 型別，或只有部分測試需要卻標在整個型別上）或 `@Suite(.serialized)`（沒有無法隔離的共用資源）

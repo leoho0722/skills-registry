@@ -419,6 +419,7 @@ Feature 型別直接取用的 Service 改用 TCA 慣例的 struct 裝 closure；
 - **要**：Service 直接遵循 `DependencyKey`（`extension <Feature>Service: DependencyKey`），不另建 Key enum。Feature 型別以 `@Dependency(\.<feature>Service) private var service` 同一行取用，放 Dependencies 區，`Effect` 內直接用捕獲的 `service`。
 - **要**：`liveValue` 是 computed property（`static var`），在裡面以 `@Dependency` 取得 Client / Store，再組出每個 closure；本體會 throw 的 closure 依 `formatting.md` 只補 `throws(E)`。不寫成 `static let`：`static let` 只在第一次取用時建立，之後固定住當時的 Client / Store，測 Service 時無法用 `withDependencies` 換成 Mock。
 - **要**：`previewValue` 寫在同一個 `DependencyKey` extension，只有這個屬性以 `#if DEBUG` 包住；getter 第一行 `assert(RuntimeEnvironment.allowsPreviewStub, ...)`，closure 只回傳固定的假資料。
+- **例外**：以 Database 為下層的 Service，`previewValue` 在 `assert` 之後直接 `return liveValue`。Preview 時 `liveValue` 用 `@Dependency` 取到的是 Database 的記憶體資料庫（見「Client、Store、Database」），畫面看到的是正式邏輯跑出來的範例資料，不必在 Service 再寫一份假資料。
 - **要**：`testValue` 必須宣告，每個 closure 都是 `unimplemented("<Feature>Service.<屬性>")`，有回傳值的加 `placeholder:`，填空集合、`nil`、空字串這類中性的值。少了 `testValue`，測試在 `withDependencies` 只覆寫一個 closure 時，其他 closure 會悄悄改用 `previewValue`，不會報錯（swift-dependencies 在設定依賴期間的預設行為，已實測）。
 - **避免**：`@DependencyClient` 巨集。它替每個 closure 產生的未實作預設會丟出自己的 `Unimplemented` 錯誤，與 typed throws 衝突而編譯失敗；closure 型別改成 typealias 後，巨集又認不出是 closure，什麼都不產生（swift-dependencies 1.17 實測）。
 - **避免**：以型別下標取用（`$0[<Feature>Service.self]`、`@Dependency(<Feature>Service.self)`），一律用 `DependencyValues` 的屬性。
@@ -523,6 +524,7 @@ extension DependencyValues {
 - **要**：`<Name>Key` 是 enum，遵循宣告在型別行，`liveValue`、`previewValue` 寫在本體、不分區（`formatting.md` 的「遵循宣告在型別行還是 extension」例外五）。
 - **要**：`liveValue` 為 computed property，回傳正式實作。
 - **要**：`previewValue` 以 `#if DEBUG` 包住，回傳同檔 Preview 群組的 `Preview<Name>`（例如 `PreviewAPIClient`）；stub 維持頂層型別、命名 `Preview<Name>`，init 的 `RuntimeEnvironment.allowsPreviewStub` 斷言保留。
+- **例外**：Database 的 `previewValue` 不寫 stub，改成回傳正式型別搭記憶體容器並 seed 範例資料（SwiftData 用 in-memory 的 `ModelContainer`），getter 第一行同樣 `assert(RuntimeEnvironment.allowsPreviewStub, ...)`；因此 Database 主檔沒有 `Preview<Name>` 與 Preview 群組，套 `tca/Client.swift` 時刪掉。Database 的 stub 得自己重寫一遍查詢，假資料也容易和真實行為脫節；以它為下層的 Service 怎麼接見「Service」的 `previewValue` 例外。
 - **要**：**不宣告 `testValue`**。只有 `liveValue` 的依賴在測試中未經 `withDependencies` 覆寫就存取時，TCA 會直接讓測試失敗；測 Service 的 `liveValue` 時漏注入 Mock 就會被擋下，不會連到真正的網路或資料庫。
 
 ## @Shared
@@ -673,6 +675,7 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 - [ ] Service 缺 `testValue`，或 `testValue` 不是全部 `unimplemented`；`liveValue` 寫成 `static let` 或內有 `.shared`；`previewValue` 未包 `#if DEBUG` 或缺 `assert`；`DependencyKey` extension 內不是 `liveValue` → `previewValue` → `testValue`
 - [ ] 依賴的 `DependencyKey` 註冊、`DependencyValues` 屬性、`previewValue` 或 Preview stub 拆到 `+Dependency`、`+Preview`、`Preview<Name>.swift` 等獨立檔，而非寫在 Service、Client、Store、Database 的主檔；Service 的 `extension DependencyValues` 沒放檔尾
 - [ ] Client / Store / Database 主檔的群組順序不是 Protocol → Implementation → DependencyKey → DependencyValues → Preview；宣告了 `testValue`
+- [ ] Database 的 `previewValue` 寫成 `Preview<Name>` stub，而非 seed 範例資料的記憶體資料庫；以 Database 為下層的 Service，`previewValue` 回傳固定假資料而非 `liveValue`
 - [ ] `@Shared` 帶 persistence key；跨 Feature 模組共享
 - [ ] 測試關閉 exhaustivity；Feature 測試整個替換 Service 而非只覆寫用到的 closure；用 Mock class 記錄 Service 呼叫而非 `LockIsolated`；`receive` 依賴 `Action: Equatable`
 - [ ] 父層測試的名稱第一段寫了子層的內層 Action（如 `saveButtonTapped_`）而非受測 Feature 最外層的 case；`view` 分組被當成一層寫成 `view_`

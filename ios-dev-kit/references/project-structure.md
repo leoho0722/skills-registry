@@ -388,7 +388,7 @@ DesignSystem/
 
 ### 測什麼
 
-- **要**：只為 ViewModel、Service、Client、Store、Database、UseCase、FormatStyle、Extensions 寫單元測試；測試檔名 `<TypeUnderTest>Tests.swift`，位置鏡像該型別在主 target 的資料夾。
+- **要**：只為 ViewModel、Service、Client、Store、Database、UseCase、FormatStyle、Extensions 寫單元測試；測試檔名 `<TypeUnderTest>Tests.swift`，位置鏡像該型別在主 target 的資料夾；過大時依受測行為拆成 `<TypeUnderTest><行為>Tests.swift`，放同一個資料夾，見 `file-templates.md` 的 tests/Tests.swift 一節。
 - **要**：Model 與 Enum 預設不測；例外是有手寫 `init(from:)` / `encode(to:)`、手寫 `init?(rawValue:)`、或 computed property 含判斷邏輯時，只測那些手寫的部分。
 - **避免**：為 View、Coordinator 寫單元測試；View 由 Preview 與 UI Test 覆蓋，Coordinator 的導航由 UI Test 覆蓋。
 - **避免**：一個測試檔測多個型別，或測試檔的位置與主 target 不對應。

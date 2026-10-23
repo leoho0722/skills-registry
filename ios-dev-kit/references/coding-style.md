@@ -58,6 +58,7 @@ Leo Ho 個人 Swift 開發規範。參考 [Swift API Design Guidelines](https://
 
 - **要**：動詞開頭，呼叫端讀起來像英文句子：`fetchProfile(id:)`、`insert(_:at:)`。
 - **要**：有副作用的用祈使動詞（`sort()`、`append(_:)`、`load()`）；無副作用回傳新值的用過去分詞或名詞（`sorted()`、`appending(_:)`、`formatted()`）。
+- **例外**：刻意對齊系統 API 的方法沿用系統的名稱與參數標籤，不套用上一條。例如包 `URLSession` 的 Client 提供 `data(for:)`、`bytes(for:)`，雖然會發出網路請求，名稱仍與 `URLSession.data(for:)`、`bytes(for:)` 一致，讀者一看就知道對應哪個系統 API。只限鏡像既有系統 API 的方法，自己設計的操作照上一條命名。
 - **要**：第一個參數的語意已由函式名說明時省略標籤（`remove(at:)`、`fetchProfile(id:)`），否則保留標籤；不為了縮短而用 `_` 省略有意義的標籤。
 - **要**：回傳 `Bool` 的方法命名同 `Bool` 屬性規則（`isValid(_:)`、`contains(_:)`）。
 - **避免**：`get` 前綴（`getProfile()` 改 `profile` 或 `fetchProfile()`）；`do`、`handle`、`process` 這類不說明做了什麼的動詞。

@@ -463,7 +463,7 @@ private extension ProfileViewModel {
 - **要**：extension 只用於三件事：依上述順序分區、遵循 protocol、為非自己的型別加功能。
 - **要**：為非自己的型別（`Date`、`String`、`View`、系統或第三方型別）加功能時，放 `Core/Extensions/`，預設一個型別一檔 `<Type>+Extensions.swift`，檔內依功能以 `// MARK: - <功能>` 分區。其中某個功能明顯自成一組（例如 `Date` 的相對時間計算）時，拆成 `<Type>+<Feature>.swift`，一個關注點一檔；拆分後不再保留 `<Type>+Extensions.swift`，全部改為功能命名，同一型別不混用兩種檔名。唯一例外是 `EnvironmentValues+Services.swift`，它是 `@Entry` 清單而非一般擴充。TCA 專案的 `extension DependencyValues` 也不放這裡，寫在該依賴的主檔，位置見 `tca-architecture.md` 的「依賴注入」。
 - **避免**：同一區塊拆成兩個 extension，例如兩個 `// MARK: - Internal Method`。
-- **避免**：跨檔 extension 自己的型別，包含依子領域拆出的 `<Name>+<Domain>.swift`。型別過大時依 `file-templates.md` 的「Protocol 過大時的處理順序」拆責任；責任單一的型別留在同一個檔案。唯一例外是 TCA 的 `<Screen>Feature+Path.swift`、`<Screen>Feature+Destination.swift`，見 `tca-architecture.md` 的「拆分」。
+- **避免**：跨檔 extension 自己的型別，包含依子領域拆出的 `<Name>+<Domain>.swift`。型別過大時依 `file-templates.md` 的「Protocol 過大時的處理順序」拆責任；責任單一的型別留在同一個檔案。測試 target 的型別同樣適用，過大時拆成獨立的測試型別，見 `file-templates.md` 的 tests/Tests.swift 一節。例外只有兩種：TCA 的 `<Screen>Feature+Path.swift`、`<Screen>Feature+Destination.swift`（`tca-architecture.md` 的「拆分」），以及測試 target 的 `<Model>+Fixture.swift`（`project-structure.md` 的「Mocks 與 Fixtures」）。
 - **避免**：SwiftUI View 用跨檔 extension 分檔。View 大到需要拆檔時，優先把區塊抽成獨立的 View 型別，傳入必要的值與 closure（位置與檔名見 `project-structure.md` 的「Presentation 依畫面分資料夾」）。跨檔 extension 取不到 View 的 `private` `@State`、`@Environment`，為了編譯降成 internal 會破壞封裝；確實抽不動時先問使用者，不自行降低存取層級。
 - **避免**：用 extension 對非自己的型別加 protocol 遵循（retroactive conformance），會與其他模組的遵循衝突；需要時改用 wrapper 型別。
 
@@ -725,7 +725,7 @@ var body: some View {
 - [ ] 測試的 `// When`、`// Then` 前面沒空行，或 `// Given` 前面多了空行
 - [ ] 一個檔案宣告兩個以上的頂層型別（protocol 與實作同檔、TCA Client / Store / Database 主檔、TCA `Destination.State` 的 extension 除外）
 - [ ] 同檔多個頂層宣告缺群組標頭，或群組順序不是 Protocol → Implementation → DependencyKey → DependencyValues → Preview；`Preview` 群組沒有整組包在 `#if DEBUG` 內
-- [ ] 跨檔 extension 自己的型別，包含 `<Name>+<Domain>.swift`（TCA 的 `<Screen>Feature+Path.swift`、`+Destination.swift` 除外）
+- [ ] 跨檔 extension 自己的型別，包含 `<Name>+<Domain>.swift` 與測試的 `<TypeUnderTest>Tests+<行為>.swift`（TCA 的 `<Screen>Feature+Path.swift`、`+Destination.swift` 與測試 target 的 `<Model>+Fixture.swift` 除外）
 - [ ] SwiftUI View 用跨檔 extension 分檔，或為了分檔把 `private` 的 `@State`、`@Environment` 降成 internal
 - [ ] MARK 順序錯置，或同一區塊拆成兩個 extension
 - [ ] private 的 computed property 放在 Computed Properties，或非 private 的放在 Private Method
