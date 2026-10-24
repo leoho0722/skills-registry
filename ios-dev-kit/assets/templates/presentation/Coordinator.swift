@@ -45,7 +45,7 @@ extension __NAME__Coordinator {
         /// 示範視窗，替換為實際視窗並改寫此說明
         case example
 
-        /// 以自身作為識別，供 `.sheet(item:)` 使用
+        /// 識別值，直接用自身，供 `.sheet(item:)` 使用
         var id: Self {
             self
         }
@@ -90,7 +90,7 @@ extension __NAME__Coordinator {
 
 extension __NAME__Coordinator {
 
-    /// 每個頁面對應要顯示的畫面
+    /// 產生頁面要顯示的畫面
     ///
     /// - Parameter route: 要顯示的頁面
     /// - Returns: 該頁面的畫面
@@ -102,7 +102,7 @@ extension __NAME__Coordinator {
         }
     }
 
-    /// 每個彈出視窗對應要顯示的畫面
+    /// 產生彈出視窗要顯示的畫面
     ///
     /// - Parameter sheet: 要顯示的視窗
     /// - Returns: 該視窗的畫面

@@ -178,7 +178,7 @@ struct ProfileFeature {
 
     // MARK: - Body
 
-    /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`
+    /// reducer 的骨架，只負責組合，本畫面自己的邏輯在 `core(state:action:)`
     var body: some ReducerOf<Self> {
         Reduce(core)
             .ifLet(\.$destination, action: \.destination)
@@ -289,7 +289,7 @@ private extension ProfileFeature {
 ```swift
     // MARK: - Body
 
-    /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`
+    /// reducer 的骨架，只負責組合，本畫面自己的邏輯在 `core(state:action:)`
     var body: some ReducerOf<Self> {
         Reduce(core)
             .ifLet(\.$destination, action: \.destination)
@@ -554,7 +554,7 @@ extension DependencyValues {
 - **避免**：`exhaustivity = .off`；測 View；在測試裡直接呼叫 `Feature().reduce(into:action:)`；為 `Path` / `Destination` 子 reducer 單獨開測試檔（它們透過父 Feature 的測試覆蓋，除非本身是獨立畫面）。
 
 ```swift
-/// 新增類別時儲存失敗，畫面要顯示錯誤提示
+/// 驗證按下新增後儲存失敗時，畫面顯示錯誤提示，讓使用者知道類別沒存進去
 @Test
 func addButtonTapped_儲存失敗_顯示錯誤提示() async {
     // Given
@@ -571,7 +571,8 @@ func addButtonTapped_儲存失敗_顯示錯誤提示() async {
     ...
 }
 
-/// 只有 send 沒有 receive：send 連同狀態 closure 是 When，send 之後另寫 Then 斷言關鍵結果
+// 只有 `send` 沒有 `receive`：`send` 連同狀態 closure 是 When，`send` 之後另寫 Then 斷言關鍵結果
+/// 驗證打開「只看未付款」開關時，訂單清單只列出還沒付款的訂單
 @Test
 func unpaidOnlyToggled_開啟_只顯示未付款() async {
     // Given
@@ -588,7 +589,8 @@ func unpaidOnlyToggled_開啟_只顯示未付款() async {
     #expect(store.state.showsUnpaidOnly)
 }
 
-/// 計時中按下停止要取消計時；正在執行的 effect 無法設進初始 State，所以 Given 用 send／receive 啟動
+// 正在執行的 effect 無法設進初始 `State`，所以 Given 用 `send`／`receive` 啟動
+/// 驗證計時中按下停止時，計時停下來，秒數不再增加
 @Test
 func stopButtonTapped_計時中_停止計時() async {
     // Given
@@ -615,7 +617,7 @@ func stopButtonTapped_計時中_停止計時() async {
     #expect(store.state.isRunning == false)
 }
 
-/// 按下儲存時，把輸入的名稱交給 Service 一次
+/// 驗證名稱有效時按下儲存，Service 收到輸入的名稱，而且只收到一次
 @Test
 func saveButtonTapped_名稱有效_新增類別一次() async {
     // Given
@@ -637,7 +639,8 @@ func saveButtonTapped_名稱有效_新增類別一次() async {
     #expect(addedNames.value == ["新類別"])
 }
 
-/// Service 本身：名稱前後的空白要先去掉再存
+// Service 本身的測試：換掉下層的 Store 後取 `liveValue` 測正式實作
+/// 驗證名稱前後有空白時先去掉再存，避免清單出現看起來一樣的兩個類別
 @Test
 func addCategory_名稱前後有空白_存入去掉空白的名稱() async throws {
     // Given

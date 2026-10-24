@@ -373,7 +373,8 @@ DesignSystem/
 │   ├── <Feature>RootViewModelTests.swift   # 鏡像 Presentation，只測 ViewModel
 │   ├── <Screen>ViewModelTests.swift
 │   ├── <Feature>ServiceTests.swift         # 鏡像 Data
-│   └── <Verb><Noun>UseCaseTests.swift      # 鏡像 Domain/UseCases
+│   ├── <Verb><Noun>UseCaseTests.swift      # 鏡像 Domain/UseCases
+│   └── <TypeUnderTest>TestSupport.swift    # 同資料夾多個測試型別共用的 helper
 ├── Core/
 │   ├── Formatters/<Name>FormatStyleTests.swift
 │   ├── Extensions/<Type>+ExtensionsTests.swift
@@ -381,9 +382,11 @@ DesignSystem/
 ├── Mocks/                                  # 平放，不分子資料夾
 │   ├── Mock<Feature>Service.swift          # tests/MockService.swift
 │   └── Mock<Name>Client.swift
-└── Fixtures/                               # 測試用固定資料
-    ├── <Model>+Fixture.swift               # extension <Model> { static func fixture(...) }
-    └── <model>.json                        # 只給解碼測試用
+├── Fixtures/                               # 測試用固定資料
+│   ├── <Model>+Fixture.swift               # extension <Model> { static func fixture(...) }
+│   └── <model>.json                        # 只給解碼測試用
+└── Support/                                # 跨資料夾共用的 TestSupport，平放
+    └── <TypeUnderTest>TestSupport.swift
 ```
 
 ### 測什麼
@@ -396,6 +399,7 @@ DesignSystem/
 ### Mocks 與 Fixtures
 
 - **要**：Mock 一律放 `Mocks/` 平放，不依 Feature 分子資料夾；跨 Feature 測試共用，命名與內容依 `file-templates.md` 的 `tests/MockService.swift` 一節。
+- **要**：多個測試型別共用的 helper 不放 `Mocks/`、`Fixtures/`：同資料夾共用的放該資料夾的 `<TypeUnderTest>TestSupport.swift`，跨資料夾共用的放 `Support/`，平放、不分子資料夾；規則見 `file-templates.md` 的 tests/Tests.swift 一節。
 - **要**：Fixture 以 extension 形式提供，一個 Model 一檔 `<Model>+Fixture.swift`，放 `Fixtures/`：
 
   ```swift
@@ -431,7 +435,7 @@ DesignSystem/
 
 ### 方案 B、C 的測試
 
-各 package 的 `Tests/<Module>Tests/` 內部結構與上面相同：鏡像該 module 的 `Sources/`，`Mocks/` 與 `Fixtures/` 隨 package 平放。App target 的 `<Project>Tests/` 只剩留在 App 內的東西（方案 B 為各 Feature 的 Presentation，方案 C 為 `App/`）。UI Test 不隨 package，一律在 `<Project>UITests/`。
+各 package 的 `Tests/<Module>Tests/` 內部結構與上面相同：鏡像該 module 的 `Sources/`，`Mocks/`、`Fixtures/`、`Support/` 隨 package 平放。App target 的 `<Project>Tests/` 只剩留在 App 內的東西（方案 B 為各 Feature 的 Presentation，方案 C 為 `App/`）。UI Test 不隨 package，一律在 `<Project>UITests/`。
 
 ## 常見錯誤檢查清單
 
@@ -447,5 +451,5 @@ DesignSystem/
 - [ ] `Core/` 出現業務名詞；只有一個 Feature 用的 Component 被抽進 `Core/`
 - [ ] DesignSystem 依賴 `Core` 或 Feature；畫面內出現未經 Token 的顏色、字型、間距
 - [ ] Feature package 依賴其他 Feature package；`Package.swift` 缺 `swiftLanguageModes: [.v6]`
-- [ ] 測試檔位置未鏡像主 target；為 View 或 Coordinator 寫單元測試；Mocks 或 Fixtures 分了子資料夾
+- [ ] 測試檔位置未鏡像主 target；為 View 或 Coordinator 寫單元測試；Mocks、Fixtures 或 Support 分了子資料夾；共用的測試 helper 放進 Mocks 或 Fixtures
 - [ ] Fixture 不叫 `fixture`、參數沒有預設值、內含隨機值或目前時間

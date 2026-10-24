@@ -32,7 +32,7 @@ final class __NAME__UITests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    /// 示範測試，替換為實際案例並依「test方法或行為_情境_預期」命名，情境與預期用正體中文
+    /// 驗證示範情境的結果；替換為實際案例並改寫此說明，名稱依「test方法或行為_情境_預期」，情境與預期用正體中文
     func testExample() throws {
         // Given
 

@@ -33,7 +33,7 @@ Leo Ho 個人 Swift 開發規範。參考 [Swift API Design Guidelines](https://
 
 ### 型別與 protocol
 
-- **要**：型別 UpperCamelCase；後綴只用已定義的角色名：`View`、`ViewModel`、`Coordinator`、`Service`、`Client`、`Store`、`Database`、`UseCase`、`FormatStyle`、`Tests`、`UITests`。
+- **要**：型別 UpperCamelCase；後綴只用已定義的角色名：`View`、`ViewModel`、`Coordinator`、`Service`、`Client`、`Store`、`Database`、`UseCase`、`FormatStyle`、`Tests`、`UITests`、`TestSupport`。
 - **要**：描述能力的 protocol 用 `-able` / `-ible` / `-ing`（`Sendable`、`ProfileFetching`）；描述角色的 protocol 用名詞加 `Protocol` 後綴（`ProfileServiceProtocol`）。
 - **要**：泛型參數一律具名，表達它的角色：`Element`、`Output`、`Value`、`Key`；單字母 `T` 只允許在完全沒有語意的工具函式（例如 `identity<T>(_:)`）。
 - **要**：`Manager`、`Handler`、`Provider` 只在型別的職責**確實符合該字的本意**時使用，判斷標準如下表；符合就用，不符合就改用能說明職責的字。`Helper` 與 `Util` 沒有對應的職責，不使用。
@@ -44,7 +44,7 @@ Leo Ho 個人 Swift 開發規範。參考 [Swift API Design Guidelines](https://
 | `Manager` | 管理一組資源的生命週期 | 建立、追蹤、回收多個存活期長於單次呼叫的同類物件，例如連線池、下載任務集合 | 只做一組操作 → `Service`；包裝系統物件 → `Client` |
 | `Handler` | 被動回應一個事件 | closure 參數名（`completionHandler`），或責任鏈、middleware 中的一環，接在其他 Handler 前後處理同一個輸入 | 主動提供功能 → `Service`；只是一個方法 → 動詞命名的函式 |
 | `Provider` | 按需提供一個值，本身無業務邏輯 | 介面只有一兩個回傳值的方法、無狀態、為了可替換與可測試而存在，例如 `DateProvider.now()`、`LocaleProvider` | 有業務邏輯 → `Service`；有狀態 → `Store` |
-| `Helper` / `Util` | 無 | 無 | 依內容命名：測試用的叫 `Fixtures`、`Builders`；共用函式收進以主題命名的無 case `enum` 或對應型別的 extension |
+| `Helper` / `Util` | 無 | 無 | 依內容命名：測試用的固定資料放 `Fixtures`，多個測試型別共用的 helper 收進 `<TypeUnderTest>TestSupport`（`file-templates.md` 的 tests/Tests.swift 一節）；共用函式收進以主題命名的無 case `enum` 或對應型別的 extension |
 
 ### 變數、屬性與常數
 
@@ -514,7 +514,7 @@ var body: some View {
 
 - **要**：**所有宣告一律有 `///`，沒有例外**，不分存取層級：型別、protocol 與其每個要求、extension 內的每個方法與 computed property、stored property、enum 的每個 case、nested type、`private` 成員、測試方法、protocol 遵循 extension 內的實作。
 - **要**：protocol 要求與其實作**兩邊都寫**，但內容不同：protocol 上寫「做什麼、呼叫端能期待什麼」；實作上寫「這個實作怎麼做」，例如資料來源、有無快取、平台限制、與其他實作的差異。實作端不複製 protocol 的句子。
-- **要**：第一行一句話摘要，說明「這是什麼」或「做什麼」，動詞開頭，句末不加句號；型別的摘要說明職責與使用時機。
+- **要**：第一行一句話摘要，句末不加句號。方法、函式、`init` 說明「做什麼」，動詞開頭：省略主詞，從這個宣告做的動作寫起，動作前可以先寫方式或時機（「依識別碼取得個人資料」「每個測試前以假資料模式啟動 App」）；測試方法一律以「驗證」開頭，見 `file-templates.md` 的 tests/Tests.swift 一節。型別、屬性、`case` 說明「這是什麼」，不受動詞開頭限制：型別說明職責與使用時機；屬性寫成名詞片語（「唯一識別碼」「顯示給使用者看的名稱」），`Bool` 屬性用「是否」問句（「是否已付款」），裝 closure 的屬性（TCA Service 的操作）視同方法、動詞開頭；`case` 寫它代表的情況（「使用者中途放棄」）。
 - **要**：摘要後空一行，依序寫 `- Parameter x:`（單一參數）或 `- Parameters:`（多個參數，每個一行縮排）、`- Returns:`、`- Throws:`。**有參數就一定寫參數、有回傳值就一定寫回傳、會 throw 就一定寫 Throws**，不因名稱已清楚而省略；`Throws` 寫出哪些情況丟哪個 case。
 - **要**：`init` 一律有摘要，說明建立出來的東西是什麼、需要什麼；參數依上一條寫。
 - **要**：enum case 帶 associated value 時，每個 value 都以 `- Parameter` / `- Parameters:` 說明，寫法與函式參數相同；沒有 label 的 value 以型別名稱小寫作為名稱（`- Parameter profile:`）。
@@ -601,4 +601,4 @@ private extension ProfileViewModel {
 - [ ] Concurrency：`@MainActor` 標在方法而非型別、Service / Model 標 `@MainActor`、`@unchecked Sendable` 壓警告、`nonisolated(unsafe)`、`DispatchQueue.main.async`
 - [ ] Task：`Task.detached`、`init` 內建 Task、可重複觸發的 Task 未持有與取消、`catch` 內未先檢查 `Task.isCancelled`
 - [ ] 註解：任何宣告缺 `///`（含 `private`、`case`、`init`、protocol 實作）、有參數缺 `- Parameter`、有回傳缺 `- Returns`、會 throw 缺 `- Throws`、associated value 缺 `- Parameter`
-- [ ] 註解：術語與縮寫、複述名稱、冗言贅字、實作端複製 protocol 的句子、`// TODO` 沒有 issue 編號、被註解掉的程式碼、複述程式碼的 `//`、一般概念詞（sheet、alert、iPad）加了反引號
+- [ ] 註解：方法的摘要不是動詞開頭、測試方法的摘要不是以「驗證」開頭、術語與縮寫、複述名稱、冗言贅字、實作端複製 protocol 的句子、`// TODO` 沒有 issue 編號、被註解掉的程式碼、複述程式碼的 `//`、一般概念詞（sheet、alert、iPad）加了反引號

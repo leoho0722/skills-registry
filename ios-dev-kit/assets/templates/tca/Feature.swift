@@ -68,7 +68,7 @@ struct __NAME__Feature {
 
     // MARK: - Body
 
-    /// 只負責組合 reducer，本畫面自己的邏輯在 `core(state:action:)`
+    /// reducer 的骨架，只負責組合，本畫面自己的邏輯在 `core(state:action:)`
     var body: some ReducerOf<Self> {
         Reduce(core)
     }

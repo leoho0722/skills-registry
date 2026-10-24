@@ -57,7 +57,7 @@ extension __NAME__Coordinator {
         /// 示範視窗，替換為實際視窗並改寫此說明
         case example
 
-        /// 以自身作為識別，供 `.sheet(item:)` 使用
+        /// 識別值，直接用自身，供 `.sheet(item:)` 使用
         var id: Self {
             self
         }
@@ -134,7 +134,7 @@ extension __NAME__Coordinator {
 
 extension __NAME__Coordinator {
 
-    /// 每個步驟對應要顯示的畫面
+    /// 產生步驟要顯示的畫面
     ///
     /// - Parameter route: 要顯示的步驟
     /// - Returns: 該步驟的畫面
@@ -149,7 +149,7 @@ extension __NAME__Coordinator {
         }
     }
 
-    /// 每個彈出視窗對應要顯示的畫面
+    /// 產生彈出視窗要顯示的畫面
     ///
     /// - Parameter sheet: 要顯示的視窗
     /// - Returns: 該視窗的畫面
@@ -166,7 +166,7 @@ extension __NAME__Coordinator {
 
 private extension __NAME__Coordinator {
 
-    /// 某一步完成後該去哪一步；可依已填的資料跳步或分支
+    /// 決定某一步完成後要去哪一步；可依已填的資料跳步或分支
     ///
     /// - Parameter step: 剛完成的步驟
     /// - Returns: 下一步；已是最後一步時為 nil

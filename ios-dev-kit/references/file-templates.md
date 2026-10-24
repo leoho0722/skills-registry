@@ -286,7 +286,7 @@ func proceed(from step: Route)
 /// 退回上一步，與一般 Coordinator 相同
 func pop()
 
-/// 整個流程結束，把結果交給父層；畫面的關閉由父層負責
+/// 結束整個流程，把結果交給父層；畫面的關閉由父層負責
 ///
 /// - Parameter result: 完成的產出或取消
 func finish(with result: Result)
@@ -619,20 +619,24 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - 非同步測試直接 `async throws`，不用 expectation。
 
 - **命名格式**：`<方法或行為>_<情境>_<預期>`，底線分三段，不加 `test` 前綴（Swift Testing 靠 `@Test` 探測）。方法或行為段照抄程式碼裡的名稱（方法名、TCA 的 Action 名稱），保留英文 lowerCamelCase，用名稱搜尋就找得到它的測試；TCA 送出巢狀 Action 時取哪一層見 `tca-architecture.md` 測試一節；情境與預期兩段用正體中文，簡短描述，不寫成完整句子。例：`fetchProfile_快取命中_回傳快取資料`、`submit_信箱空白_丟出驗證錯誤`、`saveButtonTapped_儲存失敗_顯示錯誤提示`。`@Test("顯示名稱")` 只在名稱無法表達意圖時加。
+- **測試方法的 `///` 摘要以「驗證」開頭**，接情境與預期寫成一句白話，例如「驗證服務成功時，畫面變成已載入並帶著取得的資料，只向服務要一次」。名稱的情境與預期段是縮寫，摘要把它說完整，並補上名稱沒說的資訊，例如受測的是哪一方、預期結果的細節、為什麼這樣預期；只把名稱三段換句話說就是複述名稱（`coding-style.md` 的「Doc Comment」）。UI 測試的 `func test…()` 相同。只有 `@Test` 方法與 `func test…()` 加「驗證」，helper、`setUpWithError` 等其他方法照一般方法動詞開頭。測試型別與屬性說明「這是什麼」，不加「驗證」：型別寫「`<TypeUnderTest>` 的單元測試」，需要時接測試方式（例如 `tca/FeatureTests.swift` 的「以 TestStore 逐步驗證 …」）；屬性寫成名詞片語（「受測的 App，每個測試重新啟動」）。
 - **三段註解必備**，即使某段只有一行；Given 為空時仍保留註解並留空行，讓結構一致。
 - **`// When`、`// Then` 前各空一行**，讓三段一眼分開；`// Given` 寫在本體第一行，依「函式本體不以空行開頭」前面不空行（`formatting.md` 空行規則）。
 - **三段註解寫在同一縮排層級**，不寫進 TCA `send` 或 `do` / `catch` 的 closure 裡。整個測試本體包在 `withDependencies` 或專案自訂的隔離 helper（例如 `withIsolatedStorage`）的 closure 內時，三段註解一起放進該 closure，`// Given` 寫在 closure 本體第一行。TCA 只有 `send` 時 `// Then` 的寫法見 `tca-architecture.md` 測試一節。
 - **驗證丟出的錯誤用 `actualError` 寫法**：Given 宣告 `var actualError: E?`；When 只寫 `do { try await … } catch { actualError = error }`，When 與 `catch` 裡都不斷言；Then 先 `let error = try #require(actualError)`，再對 `error` 斷言，測試方法因此標 `throws`。不用 `let error = #expect(throws:)`，它會在 When 裡放一個斷言。`do` 本體只丟同一種 typed error 時，`catch` 的 `error` 就是該型別，直接指定、不用轉型；但這只在測試函式本體成立，整個本體包在 `withDependencies`、`withIsolatedStorage` 這類 closure 內時，`error` 是 `any Error`，要改寫 `do throws(E) { }`（`formatting.md` 的「Closure 與 Trailing Closure」）。
 - **一個測試只允許一組 When / Then**；需要驗證多個結果時用多個 `#expect`，需要多個動作時拆成多個測試或改用 `@Test(arguments:)`。TCA 在 Given 用 `send` 建立前置狀態不算第二個動作，見 `tca-architecture.md` 測試一節。
 - **`@Suite` 只在需要共用 setup、tag 或序列化執行（`.serialized`）時使用**，單純分組不加。
-- **測試型別過大時，依受測行為拆成獨立的測試型別，不以 `extension` 跨檔拆分**（`formatting.md` 的「Extension 的使用時機」）：每個型別一個檔案，型別與檔名為 `<TypeUnderTest><行為>Tests`，行為段用 UpperCamelCase 英文（例如 `RootFeatureNavigationTests.swift`），與 `<TypeUnderTest>Tests.swift` 放同一個資料夾。`@MainActor`、`.serialized` 依拆出的型別各自判斷，只標在需要的那幾個上。多個測試型別共用的 helper 不留在其中一個型別內，移到測試 target 的 Fixtures、Mocks 或專案共用的測試 helper。參數化測試的資料型別同樣拆成獨立型別，不寫成 `extension` 分檔。
+- **測試型別過大時，依受測行為拆成獨立的測試型別，不以 `extension` 跨檔拆分**（`formatting.md` 的「Extension 的使用時機」）：每個型別一個檔案，型別與檔名為 `<TypeUnderTest><行為>Tests`，行為段用 UpperCamelCase 英文（例如 `RootFeatureNavigationTests.swift`），與 `<TypeUnderTest>Tests.swift` 放同一個資料夾。`@MainActor`、`.serialized` 依拆出的型別各自判斷，只標在需要的那幾個上。拆開後共用的 helper 依下一條放置。參數化測試的資料型別同樣拆成獨立型別，不寫成 `extension` 分檔。
+- **測試共用的 helper 依使用範圍放置，不留在其中一個測試型別上讓其他型別呼叫**：只有一個測試型別用的，寫成該型別的 `private` 成員；同資料夾多個測試型別共用的，放同資料夾的 `<TypeUnderTest>TestSupport.swift`；跨資料夾共用的，同一個檔案移到測試 target 的 `Support/`（`project-structure.md` 的「測試目錄」）。helper 幾乎只在改同一組測試時變動，放在使用它的測試旁邊，改動才集中、歸屬也清楚。
+- **`<TypeUnderTest>TestSupport` 是無 case 的 `enum`，成員一律 `static`**，分區照 `formatting.md`。`<TypeUnderTest>` 是這組測試型別共同的受測型別，也就是 `<TypeUnderTest>Tests` 去掉 `Tests`；不同受測型別的測試共用時，歸到 helper 處理的那個受測型別，例如建立 `OrderService` 的 helper 放 `OrderServiceTestSupport`。一個受測型別只有一個 TestSupport，位置依使用範圍最廣的成員決定；使用範圍擴大時整個檔案一起搬，不拆成兩份。跨 Feature 通用的 Model 固定值仍是 `Fixtures/<Model>+Fixture.swift`，Mock 仍放 `Mocks/`；預設值和 `fixture` 不同、只給一組測試用的建構 helper（例如 `makeOrder`）留在 TestSupport。
+- **`private` 型別不能出現在非 `private` 成員的簽章或型別裡**，最常碰到的是 `@Test(arguments:)` 的參數型別：`@Test` 方法是 internal，參數型別是 `private` 就無法編譯。這時把該型別改成 internal（不寫存取修飾詞），不用 `fileprivate`，也不為此把 `@Test` 方法改成 `private`。參數資料本身（例如 `private static let cases`）可以維持 `private`，只有元素型別要 internal；只在測試本體或 `private` 成員裡用到的型別照樣 `private`。
 - **`@MainActor` 只在絕對必要時才加，不要預設加上**：必要的定義是測試本體要存取 `@MainActor` 隔離的型別，例如 ViewModel、Coordinator、TCA 的 `TestStore`。Service、Client、Store、Model、Enum、FormatStyle 的測試不加。範圍越小越好：只有部分測試需要時標在那幾個測試方法上，整個測試型別都需要時（例如 TCA 的 `<Screen>FeatureTests`）才標在型別上。不為了消除並行檢查的警告而加，先找出實際需要主執行緒的是哪個型別。
 - **`@Suite(.serialized)` 只在絕對必要時才加，不要預設加上**：必要的定義是測試共用一個無法隔離的外部資源，例如 `UserDefaults.standard`、固定路徑的檔案、Keychain。Swift Testing 預設並行執行，序列化會拖慢整個測試。優先改成每個測試各自一份（以唯一名稱建立 `UserDefaults(suiteName:)`、每個測試用自己的暫存資料夾）讓測試能並行；真的無法隔離才序列化，並在 `@Suite` 的 `///` 寫明是哪個共用資源。
 
-第一個測試的對象是 `@MainActor` 的 ViewModel，所以只在這個測試方法標 `@MainActor`；第二個測的是一般 enum，不加；第三個示範驗證丟出的錯誤：
+第一個測試的對象是 `@MainActor` 的 ViewModel，所以只在這個測試方法標 `@MainActor`；第二個測的是一般 enum，不加，而且沒有前置條件，Given 仍保留註解並空一行；第三個示範驗證丟出的錯誤：
 
 ```swift
-/// 載入成功時，畫面狀態變成已載入並帶著取得的資料
+/// 驗證服務成功時，畫面變成已載入並帶著取得的資料，只向服務要一次
 @Test
 @MainActor
 func load_服務成功_狀態變成已載入() async {
@@ -649,7 +653,7 @@ func load_服務成功_狀態變成已載入() async {
     #expect(service.fetchProfileCallCount == 1)
 }
 
-/// 設定頁不需要登入就能呼叫；沒有前置條件時 Given 仍保留註解並空一行
+/// 驗證設定頁不需登入，讓使用者登入前也能打開設定
 @Test
 func requiresAuth_設定頁_不需登入() {
     // Given
@@ -661,7 +665,7 @@ func requiresAuth_設定頁_不需登入() {
     #expect(requiresAuth == false)
 }
 
-/// Store 寫入失敗時，Service 把錯誤原樣丟給呼叫端
+/// 驗證 Store 寫入失敗時，Service 把錯誤原樣丟給呼叫端
 @Test
 func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
     // Given
@@ -689,7 +693,7 @@ func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
 
 - 型別用 `final class` 繼承 `XCTestCase`，`app` 在 `setUpWithError` 建立並 `launch()`，`tearDownWithError` 釋放。
 - `continueAfterFailure = false`，UI 流程一步失敗後續步驟沒有意義。
-- 測試方法沿用 `test` 前綴（XCTest 靠前綴探測），命名為 `test<方法或行為>_<情境>_<預期>`，方法或行為段首字大寫接在 `test` 後，其餘同單元測試：`testLogin_帳密正確_進入首頁`。本體同樣採 Given / When / Then。
+- 測試方法沿用 `test` 前綴（XCTest 靠前綴探測），命名為 `test<方法或行為>_<情境>_<預期>`，方法或行為段首字大寫接在 `test` 後，其餘同單元測試：`testLogin_帳密正確_進入首頁`。`///` 摘要同樣以「驗證」開頭：「驗證帳密正確時按下登入，直接進入首頁、不再停在登入畫面」。本體同樣採 Given / When / Then。
 - 元素查詢一律透過 accessibility identifier，不用顯示文字或索引定位。
 
 - **launch argument 固定 `-uiTesting`**，在 `setUpWithError` 以 `app.launchArguments = ["-uiTesting"]` 傳入；App 端在根部檢查 `CommandLine.arguments` 含此旗標時注入 Preview stub，UI Test 不打真實 API。需要特定資料情境時用 `app.launchEnvironment["UITEST_SCENARIO"]` 傳場景名稱。
@@ -709,4 +713,7 @@ func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
 - [ ] `switch`、`if case`、`guard case` 用了 `case let .x(v)`，而非 `case .x(let v)`
 - [ ] 測試檔設了 `// MARK: - Tests` 分區；效能測試以外的單元測試用 XCTest，或效能測試和 Swift Testing 的測試同檔
 - [ ] 測試型別以 `extension` 跨檔拆分（`<TypeUnderTest>Tests+<行為>.swift`），而非拆成獨立的 `<TypeUnderTest><行為>Tests`
+- [ ] `@Test` 方法或 UI 測試 `func test…()` 的 `///` 摘要沒以「驗證」開頭（寫成「… 時，…」的情境句），或只把名稱三段換句話說；helper、`setUpWithError` 這類其他方法的摘要加了「驗證」
+- [ ] 共用 helper 留在某個測試型別上讓其他型別呼叫；同資料夾共用的沒放 `<TypeUnderTest>TestSupport`、跨資料夾共用的沒放 `Support/`，或一個受測型別有兩個 TestSupport
+- [ ] 為了讓 `private` 型別出現在 internal 簽章而加 `fileprivate`，或把 `@Test` 方法改成 `private`
 - [ ] 測試不必要地加上 `@MainActor`（測試對象不是 `@MainActor` 型別，或只有部分測試需要卻標在整個型別上）或 `@Suite(.serialized)`（沒有無法隔離的共用資源）
