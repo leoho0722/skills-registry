@@ -261,7 +261,7 @@ var appVersion: String {
 - **要**：函式失敗有原因時 `throws`；只有「不存在」是正常結果時才回傳 Optional（`first(where:)`、`dictionary[key]`）。
 - **要**：三態用 enum 表達，不用 `Bool?`。
 - **避免**：`.none`，一律寫 `nil`。
-- **避免**：隱式解包 Optional（`String!`），`IBOutlet` 例外。
+- **避免**：隱式解包 Optional（`String!`），`IBOutlet` 例外。XCTest 在 `setUp` 才建立的屬性也不例外，UI 測試的 `XCUIApplication` 改法見 `file-templates.md` 的 tests/UITests.swift 一節。
 - **避免**：`try!` 與 `as!`，無例外；`as!` 的轉型需求改用泛型 helper 或 `as?` 加 `guard let`。
 
 ### 強制解包 `!` 的唯一例外

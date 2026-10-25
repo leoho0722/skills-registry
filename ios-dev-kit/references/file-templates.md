@@ -608,12 +608,12 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 
 **Unit Test 一律採用 Swift Testing**（`import Testing`、`@Test`、`#expect` / `#require`），不使用 XCTest。既有的 XCTest 單元測試新增案例時亦改寫為 Swift Testing，不在同一檔案混用兩套框架。
 
-唯一的例外是效能測試：效能量測只有 XCTest 提供（`measure(metrics:options:block:)`、`XCTMetric`），Swift Testing 沒有對應的 API，所以效能測試用 XCTest，並獨立成 `<TypeUnderTest>PerformanceTests.swift`，不和 Swift Testing 的測試同檔；型別寫法與方法命名比照下方的 UI 測試。
+唯一的例外是效能測試：效能量測只有 XCTest 提供（`measure(metrics:options:block:)`、`XCTMetric`），Swift Testing 沒有對應的 API，所以效能測試用 XCTest，並獨立成 `<TypeUnderTest>PerformanceTests.swift`，不和 Swift Testing 的測試同檔；型別寫法與方法命名比照下方的 UI 測試，但 `@MainActor` 照本節的 `@MainActor` 一條判斷。
 
 測試本體採 Given / When / Then 三段式，以 `// Given`、`// When`、`// Then` 註解分隔，不使用 Arrange / Act / Assert。
 
 - 測試型別用 `struct`，只有需要跨測試共享可變狀態或 `deinit` 清理時才改用 `final class`。
-- 測試型別不設 `// MARK: - Tests` 分區，`@Test` 方法直接接在 Properties 之後（有 `init` 時接在 Init 之後）；UI 測試的 `func test…()` 接在 Lifecycle 之後。其餘分區照樣板。
+- 測試型別不設 `// MARK: - Tests` 分區，`@Test` 方法直接接在 Properties 之後（有 `init` 時接在 Init 之後）；UI 測試的 `func test…()` 同樣寫在型別本體，`setUpWithError` 等覆寫放 `// MARK: - XCTestCase` extension（下方 tests/UITests.swift 一節）。其餘分區照樣板。
 - 斷言用 `#expect`；前置條件不成立就沒必要繼續時用 `try #require`。
 - 同一邏輯多組輸入用 `@Test(arguments:)` 參數化，不複製貼上多個測試。
 - 非同步測試直接 `async throws`，不用 expectation。
@@ -630,7 +630,7 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - **測試共用的 helper 依使用範圍放置，不留在其中一個測試型別上讓其他型別呼叫**：只有一個測試型別用的，寫成該型別的 `private` 成員；同資料夾多個測試型別共用的，放同資料夾的 `<TypeUnderTest>TestSupport.swift`；跨資料夾共用的，同一個檔案移到測試 target 的 `Support/`（`project-structure.md` 的「測試目錄」）。helper 幾乎只在改同一組測試時變動，放在使用它的測試旁邊，改動才集中、歸屬也清楚。
 - **`<TypeUnderTest>TestSupport` 是無 case 的 `enum`，成員一律 `static`**，分區照 `formatting.md`。`<TypeUnderTest>` 是這組測試型別共同的受測型別，也就是 `<TypeUnderTest>Tests` 去掉 `Tests`；不同受測型別的測試共用時，歸到 helper 處理的那個受測型別，例如建立 `OrderService` 的 helper 放 `OrderServiceTestSupport`。一個受測型別只有一個 TestSupport，位置依使用範圍最廣的成員決定；使用範圍擴大時整個檔案一起搬，不拆成兩份。跨 Feature 通用的 Model 固定值仍是 `Fixtures/<Model>+Fixture.swift`，Mock 仍放 `Mocks/`；預設值和 `fixture` 不同、只給一組測試用的建構 helper（例如 `makeOrder`）留在 TestSupport。
 - **`private` 型別不能出現在非 `private` 成員的簽章或型別裡**，最常碰到的是 `@Test(arguments:)` 的參數型別：`@Test` 方法是 internal，參數型別是 `private` 就無法編譯。這時把該型別改成 internal（不寫存取修飾詞），不用 `fileprivate`，也不為此把 `@Test` 方法改成 `private`。參數資料本身（例如 `private static let cases`）可以維持 `private`，只有元素型別要 internal；只在測試本體或 `private` 成員裡用到的型別照樣 `private`。
-- **`@MainActor` 只在絕對必要時才加，不要預設加上**：必要的定義是測試本體要存取 `@MainActor` 隔離的型別，例如 ViewModel、Coordinator、TCA 的 `TestStore`。Service、Client、Store、Model、Enum、FormatStyle 的測試不加。範圍越小越好：只有部分測試需要時標在那幾個測試方法上，整個測試型別都需要時（例如 TCA 的 `<Screen>FeatureTests`）才標在型別上。不為了消除並行檢查的警告而加，先找出實際需要主執行緒的是哪個型別。
+- **`@MainActor` 只在絕對必要時才加，不要預設加上**：必要的定義是測試本體要存取 `@MainActor` 隔離的型別，例如 ViewModel、Coordinator、TCA 的 `TestStore`。Service、Client、Store、Model、Enum、FormatStyle 的測試不加。範圍越小越好：只有部分測試需要時標在那幾個測試方法上，整個測試型別都需要時（例如 TCA 的 `<Screen>FeatureTests`、UI 測試）才標在型別上。不為了消除並行檢查的警告而加，先找出實際需要主執行緒的是哪個型別。
 - **`@Suite(.serialized)` 只在絕對必要時才加，不要預設加上**：必要的定義是測試共用一個無法隔離的外部資源，例如 `UserDefaults.standard`、固定路徑的檔案、Keychain。Swift Testing 預設並行執行，序列化會拖慢整個測試。優先改成每個測試各自一份（以唯一名稱建立 `UserDefaults(suiteName:)`、每個測試用自己的暫存資料夾）讓測試能並行；真的無法隔離才序列化，並在 `@Suite` 的 `///` 寫明是哪個共用資源。
 
 第一個測試的對象是 `@MainActor` 的 ViewModel，所以只在這個測試方法標 `@MainActor`；第二個測的是一般 enum，不加，而且沒有前置條件，Given 仍保留註解並空一行；第三個示範驗證丟出的錯誤：
@@ -691,12 +691,16 @@ func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
 
 **允許使用 XCTest 的情境只有 UI Test 與效能測試**。UI Test 是因為 `XCUIApplication` 與 `XCUIElement` 只存在於 XCTest，Swift Testing 沒有對應能力；效能測試見上方 `tests/Tests.swift` 一節。
 
-- 型別用 `final class` 繼承 `XCTestCase`，`app` 在 `setUpWithError` 建立並 `launch()`，`tearDownWithError` 釋放。
+- 型別用 `final class` 繼承 `XCTestCase`，型別標 `@MainActor`：`XCUIApplication`、`XCUIElement` 是 `@MainActor` 隔離的型別，每個測試都會用到，屬於下方 `@MainActor` 一條「整個型別都需要」的情況。
+- **App 在每個測試的 Given 以 `let app = launchApp()` 啟動**，`launchApp()` 是 Private Method 區的方法，負責建立 `XCUIApplication`、設定 launch argument 並 `launch()`。不把 App 存成 stored property：`var app: XCUIApplication!` 是隱式解包，不在鐵則 3 的兩個例外內（`coding-style.md` 的 Optional 一節），改成 Optional 每次使用都要解包；區域常數隨測試結束釋放，也不用 `tearDownWithError` 清理。
+- **不在 `setUpWithError` 建立或操作 App**：`XCTestCase` 的覆寫一律是 nonisolated，型別標 `@MainActor` 也一樣，在裡面呼叫 `XCUIApplication` 會出現隔離警告；替覆寫加上 `@MainActor` 則無法編譯（Swift 6.4 已驗證）。`setUpWithError` 只做 nonisolated 的設定，例如 `continueAfterFailure`。
+- **`setUpWithError` 等覆寫寫在 `// MARK: - XCTestCase` extension**，照 `formatting.md` 的覆寫規則：`XCTestCase` 的成員是 Objective-C 宣告的，可以在 extension 覆寫，執行時同樣會被呼叫（Swift 6.4 已驗證）。不另設 `Lifecycle` 分區。
+- **樣板的 `tearDownWithError` 只在有需要清理的資源時保留**，例如測試改了模擬器狀態、寫了暫存檔；清理寫在 `try super.tearDownWithError()` 之前，`///` 改寫成實際清理的內容。沒有就整個刪除，不留只呼叫 `super` 的覆寫；App 是區域常數，不算需要清理的資源。
 - `continueAfterFailure = false`，UI 流程一步失敗後續步驟沒有意義。
 - 測試方法沿用 `test` 前綴（XCTest 靠前綴探測），命名為 `test<方法或行為>_<情境>_<預期>`，方法或行為段首字大寫接在 `test` 後，其餘同單元測試：`testLogin_帳密正確_進入首頁`。`///` 摘要同樣以「驗證」開頭：「驗證帳密正確時按下登入，直接進入首頁、不再停在登入畫面」。本體同樣採 Given / When / Then。
 - 元素查詢一律透過 accessibility identifier，不用顯示文字或索引定位。
 
-- **launch argument 固定 `-uiTesting`**，在 `setUpWithError` 以 `app.launchArguments = ["-uiTesting"]` 傳入；App 端在根部檢查 `CommandLine.arguments` 含此旗標時注入 Preview stub，UI Test 不打真實 API。需要特定資料情境時用 `app.launchEnvironment["UITEST_SCENARIO"]` 傳場景名稱。
+- **launch argument 固定 `-uiTesting`**，在 `launchApp()` 以 `app.launchArguments = ["-uiTesting"]` 傳入；App 端在根部檢查 `CommandLine.arguments` 含此旗標時注入 Preview stub，UI Test 不打真實 API。需要特定資料情境時，替 `launchApp()` 加上場景參數，在 `launch()` 前以 `app.launchEnvironment["UITEST_SCENARIO"]` 傳場景名稱。
 - **不強制 Page Object**；單一畫面的測試直接查詢元素，超過三個畫面的流程才為每個畫面建立 `<Screen>Screen` struct 封裝元素查詢與操作。
 - **失敗時的截圖由 XCTest 自動附加**，不手動 `XCTAttachment`；只有在需要對比視覺結果時才手動截圖並命名。
 
@@ -717,3 +721,4 @@ func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
 - [ ] 共用 helper 留在某個測試型別上讓其他型別呼叫；同資料夾共用的沒放 `<TypeUnderTest>TestSupport`、跨資料夾共用的沒放 `Support/`，或一個受測型別有兩個 TestSupport
 - [ ] 為了讓 `private` 型別出現在 internal 簽章而加 `fileprivate`，或把 `@Test` 方法改成 `private`
 - [ ] 測試不必要地加上 `@MainActor`（測試對象不是 `@MainActor` 型別，或只有部分測試需要卻標在整個型別上）或 `@Suite(.serialized)`（沒有無法隔離的共用資源）
+- [ ] UI 測試把 `XCUIApplication` 存成 stored property（`!` 或 Optional），或在 `setUpWithError` 建立、啟動 App；`setUpWithError` 等覆寫寫在型別本體或 `Lifecycle` 分區，而非 `// MARK: - XCTestCase` extension；沒有需要清理的資源卻留著只呼叫 `super` 的 `tearDownWithError`

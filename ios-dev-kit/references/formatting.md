@@ -309,7 +309,7 @@ computed properties 與方法依存取層級分區：非 private 的放 Computed
 
 覆寫父類別的成員（`override`）比照 protocol 遵循：獨立一個 extension，以父類別名稱作為 MARK 名稱（例如 `// MARK: - URLProtocol`），同樣**排在 Internal Method 之後、Private Method 之前**，不寫在型別本體。同時有 protocol 遵循時，父類別的 extension 排在所有 protocol 之前，和型別宣告行 `: 父類別, Protocol` 的順序一致。區內依父類別的宣告順序排，`class` 成員依區內排序排在 instance 成員之前。
 
-Swift 只允許在 extension 覆寫 Objective-C 宣告的成員（UIKit、AppKit 與 `URLProtocol`、`Operation` 等 Foundation 類別），或 Swift 以 `@objc dynamic` 宣告的成員（Swift 6.4 已驗證）。以下情況編譯器不允許在 extension 覆寫，覆寫改寫在型別本體、緊接在 Init 之後，同樣以 `// MARK: - <父類別名稱>` 分區：
+Swift 只允許在 extension 覆寫 Objective-C 宣告的成員（UIKit、AppKit、`XCTestCase` 與 `URLProtocol`、`Operation` 等 Foundation 類別），或 Swift 以 `@objc dynamic` 宣告的成員（Swift 6.4 已驗證）。以下情況編譯器不允許在 extension 覆寫，覆寫改寫在型別本體、緊接在 Init 之後，同樣以 `// MARK: - <父類別名稱>` 分區：
 
 - 父類別是純 Swift 類別，或成員只標 `@objc` 沒加 `dynamic`。
 - 子類別是泛型類別：泛型類別的 extension 不能有 `@objc` 成員。
