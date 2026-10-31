@@ -301,9 +301,15 @@ func result(for statusCode: Int) -> RequestResult {
 3. Nested Types（extension；只放此型別專屬的 enum / struct / class，判斷標準見 `file-templates.md`）
 4. Computed Properties（extension；非 private 的 computed properties，不放型別本體）
 5. Internal Method（extension）
-6. Private Method（`private extension`；private 的 computed properties 與 private 方法都放這裡，區名不改）
+6. Private Method（`private extension`；private 的 computed properties 與 private 方法都放這裡，區名不改；SwiftUI View 回傳畫面內容的成員除外，見下方「SwiftUI View 的例外」）
 
-computed properties 與方法依存取層級分區：非 private 的放 Computed Properties 與 Internal Method，private 的不論是 property 還是方法都放 Private Method。extension 的存取層級因此等於成員的存取層級，不在 extension 內逐一加 `private`；計算從 `var` 改成帶參數的 `func` 時也不用換區。
+computed properties 與方法依存取層級分區：非 private 的放 Computed Properties 與 Internal Method，private 的不論是 property 還是方法都放 Private Method（SwiftUI View 回傳畫面內容的 private 成員除外，見下方「SwiftUI View 的例外」）。extension 的存取層級因此等於成員的存取層級，不在 extension 內逐一加 `private`；計算從 `var` 改成帶參數的 `func` 時也不用換區。
+
+**SwiftUI View 的例外**：View（含 TCA 的 `<Screen>View`）在 Body 之後多一個 `Private Views` 區，private 成員**只看回傳型別**分流，不論是 property 還是方法：
+
+- **回傳 `some View` 或 `some ToolbarContent`** 的放 Private Views，包含從 `body` 抽出的子 View、`.toolbar { }` 內抽出的 `ToolbarItem` / `ToolbarItemGroup`，以及給 `.background`、`.overlay` 用的背景 helper。
+- **回傳 `CGFloat`、`Color`、`Bool`、`some Gesture` 等值**的才放 Private Method（手勢是給 `.gesture(_:)` 用的輸入，不是畫面內容），收納規則見 `file-templates.md` 的 `presentation/View.swift`。
+- Private Views 只屬於 View：其他型別（例如測試型別裡回傳範例 View 的 `static` helper）不設這一區，private 成員一律放 Private Method，`static` 排在 instance 之前（見「區內排序」）。
 
 用不到的區塊直接省略，不留空的 MARK；順序不可調換。Protocol 遵循各自獨立一個 extension，以 protocol 名稱作為 MARK 名稱（例如 `// MARK: - __NAME__ServiceProtocol`、`// MARK: - Codable`），**排在 Internal Method 之後、Private Method 之前**；多個 protocol 遵循依 protocol 名稱字母排序。閱讀順序因此固定為：型別是什麼 → 自己提供什麼 → 履行什麼契約 → 內部怎麼做。
 
@@ -729,6 +735,7 @@ var body: some View {
 - [ ] SwiftUI View 用跨檔 extension 分檔，或為了分檔把 `private` 的 `@State`、`@Environment` 降成 internal
 - [ ] MARK 順序錯置，或同一區塊拆成兩個 extension
 - [ ] private 的 computed property 放在 Computed Properties，或非 private 的放在 Private Method
+- [ ] SwiftUI View 回傳 `some View` 或 `some ToolbarContent` 的成員（含背景 helper）放在 Private Method，或回傳 `CGFloat`、`Color`、`some Gesture` 等值的放在 Private Views；非 View 型別自創 Private Views 區
 - [ ] 區內 static 沒排在 instance 之前；Private Method 區內 method 排在 property 之前；static stored property 放在 extension
 - [ ] Private Method 的 helper 沒有依呼叫者在前、深度優先；Internal Method 沒有依使用先後；protocol 實作與 Preview stub、Mock 的順序和 protocol 宣告不一致
 - [ ] 巢狀型別另開 extension 或加 MARK 分區

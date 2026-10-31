@@ -68,17 +68,17 @@ Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/template
 
 ### presentation/View.swift
 
-型別本體只放 Properties、Init 與 Body，其餘以 extension 分區，順序固定為 Private Views → Nested Types → Private Method → Preview。View 不設 Computed Properties 區：View 的 computed property 除了 `body` 都是 private，依 `formatting.md` 回傳 `some View` 的放 Private Views，其餘放 Private Method。
+型別本體只放 Properties、Init 與 Body，其餘以 extension 分區，順序固定為 Private Views → Nested Types → Private Method → Preview。View 不設 Computed Properties 區：View 的 computed property 除了 `body` 都是 private，依 `formatting.md`「MARK 分區與順序」的「SwiftUI View 的例外」，回傳 `some View` 或 `some ToolbarContent` 的放 Private Views，其餘放 Private Method。
 
-**Private Views 區塊**：從 `body` 抽出的子 View，以 `private var` 或 `private func` 回傳 `some View`。
+**Private Views 區塊**：從 `body` 抽出的子 View，以 `private var` 或 `private func` 回傳 `some View`；`.toolbar { }` 抽出的內容回傳 `some ToolbarContent`，同樣放這一區。判斷只看回傳型別：給 `.background`、`.overlay` 用的背景 helper 回傳 `some View` 也放這裡，回傳 `CGFloat`、`Color`、`some Gesture` 等值的才屬於下方的 Private Method。
 
 **Nested Types 區塊**：只放此 View 專屬、且 ViewModel 完全不碰的型別，例如 `Layout` 常數、`Tab` 列舉。會被 ViewModel 讀寫的狀態型別一律宣告在 ViewModel 的 Nested Types。
 
 **Private Method 區塊的收納規則**：只放**純 UI 計算**，判斷標準三條同時成立：
 
 1. **輸入只來自 View 已持有的值**：props、`@State`、`@Environment`、`GeometryProxy`、viewModel 的公開屬性。不自行取得資料。
-2. **輸出是給 modifier 或版面用的值**：`CGFloat`、`Color`、`Font`、`Alignment`、`Bool`（決定顯示與否）。不包含格式化後的 `String`，格式化見下方規則。
-3. **沒有副作用**：不改變任何狀態、不呼叫 viewModel 以外的物件、不 `async`、不 `throw`。
+2. **輸出是給 modifier 或版面用的值**：`CGFloat`、`Color`、`Font`、`Alignment`、`Bool`（決定顯示與否）、`some Gesture`（給 `.gesture(_:)` 用的手勢，不是畫面內容，不放 Private Views）。不包含格式化後的 `String`，格式化見下方規則。
+3. **沒有副作用**：執行這個成員本身不改變任何狀態、不呼叫 viewModel 以外的物件、不 `async`、不 `throw`。回傳的 `some Gesture` 其 `.onChanged`、`.onEnded` closure 會在手勢觸發時寫 `@State`，不算違反；closure 內只能更新純 UI 的 `@State`（縮放、位移）或呼叫 viewModel，呼叫 Service 等其他物件仍不行。
 
 一秒判斷：**這個方法值得寫單元測試嗎？** 值得就是 ViewModel 的職責，搬過去；不值得才留在 View。
 
@@ -194,7 +194,7 @@ var body: some View {
 }
 ```
 
-**Private Views 的 `var` 與 `func`**：無參數用 `var`，需要傳入資料（例如 `ForEach` 內的每一列）用 `func`；兩者都回傳 `some View`，不用 `AnyView`。
+**Private Views 的 `var` 與 `func`**：無參數用 `var`，需要傳入資料（例如 `ForEach` 內的每一列）用 `func`；兩者都回傳 `some View`（toolbar 內容回傳 `some ToolbarContent`），不用 `AnyView`。
 
 **`#Preview` 必備**，至少一個；有多種狀態（載入中、空、錯誤）時各一個 `#Preview("名稱")`，Service 一律注入 Preview stub。
 
