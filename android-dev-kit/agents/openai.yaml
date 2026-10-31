@@ -1,0 +1,7 @@
+interface:
+  display_name: "Android Dev Kit"
+  short_description: "Leo Ho 個人的 Kotlin coding style、排版、檔案樣板與 Android 專案結構規範"
+  default_prompt: "Use $android-dev-kit to write or review this Kotlin / Android code following my personal coding conventions."
+
+policy:
+  allow_implicit_invocation: true
