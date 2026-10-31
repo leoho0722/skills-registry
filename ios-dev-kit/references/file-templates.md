@@ -194,7 +194,7 @@ var body: some View {
 }
 ```
 
-**Private Views 的 `var` 與 `func`**：無參數用 `var`，需要傳入資料（例如 `ForEach` 內的每一列）用 `func`；兩者都回傳 `some View`（toolbar 內容回傳 `some ToolbarContent`），不用 `AnyView`。
+**Private Views 的 `var` 與 `func`**：無參數用 `var`，需要傳入資料（例如 `ForEach` 內的每一列）用 `func`；兩者都回傳 `some View`（toolbar 內容回傳 `some ToolbarContent`），不用 `AnyView`。區內順序不分 `var` 與 `func`，依子 View 在 `body` 內的使用順序排，被呼叫的子 View 緊接在呼叫者之後，見 `formatting.md` 的「區內排序」。
 
 **`#Preview` 必備**，至少一個；有多種狀態（載入中、空、錯誤）時各一個 `#Preview("名稱")`，Service 一律注入 Preview stub。
 

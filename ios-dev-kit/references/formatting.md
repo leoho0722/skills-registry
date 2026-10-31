@@ -365,6 +365,7 @@ extension MockURLProtocol {
 - **要**：Private Method 區內先分 property 與方法，再分 static 與 instance：static property → instance property → static method → instance method。
 - **要**：computed property 之間依依賴順序排列，被依賴的在前、由它推導出來的在後；彼此沒有依賴時依相關性排，不強制字母排序。
 - **要**：Private Method 區的方法採呼叫者在前、深度優先：每個 helper 依第一次被呼叫的順序排，緊接在呼叫它的方法之後，它自己呼叫的下一層 helper 再緊接其後；被多個方法呼叫時，歸在最先呼叫它的方法之下。這個順序只在 static、instance 各自一組內適用，不推翻 static 在前。
+- **要**：Private Views 區依子 View 在 `body` 內第一次出現的順序排，不分 `var` 與 `func`：被其他 Private View 呼叫的子 View 緊接在呼叫者之後，它自己呼叫的下一層再緊接其後；被多個 Private View 呼叫時，歸在依閱讀順序最先呼叫它的那個之下。`static` 仍排在 instance 之前。這條優先於上面 computed property 的依賴順序：Private View 呼叫別的 Private View 不算由它推導出來，呼叫者仍在前。讀的順序因此等於畫面由上到下，不把 `dateChip(_:)` 這類子 View 和呼叫它的 `dateChipStrip` 拆開。
 - **要**：Internal Method 區依呼叫端使用的先後排：載入 → 使用者操作（依畫面上由上到下）→ 離開或清理；Internal Method 之間互相呼叫時，同樣呼叫者在前。
 - **要**：protocol 遵循 extension 內的實作順序與 protocol 的宣告順序一致，protocol 本身依 Internal Method 的使用先後宣告；同一個 protocol 的正式實作、Preview stub、Mock 都照這個順序。系統 protocol 依 Apple 的宣告順序，例如 `Codable` 為 `init(from:)` → `encode(to:)`。
 - **要**：stored property 不依存取層級排序，`private let` 與 `let` 可以混排；View 以外的型別除了 static 在前，不另外規定順序。
@@ -739,6 +740,7 @@ var body: some View {
 - [ ] private 的 computed property 放在 Computed Properties，或非 private 的放在 Private Method
 - [ ] SwiftUI View 回傳 `some View` 或 `some ToolbarContent` 的成員（含背景 helper）放在 Private Method，或回傳 `CGFloat`、`Color`、`some Gesture` 等值的放在 Private Views；非 View 型別自創 Private Views 區
 - [ ] 區內 static 沒排在 instance 之前；Private Method 區內 method 排在 property 之前；static stored property 放在 extension
+- [ ] Private Views 沒有依 `body` 使用順序排，或把 `var` 與 `func` 分開排而拆散呼叫者與被它呼叫的子 View
 - [ ] Private Method 的 helper 沒有依呼叫者在前、深度優先；Internal Method 沒有依使用先後；protocol 實作與 Preview stub、Mock 的順序和 protocol 宣告不一致
 - [ ] 巢狀型別另開 extension 或加 MARK 分區
 - [ ] 覆寫父類別的成員寫在型別本體或併入其他 extension，而非獨立的 `// MARK: - <父類別名稱>` extension（Swift 不允許在 extension 覆寫時除外）；父類別的 extension 沒有排在 protocol 遵循之前；為了在 extension 覆寫而替自己的父類別加 `@objc dynamic`
