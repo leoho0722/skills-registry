@@ -12,6 +12,7 @@ Leo Ho 自行撰寫與維護的 [Agent Skills](https://agentskills.io) 集合，
 |-----------------------------------|-------------------------------------------------------------------------|
 | [`ios-hig-ui-ux`](ios-hig-ui-ux/) | 依 Apple HIG（Liquid Glass 世代）設計、實作與審查 iOS/iPadOS App 的 UI/UX。 |
 | [`ios-dev-kit`](ios-dev-kit/)     | Leo Ho 個人的 Swift coding style、排版、file template、專案結構與 TCA 架構規範。 |
+| [`android-dev-kit`](android-dev-kit/) | Leo Ho 個人的 Kotlin coding style、排版、file template 與 Android 專案結構規範。 |
 
 ## 安裝
 
