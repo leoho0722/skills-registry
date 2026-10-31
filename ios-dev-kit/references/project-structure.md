@@ -400,6 +400,7 @@ DesignSystem/
 
 - **要**：Mock 一律放 `Mocks/` 平放，不依 Feature 分子資料夾；跨 Feature 測試共用，命名與內容依 `file-templates.md` 的 `tests/MockService.swift` 一節。
 - **要**：多個測試型別共用的 helper 不放 `Mocks/`、`Fixtures/`：同資料夾共用的放該資料夾的 `<TypeUnderTest>TestSupport.swift`，跨資料夾共用的放 `Support/`，平放、不分子資料夾；規則見 `file-templates.md` 的 tests/Tests.swift 一節。
+- **要**：測試 target 專用、替非自己的型別加功能的 extension（例如只給測試用的 `View` 量測 helper），放在它依賴的 Support 檔或 `<TypeUnderTest>TestSupport.swift` 所在的資料夾，檔名 `<Type>+<Feature>.swift`（例如 `View+LayoutMeasurement.swift`）；不放 `Core/Extensions/`，那是主 target 的資料夾。規則見 `formatting.md` 的「Extension 的使用時機」。
 - **要**：Fixture 以 extension 形式提供，一個 Model 一檔 `<Model>+Fixture.swift`，放 `Fixtures/`：
 
   ```swift
@@ -451,5 +452,5 @@ DesignSystem/
 - [ ] `Core/` 出現業務名詞；只有一個 Feature 用的 Component 被抽進 `Core/`
 - [ ] DesignSystem 依賴 `Core` 或 Feature；畫面內出現未經 Token 的顏色、字型、間距
 - [ ] Feature package 依賴其他 Feature package；`Package.swift` 缺 `swiftLanguageModes: [.v6]`
-- [ ] 測試檔位置未鏡像主 target；為 View 或 Coordinator 寫單元測試；Mocks、Fixtures 或 Support 分了子資料夾；共用的測試 helper 放進 Mocks 或 Fixtures
+- [ ] 測試檔位置未鏡像主 target；為 View 或 Coordinator 寫單元測試；Mocks、Fixtures 或 Support 分了子資料夾；共用的測試 helper 放進 Mocks 或 Fixtures；測試專用、替非自己型別加功能的 extension 不在依賴它的 Support 檔旁邊，或放進 `Core/Extensions/`
 - [ ] Fixture 不叫 `fixture`、參數沒有預設值、內含隨機值或目前時間
