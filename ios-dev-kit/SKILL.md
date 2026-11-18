@@ -3,7 +3,7 @@ name: ios-dev-kit
 description: Leo Ho 個人的 iOS/macOS Swift 開發規範，涵蓋 coding style（命名、存取控制、optional、error handling、concurrency、doc comment）、code formatting 排版（縮排、換行、MARK 分區、import 排序、SwiftUI body）、新檔案的 file template（View、ViewModel、Coordinator、Service、Mock、測試）、專案目錄結構（Feature-first 分層、A/B/C 三種 SPM package 方案、DesignSystem、測試目錄）與 TCA（The Composable Architecture）專案的 Reducer、導航、DependencyKey、TestStore 規範。Use when writing, modifying, or reviewing any Swift / SwiftUI / UIKit code, creating new Swift files, Features, or iOS projects, or when the user mentions coding style、排版、格式、命名規則、檔案樣板、專案結構、SPM package、Coordinator、依賴注入、單元測試、code review、Swift 慣例、TCA、Composable Architecture、Reducer、Store、TestStore、@Dependency。
 metadata:
   author: "Leo Ho"
-  version: "5.0.0"
+  version: "5.1.0"
 ---
 
 # iOS Dev Kit：個人 Swift 開發規範
@@ -43,7 +43,7 @@ metadata:
 9. **MARK 六區順序固定**，computed property 與方法依存取層級分區，protocol 遵循放獨立 extension，巢狀型別不分區、成員就地寫；View、Coordinator、FormatStyle 與 TCA Feature 型別的型別專屬分區依各自樣板，不自創分區名稱；縮排 4 格、行寬 100、無尾隨空白。（`formatting.md`、`tca-architecture.md` 分區順序）
 10. **專案結構方案由使用者決定**：新專案先問 A / B / C，既有專案偵測後請使用者確認；agent 不自行決定。（`project-structure.md` 方案判斷）
 11. **Presentation 架構由使用者決定：MVVM + Coordinator 或 TCA 二選一，一個專案只用一種**；TCA 專案不得出現 ViewModel、Coordinator、`@Entry`，MVVM 專案不得出現 `@Reducer`。（`tca-architecture.md` 定位與用語）
-12. **語言、框架或本規範未要求時，能直接寫、寫成區域 `let` 或 instance 成員就不用 `static`**；確實需要時也只用於字面值常數、行程內不變的衍生值、純函式與工廠、錯誤轉換 helper、框架或語言要求、`os.Logger`，以及測試支援。編譯錯誤不是改成 `static` 的理由，不符合時要修正持有關係或隔離設計。禁止可變的 stored `static var`（`@TaskLocal` 宣告不算）、換了名字的單例，以及正式程式碼以 `static` 成員建立或回傳 Service、Client、Store、Database（框架要求的成員除外）。（`coding-style.md` 的「`static` 的使用時機」）
+12. **語言、框架或本規範未要求時，能直接寫、寫成區域 `let` 或 instance 成員就不用 `static`**；確實需要時也只用於字面值常數、行程內不變的衍生值、純函式與工廠、錯誤轉換 helper、只使用呼叫端 `context` 的資料存取 helper、框架或語言要求、`os.Logger`，以及測試支援。編譯錯誤不是改成 `static` 的理由，不符合時要修正持有關係或隔離設計。禁止可變的 stored `static var`（`@TaskLocal` 宣告不算）、換了名字的單例，以及正式程式碼以 `static` 成員建立或回傳 Service、Client、Store、Database（框架要求的成員除外）。（`coding-style.md` 的「`static` 的使用時機」）
 
 ## 工作流程
 

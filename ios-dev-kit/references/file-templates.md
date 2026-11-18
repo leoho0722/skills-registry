@@ -25,6 +25,7 @@ Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/template
 | 一個領域的錯誤型別 | `domain/Error.swift` | `<領域>Error.swift` |
 | Service / Client / Store / Database 的介面與實作 | `data/Service.swift`（Client / Store / Database 複製後將 `Service` 整批替換） | `<Name>Service.swift`、`<Name>Client.swift`、`<Name>Store.swift`、`<App>Database.swift` |
 | Service 的 Preview stub（固定回傳假資料）；TCA 專案不用 | `data/Service+Preview.swift` | `<Name>Service+Preview.swift` |
+| Service 或 Database 實作內的資料存取 helper（只使用呼叫端傳入的 `context`） | `data/Records.swift` | `<Name>Records.swift` |
 | Service 的 Mock（記錄呼叫，測試用） | `tests/MockService.swift` | `Mock<Name>Service.swift` |
 | 單元測試（Swift Testing） | `tests/Tests.swift` | `<TypeUnderTest>Tests.swift` |
 | UI 測試（XCTest / XCUITest） | `tests/UITests.swift` | `<Screen>UITests.swift` |
@@ -553,7 +554,7 @@ Data 層的型別分兩種：
 
 **Client / Store / Database 共用 `data/Service.swift` 樣板**，複製後把 `Service` 字樣整批替換成 `Client`、`Store` 或 `Database`；Preview stub 與 Mock 樣板同樣處理，得到 `PreviewAPIClient`、`MockKeychainStore`、`MockAppDatabase`。不另建樣板，因為四者檔案結構相同；`Database` 的實作依 Service 選型表第二列改為 `actor`（SwiftData 用 `@ModelActor`）。TCA 專案的 Client / Store / Database 改用 `tca/Client.swift`，Preview stub 與正式碼同檔，Mock 照用 `tests/MockService.swift`。
 
-- Data 層與 Core 的後綴固定四選一：`Service`、`Client`、`Store`、`Database`；`Database` 只給有 schema 與 migration 的結構化資料庫入口，命名 `<App>Database`，一個 App 通常只有一個。`Manager`、`Handler`、`Provider` 只在職責確實符合該字本意時用於 Core 層，判斷表見 `coding-style.md` 的命名一節；`Helper` 與 `Util` 不使用。
+- Data 層與 Core 的後綴固定四選一：`Service`、`Client`、`Store`、`Database`；`Database` 只給有 schema 與 migration 的結構化資料庫入口，命名 `<App>Database`，一個 App 通常只有一個。`Manager`、`Handler`、`Provider` 只在職責確實符合該字本意時用於 Core 層，判斷表見 `coding-style.md` 的命名一節；`Helper` 與 `Util` 不使用。`<Name>Records` 是這些型別實作內的命名空間，不是第五種角色，見下方 `data/Records.swift`。
 - 選型表同樣適用：Client 包 `URLSession` 通常是 `struct`；Store 包 SwiftData 的 `ModelContext` 這類非 `Sendable` 物件時用 `@ModelActor` 或 `actor`，落在選型表第二列。
 - Client / Store / Database 的 protocol 方法只暴露技術操作（`request`、`read`、`write`、`delete`、`fetch(_:)`），簽章中不出現業務名詞；一旦出現 `Profile`、`Order` 這種詞，它就該是 Service。
 
@@ -580,6 +581,16 @@ Data 層的型別分兩種：
 三個屬性以方法為單位分組，組與組的順序、以及 extension 內的方法順序，都和 protocol 的宣告順序一致（`formatting.md` 區內排序）。
 
 樣板內的 `example(_:)` 是示範用，替換成實際 protocol 方法後刪除。
+
+### data/Records.swift
+
+Service 或 Database 實作內的資料存取命名空間。條件以 `coding-style.md` 的「`static` 的使用時機」為準；不宣告 protocol 或 `DependencyKey`，也不由 View、ViewModel 或 TCA 的 Feature 型別呼叫。
+
+- **只有短操作時不建立**：一兩行的讀寫直接寫在 `database.write`、`database.read` 的 closure；操作重複或本體較長時才抽到這裡。
+- **取得 Database 與選擇 `read`、`write` 留在呼叫端**，方法只使用傳入的 `context`。透過 Database 存取時，`read` 只做查詢，新增、刪除或修改受管理物件一律走 `write`，寫入的提交與回滾由擁有交易的 Database 實作處理；版本化 migration callback 使用框架傳入的 `context`，由 stage 決定何時儲存。需要在同一個 `context` 上連續做多個操作時，可改用區域 `struct` 持有它。
+- **位置依使用範圍**：Feature 專用的跟隨所屬 Service，放該 Feature 的 `Data/`，實際路徑依方案 A／B／C，並維持 internal；Database 或 migration 專用的放 `Core/Persistence/`，不引用 Feature 的型別。
+- **target 預設隔離為 `MainActor` 時**，樣板的兩個 extension 改寫成 `nonisolated extension` 與 `private nonisolated extension`，否則 `@ModelActor` 與 migration callback 無法同步呼叫；只遵循 `Sendable` 解決不了（Swift 6.4 已驗證）。
+- 樣板內的 `insert(_:in:)` 是示範用，替換成實際操作後刪除；`__NAME__Record` 換成實際的 `@Model` 型別。
 
 ### core/FormatStyle.swift
 
@@ -627,7 +638,7 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - **一個測試只允許一組 When / Then**；需要驗證多個結果時用多個 `#expect`，需要多個動作時拆成多個測試或改用 `@Test(arguments:)`。TCA 在 Given 用 `send` 建立前置狀態不算第二個動作，見 `tca-architecture.md` 測試一節。
 - **`@Suite` 只在需要共用 setup、tag 或序列化執行（`.serialized`）時使用**，單純分組不加。
 - **測試型別過大時，依受測行為拆成獨立的測試型別，不以 `extension` 跨檔拆分**（`formatting.md` 的「Extension 的使用時機」）：每個型別一個檔案，型別與檔名為 `<TypeUnderTest><行為>Tests`，行為段用 UpperCamelCase 英文（例如 `RootFeatureNavigationTests.swift`），與 `<TypeUnderTest>Tests.swift` 放同一個資料夾。`@MainActor`、`.serialized` 依拆出的型別各自判斷，只標在需要的那幾個上。拆開後共用的 helper 依下一條放置。參數化測試的資料型別同樣拆成獨立型別，不寫成 `extension` 分檔。
-- **受測物件預設在 Given 直接建立**：組裝只有一兩行時不抽 helper，例如 `let sut = OrderService(client: client)`。真的需要 helper 時依下一條放置；helper 可以建立受測型別本身（包含受測的 Client），但它的依賴必須是由參數傳入或每次呼叫新建的測試替身（Mock、攔截請求的 transport），不得建立會碰真實環境的依賴，也不得把持有可變狀態或外部資源的受測物件、測試替身存進 `static`，否則會打到真實環境或讓狀態跨測試殘留。`@Test(arguments:)` 的資料沒有實例可用，可寫 `private static`，內容可以是不可變的值。
+- **受測物件預設在 Given 直接建立**：組裝只有一兩行時不抽 helper，例如 `let sut = OrderService(client: client)`。真的需要 helper 時依下一條放置；helper 可以建立受測型別本身（包含受測的 Client），但它的依賴必須是由參數傳入或每次呼叫新建的測試替身（Mock、攔截請求的 transport），不得建立會碰真實環境的依賴，也不得把持有可變狀態或外部資源的受測物件、測試替身存進 `static`，否則會打到真實環境或讓狀態跨測試殘留。`@Test(arguments:)` 的資料沒有實例可用，可寫 `private static`，內容可以是不可變的值；只在測試本體使用、由自訂 `static` 工廠建立的固定資料不寫 `static let`：只有單一測試型別使用時，寫 instance `private let` 或 `private func`；多個測試型別共用時，寫 `<TypeUnderTest>TestSupport` 的 `static func`，每次呼叫重新建立。
 - **測試共用的 helper 依使用範圍放置，不留在其中一個測試型別上讓其他型別呼叫**：只有一個測試型別用的，寫成該型別的 `private` 成員；同資料夾多個測試型別共用的，放同資料夾的 `<TypeUnderTest>TestSupport.swift`；跨資料夾共用的，同一個檔案移到測試 target 的 `Support/`（`project-structure.md` 的「測試目錄」）。helper 幾乎只在改同一組測試時變動，放在使用它的測試旁邊，改動才集中、歸屬也清楚。
 - **`<TypeUnderTest>TestSupport` 是無 case 的 `enum`，成員一律 `static`**，分區照 `formatting.md`。`<TypeUnderTest>` 是這組測試型別共同的受測型別，也就是 `<TypeUnderTest>Tests` 去掉 `Tests`；不同受測型別的測試共用時，歸到 helper 處理的那個受測型別，例如建立 `OrderService` 的 helper 放 `OrderServiceTestSupport`。一個受測型別只有一個 TestSupport，位置依使用範圍最廣的成員決定；使用範圍擴大時整個檔案一起搬，不拆成兩份。跨 Feature 通用的 Model 固定值仍是 `Fixtures/<Model>+Fixture.swift`，Mock 仍放 `Mocks/`；預設值和 `fixture` 不同、只給一組測試用的建構 helper（例如 `makeOrder`）留在 TestSupport。
 - **`private` 型別不能出現在非 `private` 成員的簽章或型別裡**，最常碰到的是 `@Test(arguments:)` 的參數型別：`@Test` 方法是 internal，參數型別是 `private` 就無法編譯。這時把該型別改成 internal（不寫存取修飾詞），不用 `fileprivate`，也不為此把 `@Test` 方法改成 `private`。參數資料本身（例如 `private static let cases`）可以維持 `private`，只有元素型別要 internal；只在測試本體或 `private` 成員裡用到的型別照樣 `private`。
@@ -719,6 +730,8 @@ func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
 - [ ] 測試檔設了 `// MARK: - Tests` 分區；效能測試以外的單元測試用 XCTest，或效能測試和 Swift Testing 的測試同檔
 - [ ] 測試型別以 `extension` 跨檔拆分（`<TypeUnderTest>Tests+<行為>.swift`），而非拆成獨立的 `<TypeUnderTest><行為>Tests`
 - [ ] `@Test` 方法或 UI 測試 `func test…()` 的 `///` 摘要沒以「驗證」開頭（寫成「… 時，…」的情境句），或只把名稱三段換句話說；helper、`setUpWithError` 這類其他方法的摘要加了「驗證」
+- [ ] `<Name>Records` 宣告 protocol 或 `DependencyKey`、由 View、ViewModel 或 Feature 型別呼叫、自行取得 Database、呼叫 `save()`，或在 `read` 範圍內修改資料
+- [ ] 由自訂 `static` 工廠建立、只在測試本體使用的固定資料寫成 `static let`
 - [ ] 一兩行就能組裝的受測物件抽成 helper；helper 建立會碰真實環境的依賴，或把持有可變狀態或外部資源的受測物件、測試替身存進 `static`
 - [ ] 共用 helper 留在某個測試型別上讓其他型別呼叫；同資料夾共用的沒放 `<TypeUnderTest>TestSupport`、跨資料夾共用的沒放 `Support/`，或一個受測型別有兩個 TestSupport
 - [ ] 為了讓 `private` 型別出現在 internal 簽章而加 `fileprivate`，或把 `@Test` 方法改成 `private`

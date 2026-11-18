@@ -69,6 +69,15 @@ Presentation ──▶ Domain ◀── Data
 
 後綴與資料夾一對一：看到 `<Name>Client` 就在 `Networking/`，`<Name>Store` 在 `Storage/`，`<App>Database` 在 `Persistence/`；三者之間不互相依賴。
 
+`<Name>Records` 不是新的資料層角色，而是 Service 或 Database 實作內的資料存取命名空間：Feature 專用的跟隨所屬 Service，放該 Feature 的 `Data/`（實際路徑依方案 A／B／C），維持 internal；Database 或 migration 專用的放 `Core/Persistence/`，不引用 Feature 的型別。規則見 `file-templates.md` 的 `data/Records.swift`。
+
+**SwiftData 遷移建議**：跨 stage 需要的資料留在資料庫，不放在記憶體。以下是設計準則，已發布的遷移是否補強，依仍可能存在的舊版資料判斷。
+
+- 欄位只是改名時優先用 `@Attribute(originalName:)`；需要搬移或轉換資料時，用中間 schema 同時保留新舊資料。
+- 移除舊資料前，先完成可重跑的回填、`save()` 與驗證。能確認每個可進入的版本都已回填時，最後一步才用 `.lightweight`；否則用 `.custom`，在 `willMigrate` 還讀得到新舊資料時處理，失敗就丟錯。
+- 每個 stage 使用該版 schema 的 model 與固定的轉換規則，不呼叫會隨產品調整的目前業務邏輯。
+- 不用 `static var` 或 closure 捕捉的記憶體狀態保存唯一一份資料。`didMigrate` 崩潰或丟錯後重新開啟時，遷移可能成功但資料已遺失（macOS 與 SQLite store 實測）。
+
 ### UseCase（可選）
 
 跨多個 Service 的流程預設放在 ViewModel。只有當同一流程被多個 ViewModel 重複使用時，才在 `Domain/UseCases/` 以 `domain/UseCase.swift` 樣板建立：一個 UseCase 一個檔案，init 注入所需的 Service，對外只暴露一個 `execute` 方法。引入前先確認確實有重複，不預先建立空的 `UseCases/` 資料夾。
@@ -211,7 +220,7 @@ let package = Package(
 )
 ```
 
-- **要**：`Shared` 內仍依 Feature 分子資料夾，每個 Feature 的 Domain 與 Data 型別、Service protocol 與正式實作標 `public`。
+- **要**：`Shared` 內仍依 Feature 分子資料夾，每個 Feature 的 Domain 與 Data 型別、Service protocol 與正式實作標 `public`；`<Name>Records` 是實作細節，維持 internal。
 - **要**：App target 的 `Features/<Feature>/` 只剩 `Presentation/`；ViewModel `import Shared` 取得 Model 與 Service protocol。
 - **避免**：把 Presentation 也搬進 `Shared`，那就變成 C 但沒有 Feature 隔離，兩者的缺點都拿到。
 
@@ -296,7 +305,8 @@ Features/<Feature>/
 │   └── UseCases/                         # 可選，出現重複流程才建
 │       └── <Verb><Noun>UseCase.swift     # domain/UseCase.swift
 ├── Data/
-│   └── <Feature>Service.swift            # data/Service.swift
+│   ├── <Feature>Service.swift            # data/Service.swift
+│   └── <Name>Records.swift               # 可選，data/Records.swift
 └── Preview Content/                      # 方案 A；B、C 改為 Preview/ 並整檔 #if DEBUG
     └── <Feature>Service+Preview.swift    # data/Service+Preview.swift
 ```
@@ -445,6 +455,7 @@ DesignSystem/
 - [ ] 跨 Feature 引用對方的 View、ViewModel、Coordinator、Service，或 Feature 之間直接導航而未經 `AppCoordinator`
 - [ ] 建立新專案未詢問方案，或對既有專案未告知偵測結果就自行決定
 - [ ] Client / Store / Database 放在 Feature 的 `Data/` 而非 `Core/`；後綴與資料夾不對應
+- [ ] `Core/Persistence/` 的 `<Name>Records` 或 migration 引用 Feature 的型別
 - [ ] `App/` 出現業務程式碼；根目錄或 `Core/` 出現 `Utils/`、`Helpers/`、`Common/`、`Misc/`
 - [ ] 預先建立空的 `UseCases/`、`Persistence/`、`Packages/`
 - [ ] 新 Feature 缺四個資料夾或六個最小檔案；根畫面不在 `Root/` 或型別不叫 `<Feature>RootView`

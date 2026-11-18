@@ -34,7 +34,7 @@ Leo Ho 個人 Swift 開發規範。參考 [Swift API Design Guidelines](https://
 
 ### 型別與 protocol
 
-- **要**：型別 UpperCamelCase；後綴只用已定義的角色名：`View`、`ViewModel`、`Coordinator`、`Service`、`Client`、`Store`、`Database`、`UseCase`、`FormatStyle`、`Tests`、`UITests`、`TestSupport`。
+- **要**：型別 UpperCamelCase；後綴只用已定義的角色名：`View`、`ViewModel`、`Coordinator`、`Service`、`Client`、`Store`、`Database`、`Records`、`UseCase`、`FormatStyle`、`Tests`、`UITests`、`TestSupport`。
 - **要**：描述能力的 protocol 用 `-able` / `-ible` / `-ing`（`Sendable`、`ProfileFetching`）；描述角色的 protocol 用名詞加 `Protocol` 後綴（`ProfileServiceProtocol`）。
 - **要**：泛型參數一律具名，表達它的角色：`Element`、`Output`、`Value`、`Key`；單字母 `T` 只允許在完全沒有語意的工具函式（例如 `identity<T>(_:)`）。
 - **要**：`Manager`、`Handler`、`Provider` 只在型別的職責**確實符合該字的本意**時使用，判斷標準如下表；符合就用，不符合就改用能說明職責的字。`Helper` 與 `Util` 沒有對應的職責，不使用。
@@ -189,7 +189,7 @@ extension ProfileViewModel {
 - **要**：型別成員（type property、type method）照 Apple 文件與社群慣例：自己宣告、不打算被覆寫的寫 `static`；覆寫父類別的 class 成員時沿用父類別的寫法（`override class var layerClass: AnyClass`）；只有刻意設計要被繼承的 class，宣告可被覆寫的型別成員時才寫 `class`。排序時 `class` 成員視同 static，見 `formatting.md` 的區內排序。
 - **要**：有可變狀態且會跨執行緒存取的用 `actor`，不用 `class` 加 lock；選型細節見 `file-templates.md` 的 Service 一節。
 - **要**：有限集合與狀態機用 `enum`：狀態、分類、選項用無 associated value 的 enum，帶資料的狀態用 associated value；payload 超過三個欄位改 struct。
-- **要**：無 case 的 `enum` 作命名空間，放多個型別共用的常數群與純 static 工具（`Layout`、`RuntimeEnvironment`）；不用 `struct` 加 `private init()` 模擬。
+- **要**：無 case 的 `enum` 作命名空間，放多個型別共用的常數群、純 static 工具（`Layout`、`RuntimeEnvironment`）與資料存取 helper（`<Name>Records`）；不用 `struct` 加 `private init()` 模擬。
 - **要**：protocol 只在有第二個實作或需要 mock 時才定義。Service / Client / Store / Database / UseCase 因為要 mock 一律有 protocol，其他型別不預先抽象。
 - **要**：`some` 優先於 `any`；`any` 只在需要異質集合或存進屬性時用（Service 注入用 `any`）。
 - **要**：需要語意上不同的識別碼或單位時用 struct wrapper 取得型別安全，遵循 `Hashable`、`Sendable`，以 `rawValue` 持有底層值。
@@ -245,7 +245,7 @@ enum Layout {
 2. 只有一個函式或 computed property 使用，寫區域 `let`；達到「函式拆分」門檻的邏輯寫 local function。
 3. 值或邏輯依賴實例，或函式只在實例建立完成後呼叫，寫 instance 成員。
 4. 以上都不適用，而且說得出下列任一理由，才用 `static`：
-   - **沒有可用的實例**：`init` 內 stored property 尚未全部賦值、property initializer、預設參數、`@Test(arguments:)`、建立實例的工廠。
+   - **沒有可用的實例**：`init` 內 stored property 尚未全部賦值、property initializer、預設參數、`@Test(arguments:)`、建立實例的工廠，以及由框架要求的 `static` 成員或它建立的 closure 直接或間接呼叫、沿途沒有能承載這個方法的 `self` 的情況。呼叫端只是自己寫成 `static` 不算。
    - **由多個型別共用**：放進無 case 的 `enum` 命名空間或 `<TypeUnderTest>TestSupport`。
    - **常數由同一型別的多個成員共用**：寫成 instance `let` 會占用實例空間，也可能額外出現在自動合成的編碼輸出。
 
@@ -257,26 +257,27 @@ enum Layout {
 | 行程內不變的衍生值 | computed property，只由字面值常數或行程啟動後不變的系統值算出 | `RuntimeEnvironment.isPreview` |
 | 純函式與工廠 | 結果只由參數決定，沒有 I/O，不讀寫可變狀態，也不建立或回傳 Service、Client、Store、Database | `normalizedID(from:)`、`fixture(...)` |
 | 錯誤轉換 helper | 只執行呼叫端傳入的操作，並把失敗轉成領域錯誤；本身不做其他 I/O，也不持有狀態 | `PersistenceError.mapFetch { ... }` |
+| 資料存取 helper | 通過判斷順序後，以無 case `enum` 收納同步 `static func`，只在當次呼叫內使用呼叫端傳入的 `ModelContext` 或已開啟的交易；不另取依賴、不另開資料庫或交易、不保存 `context`、不讓 `context` 或受管理物件逸出隔離域，也不決定提交或回滾。透過 Database 存取時，`read` 只做查詢，新增、刪除或修改受管理物件一律走 `write`；版本化 migration callback 使用框架傳入的 `context`，由 stage 決定何時儲存。最外層入口限 Database 實作、Service 正式實作與版本化 migration callback；由這些入口發起並傳遞同一個 `context` 的 helper 互呼與內部 helper 也算 | `CategoryRecords.insert(name:in:)` |
 | 框架或語言要求 | protocol 的型別成員要求（含 `GlobalActor.shared`）、運算子、`@TaskLocal`、`@main` 的 `main()`、`FormatStyle` 等點語法存取子 | `EnvironmentKey.defaultValue`、`DependencyKey.liveValue` |
 | `os.Logger` | 非泛型型別的多個成員共用時寫 `private static let logger`；`subsystem` 用字面值或 `Bundle.main.bundleIdentifier ?? "固定字串"`，`category` 用字面值。泛型型別不能宣告 static stored property：有實例、型別能保存屬性，而且不會破壞 `Codable`、`Equatable` 等自動合成的遵循時，用 instance `private let logger`，否則寫區域 `let` | `Logger(subsystem: "com.example.app", category: "Sync")` |
-| 測試支援 | 跨測試型別共用的 helper（`<TypeUnderTest>TestSupport`），以及 `@Test(arguments:)` 的資料（可寫 `private static`）；不持有可變的 stored property，也不把持有可變狀態或外部資源的受測物件、測試替身存進 `static`，不可變的值可作為 `@Test(arguments:)` 的資料。只在單一測試型別的測試本體使用的 helper 寫 `private func`，受測物件的組裝規則見 `file-templates.md` 的 tests/Tests.swift 一節 | `makeOrder(...)` |
+| 測試支援 | 跨測試型別共用的 helper（`<TypeUnderTest>TestSupport`），以及 `@Test(arguments:)` 的資料（可寫 `private static`）；不持有可變的 stored property，也不把持有可變狀態或外部資源的受測物件、測試替身存進 `static`，不可變的值可作為 `@Test(arguments:)` 的資料。只在單一測試型別的測試本體使用的 helper 寫 `private func`；只在測試本體使用、由自訂 `static` 工廠建立的固定資料不寫 `static let`。固定資料的替代寫法與受測物件的組裝規則見 `file-templates.md` 的 tests/Tests.swift 一節 | `makeOrder(...)` |
 
 字面值常數必須同時符合：
 
-1. **值在寫程式時就確定**：只由字面值、系統提供的固定值或其他字面值常數組成。`Date()`、`UUID()`、讀取 `ProcessInfo` 或檔案的結果都不算。
+1. **值在寫程式時就確定**：只由字面值、系統提供的固定值、其他字面值常數，或以這些值呼叫初始化器的結果組成。初始化器可以是系統型別或專案值型別的（包含自動合成的 memberwise init），但只能保存或純粹轉換引數。`Date()`、`UUID()`、讀取 `ProcessInfo` 或檔案的結果都不算；呼叫專案自訂的 `static` 工廠也不算，即使引數全是字面值。
 2. **值只是資料**：數值、字串、`URL`、`Color`、`CGSize` 這類值。Service、Client、Store、Database、closure 與其他會執行工作的物件都不算，即使它們是不可變的 `struct`。`os.Logger` 不走這三項條件，依上表的專屬條件判斷。
 3. **寫死就是正確答案**：所有實例都用同一個值，不隨部署環境、帳號或遠端設定改變，測試也不需要換值。不符合時改由 init 參數傳入。
 
 - **要**：語言、框架或本規範未明定時，宣告 `static` 前先走完判斷順序，再對照上表。不符合時先回答「誰持有它、活多久、在哪個隔離域、如何注入」，再依答案改成 instance 成員、`actor` 或 init 注入的 Service / Client / Store / Database。
 - **要**：編譯錯誤不是改成 `static` 的理由。遇到 `self`、初始化順序、隔離或 `Sendable` 錯誤時同樣走判斷順序並對照上表，都符合才改，否則修正持有關係或隔離設計。
-- **要**：`nonisolated static func` 同樣必須是純函式，並依「Actor 與隔離」加註解說明。
+- **要**：`nonisolated static func` 同樣必須是純函式，並依「Actor 與隔離」加註解說明；資料存取 helper 依上表與 `file-templates.md` 的 `data/Records.swift`。
 - **要**：`Logger` 只有一個函式使用時寫區域 `let`，protocol extension 也寫區域 `let`；需要驗證 log 內容時，把寫 log 的行為抽成可注入的依賴。
 - **要**：`@TaskLocal static var` 的值以 `$name.withValue` 在作用域內綁定，不直接賦值；它不算下方禁止的可變 stored `static var`。預設值由所有未綁定的任務共用，需要每個作用域各自的可變物件時，預設值用 `nil`，進入作用域時再建立並綁定。
 - **避免**：只因成員沒用到 `self` 就改成 `static`，或為了取得「沒有實例」的理由把成員搬進無 case 的 `enum`。
 - **避免**：`Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Sync")`，`bundleIdentifier` 不是字面值，不適用強制解包的例外。
 - **避免**：可變的 stored `static var`，加上 `@MainActor` 也一樣。
 - **避免**：`static let` 指向 actor、lock 或帶可變狀態的 `class` 實例，語言要求的 `GlobalActor.shared` 除外。改名為 `instance`、`current`、`default` 的單例，一樣視同 `.shared`。
-- **避免**：`static func` 做網路、檔案、資料庫等 I/O，或讀寫共享狀態；這些工作放進 init 注入的型別，測試才能替換。錯誤轉換 helper 只執行呼叫端傳入的操作，不算違反。
+- **避免**：`static func` 做網路、檔案、資料庫等 I/O，或讀寫共享狀態；這些工作放進 init 注入的型別，測試才能替換。錯誤轉換 helper 只執行呼叫端傳入的操作，資料存取 helper 只使用呼叫端傳入的 `context`，都不算違反；傳入整個資料庫物件再自行開啟交易仍然違反。
 - **避免**：正式程式碼以 `static func` 或 `static var` 建立或回傳 Service、Client、Store、Database；依賴在 App 根部組裝。框架要求的成員（例如 `liveValue`、`previewValue`、`testValue`）除外。
 
 ```swift
@@ -350,6 +351,26 @@ extension SyncReporter {
     /// 記錄同步完成
     func reportFinish() {
         Self.logger.info("同步完成")
+    }
+}
+
+// 可以：只使用呼叫端傳入的 `context`，是否提交由外層決定
+/// 類別資料的讀寫操作
+enum CategoryRecords {
+
+}
+
+// MARK: - Internal Method
+
+extension CategoryRecords {
+
+    /// 新增一筆類別
+    ///
+    /// - Parameters:
+    ///   - name: 類別名稱
+    ///   - context: 呼叫端已開啟的資料存取範圍
+    static func insert(name: String, in context: ModelContext) {
+        context.insert(CategoryRecord(name: name))
     }
 }
 
@@ -450,6 +471,38 @@ extension ProfileLoader {
     static func load(from url: URL) async throws -> Data {
         try await URLSession.shared.data(from: url).0
     }
+}
+
+// 避免：helper 自行提交，會連同 `context` 內其他待存變更一起寫入
+/// 標籤資料的讀寫操作
+enum TagRecords {
+
+}
+
+// MARK: - Internal Method
+
+extension TagRecords {
+
+    /// 新增一筆標籤並立刻寫入
+    ///
+    /// - Parameters:
+    ///   - name: 標籤名稱
+    ///   - context: 呼叫端已開啟的資料存取範圍
+    /// - Throws: 寫入失敗時丟出
+    static func insertAndSave(name: String, in context: ModelContext) throws {
+        context.insert(TagRecord(name: name))
+        try context.save()
+    }
+}
+
+// 避免：自訂工廠不是字面值常數；只在測試本體使用時寫 instance `private let`
+/// 費用規則的單元測試
+struct FeeRuleTests {
+
+    // MARK: - Properties
+
+    /// 多個測試共用的費用項目
+    private static let platformFee = FeeItem.fixture(name: "平台手續費")
 }
 ```
 
@@ -633,7 +686,7 @@ try? cache.store(profile)
 
 - **要**：`@MainActor` 標在型別上：ViewModel、Coordinator 整個型別標，不逐方法標。Service / Client / Store / UseCase / Model 不標，在呼叫端的隔離域執行；Database 是 `@ModelActor`，自帶隔離。
 - **要**：跨隔離域傳遞的型別一律 `Sendable`；Model 預設已遵循。
-- **要**：`nonisolated` 只用於 `@MainActor` 型別內確實不碰狀態的純函式，且加註解說明。
+- **要**：`nonisolated` 只用於 `@MainActor` 型別內確實不碰狀態的純函式，且加註解說明。唯一例外是預設隔離為 `MainActor` 的 target 內的 `<Name>Records`，見 `file-templates.md` 的 `data/Records.swift`。
 - **要**：actor 方法內的 `await` 會讓出隔離（reentrancy），跨 `await` 之後要重新檢查依賴的狀態，不假設它沒變。
 - **避免**：`@unchecked Sendable` 壓警告，唯二例外是 Mock 與 Service 選型表第四列。
 - **避免**：`DispatchQueue.main.async`，`@MainActor` 內本來就在主執行緒。
@@ -813,7 +866,7 @@ private extension ProfileViewModel {
 - [ ] 命名：`Manager` / `Handler` / `Provider` 用在不符本意的型別、`Helper` / `Util` 後綴、`get` 前綴、否定式 `Bool`、以型別當後綴（`userArray`）、`Id` 而非 `ID`、泛型用單字母
 - [ ] 存取控制：成員未從 `private` 起手、明寫 `internal`、出現 `fileprivate`、為測試放寬存取層級、屬性包裝與存取控制順序顛倒
 - [ ] 型別：`class` 未加 `final`、不打算被覆寫的型別成員寫 `class` 而非 `static`、可變共享狀態用 `class` 加 lock 而非 `actor`、`typealias` 給基本型別取別名、tuple 跨函式邊界、只有一個實作卻定義 protocol
-- [ ] `static`：語言、框架或本規範未要求，卻在可直接寫、寫成區域 `let` 或 instance 成員時用 `static`；只因沒用到 `self` 就改成 `static`、不符合使用時機表、只為消除編譯錯誤才改成 `static`、用途是字面值常數卻不符合三項條件、以 `static` 寫死會隨環境或測試改變的值、`Logger` 不符合專屬條件或 `subsystem` 用 `!`、可變的 stored `static var`（`@TaskLocal` 宣告不算）、`static let` 指向 actor、lock 或帶可變狀態的 `class`（`GlobalActor.shared` 除外）、`static func` 本身發起 I/O 或讀寫共享狀態（錯誤轉換 helper 執行傳入的操作不算）、正式程式碼以 `static func` 或 `static var` 建立或回傳 Service、Client、Store、Database（框架要求的成員除外）
+- [ ] `static`：語言、框架或本規範未要求，卻在可直接寫、寫成區域 `let` 或 instance 成員時用 `static`；只因沒用到 `self` 就改成 `static`、不符合使用時機表、只為消除編譯錯誤才改成 `static`、用途是字面值常數卻不符合三項條件（自訂 `static` 工廠不算字面值）、以 `static` 寫死會隨環境或測試改變的值、`Logger` 不符合專屬條件或 `subsystem` 用 `!`、可變的 stored `static var`（`@TaskLocal` 宣告不算）、`static let` 指向 actor、lock 或帶可變狀態的 `class`（`GlobalActor.shared` 除外）、`static func` 本身發起 I/O 或讀寫共享狀態（錯誤轉換 helper 執行傳入的操作、資料存取 helper 使用傳入的 `context` 不算）、資料存取 helper 自行取得依賴、開啟交易、保存 `context`、呼叫 `save()` 或在 `read` 範圍內修改資料、正式程式碼以 `static func` 或 `static var` 建立或回傳 Service、Client、Store、Database（框架要求的成員除外）
 - [ ] 函式拆分：只在一處使用、只有幾行的邏輯抽成 helper；約 15 行以上的獨立演算法沒有抽出
 - [ ] Optional：`if let` 用在該提早離開的地方、`guard` 的 `else` 內有業務邏輯（離開前記錄 log 不算）、optional chaining 超過兩層、`??` 掩蓋錯誤、`Bool?`、`.none`
 - [ ] 強制解包：`!` 左側含變數、`try!`、`as!`、`IBOutlet` 以外的隱式解包、字面值 `!` 出現在一般方法內而非 `static let` 或測試 fixture、字面值 `!` 的成功與否取決於 App 打包內容或裝置資源（例如 `Bundle(identifier:)`）

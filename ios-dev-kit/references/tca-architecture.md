@@ -76,7 +76,8 @@ Features/<Feature>/
 │       └── <Screen><Part>View.swift      # 選用，同 MVVM
 ├── Domain/                               # 同 MVVM
 └── Data/
-    └── <Feature>Service.swift            # tca/Service.swift
+    ├── <Feature>Service.swift            # tca/Service.swift
+    └── <Name>Records.swift               # 可選，data/Records.swift
 ```
 
 - **要**：最小檔案組四個：`Root/` 的 Feature 與 View、Error、Service。資料夾只建 `Presentation/`、`Domain/`、`Data/`，不建 `Preview Content/`（方案 B、C 的 `Preview/`）。
@@ -417,7 +418,8 @@ Feature 型別直接取用的 Service 改用 TCA 慣例的 struct 裝 closure；
 - **要**：`<Feature>Service` 是遵循 `Sendable` 的 struct，每個操作一個 closure 屬性，型別一律 `@Sendable` 加 typed throws；TCA 專案不出現 `<Feature>ServiceProtocol`、`Preview<Feature>Service`、`Mock<Feature>Service`。
 - **要**：每個 closure 屬性一律宣告 typealias，名稱為屬性名稱首字大寫（`addCategory` → `AddCategory`），放 Nested Types，順序與屬性一致，參數名稱保留在 typealias 內。完整的 `///`（`- Parameter`、`- Returns`、`- Throws`）寫在屬性上，因為呼叫端的 Quick Help 顯示的是屬性的說明；typealias 只寫一行「`addCategory` 的函式型別」。
 - **要**：Service 直接遵循 `DependencyKey`（`extension <Feature>Service: DependencyKey`），不另建 Key enum。Feature 型別以 `@Dependency(\.<feature>Service) private var service` 同一行取用，放 Dependencies 區，`Effect` 內直接用捕獲的 `service`。
-- **要**：`liveValue` 是 computed property（`static var`），在裡面以 `@Dependency` 取得 Client / Store，再組出每個 closure；本體會 throw 的 closure 依 `formatting.md` 只補 `throws(E)`。不寫成 `static let`：`static let` 只在第一次取用時建立，之後固定住當時的 Client / Store，測 Service 時無法用 `withDependencies` 換成 Mock。
+- **要**：`liveValue` 是 computed property（`static var`），在裡面以 `@Dependency` 取得 Client / Store / Database，再組出每個 closure；本體會 throw 的 closure 依 `formatting.md` 只補 `throws(E)`。不寫成 `static let`：`static let` 只在第一次取用時建立，之後固定住當時的依賴，測 Service 時無法用 `withDependencies` 換成 Mock。
+- **要**：以 Database 為下層時，closure 可在 `database.write`、`database.read` 提供的 `context` 內呼叫 `<Name>Records`。`liveValue` 負責取得 Database 並選擇 `read` 或 `write`；`read` 只做查詢，修改資料一律走 `write`，寫入的提交與回滾由 Database 實作統一處理，closure 不另外呼叫 `save()`；條件見 `file-templates.md` 的 `data/Records.swift`。
 - **要**：`previewValue` 寫在同一個 `DependencyKey` extension，只有這個屬性以 `#if DEBUG` 包住；getter 第一行 `assert(RuntimeEnvironment.allowsPreviewStub, ...)`，closure 只回傳固定的假資料。
 - **例外**：以 Database 為下層的 Service，`previewValue` 在 `assert` 之後直接 `return liveValue`。Preview 時 `liveValue` 用 `@Dependency` 取到的是 Database 的記憶體資料庫（見「Client、Store、Database」），畫面看到的是正式邏輯跑出來的範例資料，不必在 Service 再寫一份假資料。
 - **要**：`testValue` 必須宣告，每個 closure 都是 `unimplemented("<Feature>Service.<屬性>")`，有回傳值的加 `placeholder:`，填空集合、`nil`、空字串這類中性的值。少了 `testValue`，測試在 `withDependencies` 只覆寫一個 closure 時，其他 closure 會悄悄改用 `previewValue`，不會報錯（swift-dependencies 在設定依賴期間的預設行為，已實測）。
