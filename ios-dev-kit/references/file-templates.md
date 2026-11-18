@@ -627,6 +627,7 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - **一個測試只允許一組 When / Then**；需要驗證多個結果時用多個 `#expect`，需要多個動作時拆成多個測試或改用 `@Test(arguments:)`。TCA 在 Given 用 `send` 建立前置狀態不算第二個動作，見 `tca-architecture.md` 測試一節。
 - **`@Suite` 只在需要共用 setup、tag 或序列化執行（`.serialized`）時使用**，單純分組不加。
 - **測試型別過大時，依受測行為拆成獨立的測試型別，不以 `extension` 跨檔拆分**（`formatting.md` 的「Extension 的使用時機」）：每個型別一個檔案，型別與檔名為 `<TypeUnderTest><行為>Tests`，行為段用 UpperCamelCase 英文（例如 `RootFeatureNavigationTests.swift`），與 `<TypeUnderTest>Tests.swift` 放同一個資料夾。`@MainActor`、`.serialized` 依拆出的型別各自判斷，只標在需要的那幾個上。拆開後共用的 helper 依下一條放置。參數化測試的資料型別同樣拆成獨立型別，不寫成 `extension` 分檔。
+- **受測物件預設在 Given 直接建立**：組裝只有一兩行時不抽 helper，例如 `let sut = OrderService(client: client)`。真的需要 helper 時依下一條放置；helper 可以建立受測型別本身（包含受測的 Client），但它的依賴必須是由參數傳入或每次呼叫新建的測試替身（Mock、攔截請求的 transport），不得建立會碰真實環境的依賴，也不得把持有可變狀態或外部資源的受測物件、測試替身存進 `static`，否則會打到真實環境或讓狀態跨測試殘留。`@Test(arguments:)` 的資料沒有實例可用，可寫 `private static`，內容可以是不可變的值。
 - **測試共用的 helper 依使用範圍放置，不留在其中一個測試型別上讓其他型別呼叫**：只有一個測試型別用的，寫成該型別的 `private` 成員；同資料夾多個測試型別共用的，放同資料夾的 `<TypeUnderTest>TestSupport.swift`；跨資料夾共用的，同一個檔案移到測試 target 的 `Support/`（`project-structure.md` 的「測試目錄」）。helper 幾乎只在改同一組測試時變動，放在使用它的測試旁邊，改動才集中、歸屬也清楚。
 - **`<TypeUnderTest>TestSupport` 是無 case 的 `enum`，成員一律 `static`**，分區照 `formatting.md`。`<TypeUnderTest>` 是這組測試型別共同的受測型別，也就是 `<TypeUnderTest>Tests` 去掉 `Tests`；不同受測型別的測試共用時，歸到 helper 處理的那個受測型別，例如建立 `OrderService` 的 helper 放 `OrderServiceTestSupport`。一個受測型別只有一個 TestSupport，位置依使用範圍最廣的成員決定；使用範圍擴大時整個檔案一起搬，不拆成兩份。跨 Feature 通用的 Model 固定值仍是 `Fixtures/<Model>+Fixture.swift`，Mock 仍放 `Mocks/`；預設值和 `fixture` 不同、只給一組測試用的建構 helper（例如 `makeOrder`）留在 TestSupport。
 - **`private` 型別不能出現在非 `private` 成員的簽章或型別裡**，最常碰到的是 `@Test(arguments:)` 的參數型別：`@Test` 方法是 internal，參數型別是 `private` 就無法編譯。這時把該型別改成 internal（不寫存取修飾詞），不用 `fileprivate`，也不為此把 `@Test` 方法改成 `private`。參數資料本身（例如 `private static let cases`）可以維持 `private`，只有元素型別要 internal；只在測試本體或 `private` 成員裡用到的型別照樣 `private`。
@@ -718,6 +719,7 @@ func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
 - [ ] 測試檔設了 `// MARK: - Tests` 分區；效能測試以外的單元測試用 XCTest，或效能測試和 Swift Testing 的測試同檔
 - [ ] 測試型別以 `extension` 跨檔拆分（`<TypeUnderTest>Tests+<行為>.swift`），而非拆成獨立的 `<TypeUnderTest><行為>Tests`
 - [ ] `@Test` 方法或 UI 測試 `func test…()` 的 `///` 摘要沒以「驗證」開頭（寫成「… 時，…」的情境句），或只把名稱三段換句話說；helper、`setUpWithError` 這類其他方法的摘要加了「驗證」
+- [ ] 一兩行就能組裝的受測物件抽成 helper；helper 建立會碰真實環境的依賴，或把持有可變狀態或外部資源的受測物件、測試替身存進 `static`
 - [ ] 共用 helper 留在某個測試型別上讓其他型別呼叫；同資料夾共用的沒放 `<TypeUnderTest>TestSupport`、跨資料夾共用的沒放 `Support/`，或一個受測型別有兩個 TestSupport
 - [ ] 為了讓 `private` 型別出現在 internal 簽章而加 `fileprivate`，或把 `@Test` 方法改成 `private`
 - [ ] 測試不必要地加上 `@MainActor`（測試對象不是 `@MainActor` 型別，或只有部分測試需要卻標在整個型別上）或 `@Suite(.serialized)`（沒有無法隔離的共用資源）

@@ -136,7 +136,7 @@ func fetchProfile(id: String, includeDetails: Bool = false) async throws -> Prof
 /// - Parameter operation: 要執行的存取操作
 /// - Returns: 操作的結果
 /// - Throws: `operation` 失敗時丟出，已包成 `.storage(_:)`
-static func wrapStorage<Value>(
+func wrapStorage<Value>(
     _ operation: () throws(PersistenceError) -> Value
 ) throws(ProfileStorageError) -> Value {
     ...
@@ -372,6 +372,8 @@ extension MockURLProtocol {
 - **例外**：TCA Feature 型別的 `core(state:action:)` 永遠是 Private Method 區的第一個方法，排在 static method 之前，見 `tca-architecture.md`。
 - **避免**：把 static stored property 放進 extension。Swift 允許在 extension 宣告 static stored property，本規範仍一律放本體的 Properties 區，讓型別持有的狀態集中在一處。
 
+`ProfileCache` 的 `init` 要用 `directory` 與 `makeFileName(for:)` 算出 stored property `fileURL`，當下實例尚未建立完成，所以這兩個成員是 `static`：
+
 ```swift
 // MARK: - Private Method
 
@@ -382,17 +384,17 @@ private extension ProfileCache {
         URL.cachesDirectory.appending(path: "Profile")
     }
 
-    /// 這位使用者的快取檔案位置，建在 `directory` 之下
-    var fileURL: URL {
-        Self.directory.appending(path: "\(userID).json")
+    /// 寫入過程使用的暫存檔位置，建在 `directory` 之下
+    var temporaryFileURL: URL {
+        Self.directory.appending(path: "\(Self.makeFileName(for: userID)).tmp")
     }
 
-    /// 組出取得個人資料的請求
+    /// 組出使用者的快取檔名
     ///
-    /// - Parameter id: 使用者識別碼
-    /// - Returns: 可直接送出的請求
-    static func makeRequest(for id: String) -> URLRequest {
-        ...
+    /// - Parameter userID: 使用者識別碼
+    /// - Returns: 快取檔名
+    static func makeFileName(for userID: String) -> String {
+        "\(userID).json"
     }
 
     /// 把快取檔案的內容轉成個人資料

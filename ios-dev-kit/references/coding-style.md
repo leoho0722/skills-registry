@@ -13,6 +13,7 @@ Leo Ho 個人 Swift 開發規範。參考 [Swift API Design Guidelines](https://
     - [enum case](#enum-case)
   - [存取控制](#存取控制)
   - [型別選擇](#型別選擇)
+    - [`static` 的使用時機](#static-的使用時機)
   - [函式拆分](#函式拆分)
   - [Optional 處理](#optional-處理)
     - [強制解包 `!` 的唯一例外](#強制解包--的唯一例外)
@@ -188,7 +189,7 @@ extension ProfileViewModel {
 - **要**：型別成員（type property、type method）照 Apple 文件與社群慣例：自己宣告、不打算被覆寫的寫 `static`；覆寫父類別的 class 成員時沿用父類別的寫法（`override class var layerClass: AnyClass`）；只有刻意設計要被繼承的 class，宣告可被覆寫的型別成員時才寫 `class`。排序時 `class` 成員視同 static，見 `formatting.md` 的區內排序。
 - **要**：有可變狀態且會跨執行緒存取的用 `actor`，不用 `class` 加 lock；選型細節見 `file-templates.md` 的 Service 一節。
 - **要**：有限集合與狀態機用 `enum`：狀態、分類、選項用無 associated value 的 enum，帶資料的狀態用 associated value；payload 超過三個欄位改 struct。
-- **要**：無 case 的 `enum` 作命名空間，放常數群與純 static 工具（`Layout`、`RuntimeEnvironment`）；不用 `struct` 加 `private init()` 模擬。
+- **要**：無 case 的 `enum` 作命名空間，放多個型別共用的常數群與純 static 工具（`Layout`、`RuntimeEnvironment`）；不用 `struct` 加 `private init()` 模擬。
 - **要**：protocol 只在有第二個實作或需要 mock 時才定義。Service / Client / Store / Database / UseCase 因為要 mock 一律有 protocol，其他型別不預先抽象。
 - **要**：`some` 優先於 `any`；`any` 只在需要異質集合或存進屬性時用（Service 注入用 `any`）。
 - **要**：需要語意上不同的識別碼或單位時用 struct wrapper 取得型別安全，遵循 `Hashable`、`Sendable`，以 `rawValue` 持有底層值。
@@ -234,6 +235,224 @@ enum Layout {
 }
 ```
 
+### `static` 的使用時機
+
+`static` 成員不屬於任何實例，所以沒有實例的持有者與生命週期，也不受 actor 實例的隔離；所在型別標了 global actor（例如 `@MainActor`）時，它仍受該 actor 隔離。改成 `static` 常能消除 `self`、初始化順序與隔離錯誤，但編譯通過不代表設計正確，可變的共享狀態同樣能通過編譯。因此先判斷是否需要，再判斷用途是否允許，不依能否編譯判斷。
+
+語言、框架或本規範明定為型別成員的宣告，不走下方的判斷順序，直接對照用途表，例如 protocol 的型別成員要求、`FormatStyle` 便利存取子、`<TypeUnderTest>TestSupport` 的成員、正式程式碼中含字面值 `!` 的常數（測試 fixture 內可寫區域 `let`）。其餘成員依序判斷，前一步做得到就停下；第 1、2 步的前提是移動後仍維持所需的求值時機、求值次數與生命週期：
+
+1. 只在一處使用的值或一兩行邏輯，直接寫在使用處。
+2. 只有一個函式或 computed property 使用，寫區域 `let`；達到「函式拆分」門檻的邏輯寫 local function。
+3. 值或邏輯依賴實例，或函式只在實例建立完成後呼叫，寫 instance 成員。
+4. 以上都不適用，而且說得出下列任一理由，才用 `static`：
+   - **沒有可用的實例**：`init` 內 stored property 尚未全部賦值、property initializer、預設參數、`@Test(arguments:)`、建立實例的工廠。
+   - **由多個型別共用**：放進無 case 的 `enum` 命名空間或 `<TypeUnderTest>TestSupport`。
+   - **常數由同一型別的多個成員共用**：寫成 instance `let` 會占用實例空間，也可能額外出現在自動合成的編碼輸出。
+
+確定需要 `static` 後，還要符合下表的用途。不論寫成 stored 或 computed，會隨部署環境、帳號或遠端設定改變，或測試需要換值的值，都不能用 `static` 寫死，改由 init 參數傳入。
+
+| 用途 | 條件 | 例子 |
+|---|---|---|
+| 字面值常數 | `static let`，同時符合下方三項條件 | `Layout.spacing`、`Notification.Name("didSync")` |
+| 行程內不變的衍生值 | computed property，只由字面值常數或行程啟動後不變的系統值算出 | `RuntimeEnvironment.isPreview` |
+| 純函式與工廠 | 結果只由參數決定，沒有 I/O，不讀寫可變狀態，也不建立或回傳 Service、Client、Store、Database | `normalizedID(from:)`、`fixture(...)` |
+| 錯誤轉換 helper | 只執行呼叫端傳入的操作，並把失敗轉成領域錯誤；本身不做其他 I/O，也不持有狀態 | `PersistenceError.mapFetch { ... }` |
+| 框架或語言要求 | protocol 的型別成員要求（含 `GlobalActor.shared`）、運算子、`@TaskLocal`、`@main` 的 `main()`、`FormatStyle` 等點語法存取子 | `EnvironmentKey.defaultValue`、`DependencyKey.liveValue` |
+| `os.Logger` | 非泛型型別的多個成員共用時寫 `private static let logger`；`subsystem` 用字面值或 `Bundle.main.bundleIdentifier ?? "固定字串"`，`category` 用字面值。泛型型別不能宣告 static stored property：有實例、型別能保存屬性，而且不會破壞 `Codable`、`Equatable` 等自動合成的遵循時，用 instance `private let logger`，否則寫區域 `let` | `Logger(subsystem: "com.example.app", category: "Sync")` |
+| 測試支援 | 跨測試型別共用的 helper（`<TypeUnderTest>TestSupport`），以及 `@Test(arguments:)` 的資料（可寫 `private static`）；不持有可變的 stored property，也不把持有可變狀態或外部資源的受測物件、測試替身存進 `static`，不可變的值可作為 `@Test(arguments:)` 的資料。只在單一測試型別的測試本體使用的 helper 寫 `private func`，受測物件的組裝規則見 `file-templates.md` 的 tests/Tests.swift 一節 | `makeOrder(...)` |
+
+字面值常數必須同時符合：
+
+1. **值在寫程式時就確定**：只由字面值、系統提供的固定值或其他字面值常數組成。`Date()`、`UUID()`、讀取 `ProcessInfo` 或檔案的結果都不算。
+2. **值只是資料**：數值、字串、`URL`、`Color`、`CGSize` 這類值。Service、Client、Store、Database、closure 與其他會執行工作的物件都不算，即使它們是不可變的 `struct`。`os.Logger` 不走這三項條件，依上表的專屬條件判斷。
+3. **寫死就是正確答案**：所有實例都用同一個值，不隨部署環境、帳號或遠端設定改變，測試也不需要換值。不符合時改由 init 參數傳入。
+
+- **要**：語言、框架或本規範未明定時，宣告 `static` 前先走完判斷順序，再對照上表。不符合時先回答「誰持有它、活多久、在哪個隔離域、如何注入」，再依答案改成 instance 成員、`actor` 或 init 注入的 Service / Client / Store / Database。
+- **要**：編譯錯誤不是改成 `static` 的理由。遇到 `self`、初始化順序、隔離或 `Sendable` 錯誤時同樣走判斷順序並對照上表，都符合才改，否則修正持有關係或隔離設計。
+- **要**：`nonisolated static func` 同樣必須是純函式，並依「Actor 與隔離」加註解說明。
+- **要**：`Logger` 只有一個函式使用時寫區域 `let`，protocol extension 也寫區域 `let`；需要驗證 log 內容時，把寫 log 的行為抽成可注入的依賴。
+- **要**：`@TaskLocal static var` 的值以 `$name.withValue` 在作用域內綁定，不直接賦值；它不算下方禁止的可變 stored `static var`。預設值由所有未綁定的任務共用，需要每個作用域各自的可變物件時，預設值用 `nil`，進入作用域時再建立並綁定。
+- **避免**：只因成員沒用到 `self` 就改成 `static`，或為了取得「沒有實例」的理由把成員搬進無 case 的 `enum`。
+- **避免**：`Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Sync")`，`bundleIdentifier` 不是字面值，不適用強制解包的例外。
+- **避免**：可變的 stored `static var`，加上 `@MainActor` 也一樣。
+- **避免**：`static let` 指向 actor、lock 或帶可變狀態的 `class` 實例，語言要求的 `GlobalActor.shared` 除外。改名為 `instance`、`current`、`default` 的單例，一樣視同 `.shared`。
+- **避免**：`static func` 做網路、檔案、資料庫等 I/O，或讀寫共享狀態；這些工作放進 init 注入的型別，測試才能替換。錯誤轉換 helper 只執行呼叫端傳入的操作，不算違反。
+- **避免**：正式程式碼以 `static func` 或 `static var` 建立或回傳 Service、Client、Store、Database；依賴在 App 根部組裝。框架要求的成員（例如 `liveValue`、`previewValue`、`testValue`）除外。
+
+```swift
+// 可以：`init` 賦值 `id` 時實例尚未建立完成，建立後的比對也要用同一段邏輯
+/// 使用者的識別資訊
+struct UserIdentity {
+
+    // MARK: - Properties
+
+    /// 統一格式後的識別碼
+    let id: String
+
+    // MARK: - Init
+
+    /// 以伺服器給的識別碼建立
+    ///
+    /// - Parameter rawID: 伺服器給的原始識別碼
+    init(rawID: String) {
+        id = Self.normalizedID(from: rawID)
+    }
+}
+
+// MARK: - Internal Method
+
+extension UserIdentity {
+
+    /// 判斷輸入的識別碼轉成小寫後是否與這位使用者相同
+    ///
+    /// - Parameter rawID: 要比對的識別碼
+    /// - Returns: 屬於這位使用者時為 `true`
+    func matches(_ rawID: String) -> Bool {
+        id == Self.normalizedID(from: rawID)
+    }
+}
+
+// MARK: - Private Method
+
+private extension UserIdentity {
+
+    /// 將識別碼轉成統一格式
+    ///
+    /// - Parameter rawID: 原始識別碼
+    /// - Returns: 小寫的識別碼
+    static func normalizedID(from rawID: String) -> String {
+        rawID.lowercased()
+    }
+}
+
+// 可以：同一型別的多個方法共用一個 `Logger`
+/// 回報同步進度
+struct SyncReporter {
+
+    // MARK: - Properties
+
+    /// 同步流程的記錄器
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.example.app",
+        category: "Sync"
+    )
+}
+
+// MARK: - Internal Method
+
+extension SyncReporter {
+
+    /// 記錄同步開始
+    func reportStart() {
+        Self.logger.info("同步開始")
+    }
+
+    /// 記錄同步完成
+    func reportFinish() {
+        Self.logger.info("同步完成")
+    }
+}
+
+// 避免：只有一個方法使用，寫成區域 `let` 即可
+/// 搜尋關鍵字的檢查規則
+struct SearchRule {
+
+    // MARK: - Properties
+
+    /// 關鍵字的最短長度
+    private static let minimumLength = 2
+}
+
+// MARK: - Internal Method
+
+extension SearchRule {
+
+    /// 判斷關鍵字是否可以送出搜尋
+    ///
+    /// - Parameter keyword: 使用者輸入的關鍵字
+    /// - Returns: 長度足夠時為 `true`
+    func accepts(_ keyword: String) -> Bool {
+        keyword.count >= Self.minimumLength
+    }
+}
+
+// 避免：值不會再變，但它取決於第一次存取的時間，不是寫程式時就確定
+/// App 的執行資訊
+enum AppSession {
+
+    // MARK: - Properties
+
+    /// 第一次存取時的時間
+    static let startDate = Date()
+}
+
+// 避免：無論寫成 `static let` 或工廠，都把正式依賴藏在型別裡，應在 App 根部組裝
+/// 個人資料服務
+struct ProfileService: Sendable {
+
+    // MARK: - Properties
+
+    /// 正式環境使用的實例
+    static let live = ProfileService(client: URLSessionClient())
+
+    /// 負責送出請求的依賴
+    let client: any HTTPClientProtocol
+}
+
+// MARK: - Internal Method
+
+extension ProfileService {
+
+    /// 建立正式環境使用的實例
+    ///
+    /// - Returns: 連接正式網路的服務
+    static func makeLive() -> ProfileService {
+        ProfileService(client: URLSessionClient())
+    }
+}
+
+// 避免：能編譯，但狀態沒有持有者，測試之間也會互相污染
+/// 目前的登入狀態
+@MainActor
+enum Session {
+
+    // MARK: - Properties
+
+    /// 目前登入的權杖
+    static var token: String?
+}
+
+// 避免：能編譯，但這是換了名字的單例，依賴被藏起來
+/// 全 App 共用的權杖來源
+enum TokenStorage {
+
+    // MARK: - Properties
+
+    /// 保存權杖的 `actor`
+    static let store = TokenStore()
+}
+
+// 避免：能編譯，但 I/O 無法在測試替換，應放進 `init` 注入的依賴
+/// 個人資料的下載入口
+enum ProfileLoader {
+
+}
+
+// MARK: - Internal Method
+
+extension ProfileLoader {
+
+    /// 下載個人資料
+    ///
+    /// - Parameter url: 個人資料的位置
+    /// - Returns: 伺服器回傳的原始內容
+    /// - Throws: 網路失敗時丟出
+    static func load(from url: URL) async throws -> Data {
+        try await URLSession.shared.data(from: url).0
+    }
+}
+```
+
 ## 函式拆分
 
 - **要**：只在一處使用的小段邏輯留在原處，不抽成 helper：一兩行的計算寫在呼叫端，只被一個 computed property 使用的格式化直接寫在該 property 內。
@@ -266,19 +485,21 @@ var appVersion: String {
 
 ### 強制解包 `!` 的唯一例外
 
-**只允許在 `!` 左側的表達式完全由字面值組成、沒有任何變數參與時使用**，因為結果在寫程式時就已確定，執行期不可能是 nil。判斷標準是機械的：表達式裡有變數就禁止。允許時在同一行或上一行加註解說明是字面值常數。
+**只允許在 `!` 左側的表達式完全由字面值組成、沒有任何變數參與時使用**，因為輸入固定，確認字面值有效後，執行期就不會是 nil。判斷標準是機械的：表達式裡有變數就禁止。字面值本身也要確認有效，例如時區識別字拼錯時，`TimeZone(identifier:)` 會回傳 nil；成功與否還取決於 App 打包內容或裝置上是否有某項資源的 API（例如 `Bundle(identifier:)`）不適用這個例外。允許時在同一行或上一行加註解說明是字面值常數。
 
 - **要**：有非 Optional 的替代 API 就用替代，沒有才用字面值加 `!`：正規表達式用 `/\d+/` 字面值而非 `NSRegularExpression(pattern:)!`；SwiftUI 用 `Image("name")`、`Color("name")` 而非 `UIImage(named:)!`；`TimeZone.gmt`、`Locale.current` 這類靜態屬性優先。
 - **要**：允許的例外只在 `static let` 常數或測試 fixture 出現，不在一般方法內。
 - **避免**：對 `IBOutlet` 以外的隱式解包、對含變數的表達式、對 `try` 與 `as` 使用 `!`。
 
 ```swift
-// 允許：全是字面值，結果在編譯期確定
-/// 與伺服器溝通用的固定設定
-enum API {
+// 允許：全是字面值，輸入固定且已確認有效
+/// App 內寫死的固定值
+enum FixedValues {
 
-    /// 伺服器網址，所有請求都接在它後面
-    static let baseURL = URL(string: "https://api.example.com")!  // 字面值常數
+    // MARK: - Properties
+
+    /// 官方網站的網址
+    static let siteURL = URL(string: "https://www.example.com")!  // 字面值常數
 
     /// 稅率，5%
     static let taxRate = Decimal(string: "0.05")!                 // 字面值常數
@@ -592,9 +813,10 @@ private extension ProfileViewModel {
 - [ ] 命名：`Manager` / `Handler` / `Provider` 用在不符本意的型別、`Helper` / `Util` 後綴、`get` 前綴、否定式 `Bool`、以型別當後綴（`userArray`）、`Id` 而非 `ID`、泛型用單字母
 - [ ] 存取控制：成員未從 `private` 起手、明寫 `internal`、出現 `fileprivate`、為測試放寬存取層級、屬性包裝與存取控制順序顛倒
 - [ ] 型別：`class` 未加 `final`、不打算被覆寫的型別成員寫 `class` 而非 `static`、可變共享狀態用 `class` 加 lock 而非 `actor`、`typealias` 給基本型別取別名、tuple 跨函式邊界、只有一個實作卻定義 protocol
+- [ ] `static`：語言、框架或本規範未要求，卻在可直接寫、寫成區域 `let` 或 instance 成員時用 `static`；只因沒用到 `self` 就改成 `static`、不符合使用時機表、只為消除編譯錯誤才改成 `static`、用途是字面值常數卻不符合三項條件、以 `static` 寫死會隨環境或測試改變的值、`Logger` 不符合專屬條件或 `subsystem` 用 `!`、可變的 stored `static var`（`@TaskLocal` 宣告不算）、`static let` 指向 actor、lock 或帶可變狀態的 `class`（`GlobalActor.shared` 除外）、`static func` 本身發起 I/O 或讀寫共享狀態（錯誤轉換 helper 執行傳入的操作不算）、正式程式碼以 `static func` 或 `static var` 建立或回傳 Service、Client、Store、Database（框架要求的成員除外）
 - [ ] 函式拆分：只在一處使用、只有幾行的邏輯抽成 helper；約 15 行以上的獨立演算法沒有抽出
 - [ ] Optional：`if let` 用在該提早離開的地方、`guard` 的 `else` 內有業務邏輯（離開前記錄 log 不算）、optional chaining 超過兩層、`??` 掩蓋錯誤、`Bool?`、`.none`
-- [ ] 強制解包：`!` 左側含變數、`try!`、`as!`、`IBOutlet` 以外的隱式解包、字面值 `!` 出現在一般方法內而非 `static let`
+- [ ] 強制解包：`!` 左側含變數、`try!`、`as!`、`IBOutlet` 以外的隱式解包、字面值 `!` 出現在一般方法內而非 `static let` 或測試 fixture、字面值 `!` 的成功與否取決於 App 打包內容或裝置資源（例如 `Bundle(identifier:)`）
 - [ ] Error：全域 `AppError`、Error 帶 raw value、Service 方法未用 typed throws、Service 外洩 `URLError` / `DecodingError`、`catch` 子句分散而非通用 `catch` 內 `switch`
 - [ ] Error：`try?` 用在主要資料讀寫或必要欄位、`try?` 未附「失敗可忽略」註解、空的 `catch`（含只有註解的）、只 `print` 的 `catch`、`CancellationError` 顯示給使用者、`fatalError` 用於執行期狀況或呼叫前沒有 `//` 說明原因
 - [ ] Concurrency：completion handler、自建 Combine pipeline、`DispatchQueue`、`Thread.sleep`、可並行的請求循序 `await`
