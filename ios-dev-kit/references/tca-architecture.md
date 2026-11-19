@@ -381,10 +381,11 @@ TCA 原生導航取代 Coordinator：Stack 導航由根 Feature 的 `Path` 管�
     - View 以獨立的 `.alert($store.scope(\.notice, action: \.notice))` 呈現。
     - 通知的 `AlertState` 直接建構，不寫成 `Destination.State` 的建構方法；需要抽方法時依 `coding-style.md` 的「函式拆分」。
 
-  不放進 `destination`，是依 TCA 1.26.2、以 `\.destination?.alert` scope 綁定時的實測結果，原因有兩個。第一，確認框關閉動畫期間，把同一個 `destination` 改設成新 alert，SwiftUI 不會呈現，也不會寫回 `nil`，狀態會卡住。第二，改成 `destination` 的另一個 case 配獨立 `.alert` 也不行，確認框晚到的 `nil` 會把通知一起關掉。通知與目的地不會同時呈現：
+  不放進 `destination`，是依 TCA 1.26.2、以 `\.destination?.alert` scope 綁定時的實測結果，原因有兩個。第一，確認框關閉動畫期間，把同一個 `destination` 改設成新 alert，SwiftUI 不會呈現，也不會寫回 `nil`，狀態會卡住。第二，改成 `destination` 的另一個 case 配獨立 `.alert` 也不行，確認框晚到的 `nil` 會把通知一起關掉。同樣的寫法在另一個流程沒有重現卡住，推測與非同步回應到達的時機有關，實際時序尚未驗證；由於無法保證回應到達時關閉動畫已結束，延後顯示的通知一律放獨立的 `notice`。通知與目的地不會同時呈現：
     - 前一個目的地是 sheet、fullScreenCover 時，通知先暫存在 `State`，由 View 在 `onDismiss` 送出 view action，`core` 收到後才設定 `notice`。`destination` 清成 `nil` 時，畫面可能還在關閉動畫中，不能當成 sheet 已關閉的訊號。
     - 前一個目的地是確認用的 alert 時沒有 `onDismiss`，由收尾的 `Reduce` 在 `destination` 清空後設定 `notice`。通知用獨立的綁定，不受確認框關閉動畫影響。
-    - 前一個目的地是 confirmationDialog，或通知顯示中又到達新通知時，目前沒有實測依據，本規範暫不規定。
+    - 通知顯示中又到達新通知時，`notice` 維持目前這則，不取代也不暫存，新通知丟棄，需要追蹤時記 log。依 TCA 1.26.2、iOS 26.5 的實測，顯示中把 `notice` 換成新通知，畫面仍是第一則，第二則在關閉後也不會出現，`State` 與畫面不一致。
+    - 前一個目的地是 confirmationDialog 時，目前沒有實測依據，本規範暫不規定。
 - **要**：`@Reducer enum` 產生的 `Path.State` / `Destination.State` 不會自動 `Equatable`，在 Nested Types extension 之後補一個 `// MARK: - Equatable` 的空 extension：`extension <Screen>Feature.Destination.State: Equatable {}`，否則父 `State` 無法 `Equatable`。
 - **要**：建構 `Destination` 的 alert、confirmationDialog case 的方法（`static func deleteConfirmation(name:) -> Self`）寫在 `extension <Screen>Feature.Destination.State`，以 `// MARK: - Internal Method` 分區，排在 Nested Types 之後、`Equatable` 之前。不論行數與呼叫次數都寫在這裡，不套用 `coding-style.md`「函式拆分」的 15 行門檻。`Destination.State` 由巨集產生，本體無法加成員，這是 `formatting.md`「巢狀型別」不另開 extension 的唯一例外，也是「一個檔案只宣告一個頂層型別」的例外之一；`Destination` 拆到 `<Screen>Feature+Destination.swift` 時，這兩個 extension 一起搬過去。
 - **避免**：跨畫面的 push 走 `Destination`（那是 `Path` 的事）；`Destination` 的 case 指向其他 Feature 模組的畫面。
@@ -670,7 +671,7 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 - [ ] TCA 專案出現 ViewModel、Coordinator、`@Entry`、`EnvironmentValues+Services.swift`，或 MVVM 專案出現 `@Reducer`
 - [ ] Feature 型別本體分區順序不是 State → Action → Dependencies → Body；`Path` / `Destination` / `CancelID` 寫在本體內而非 Nested Types extension；`Destination.State` 缺 `Equatable` extension；`Destination` 的 alert 建構方法沒寫在 `extension <Screen>Feature.Destination.State`
 - [ ] `@Dependency(\.xxx)` 與 `private var xxx` 未超過 100 字元卻拆成兩行
-- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；收尾的 `Reduce` 處理不需要看到子 Feature 或 presentation 處理後狀態的邏輯；畫面用 `@Presents var alert`，或為延後顯示的通知以外的目的地另開 `@Presents`；延後顯示的通知放進 `destination`；sheet、fullScreenCover 之後的通知不等 `onDismiss` 的 view action 就設定；`core` 不是 Private Method 區的第一個方法；`core` 的 `switch` 或整個 `Action` 的分派移到輔助型別
+- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；收尾的 `Reduce` 處理不需要看到子 Feature 或 presentation 處理後狀態的邏輯；畫面用 `@Presents var alert`，或為延後顯示的通知以外的目的地另開 `@Presents`；延後顯示的通知放進 `destination`；sheet、fullScreenCover 之後的通知不等 `onDismiss` 的 view action 就設定；通知顯示中把 `notice` 換成新通知，或暫存新通知待目前這則關閉後釋出；`core` 不是 Private Method 區的第一個方法；`core` 的 `switch` 或整個 `Action` 的分派移到輔助型別
 - [ ] `State` 的 computed property 另開 `extension <Screen>Feature.State`，而非寫在 `State` 本體；`State` 本體順序不是 stored → 非 private computed → init → nested type → 方法
 - [ ] `State` 缺 `@ObservableState` 或 `Equatable`；`State` 持有 Service；外部注入的值宣告成 `var` 或在宣告處給了預設值
 - [ ] 內部回應的 `Result` 錯誤型別寫成 `any Error` 而非 Service 的錯誤型別；`.run` 內接 typed error 的 `do` 沒寫 `throws(E)`
