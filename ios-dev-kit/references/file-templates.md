@@ -73,7 +73,7 @@ Leo Ho 個人 Swift 檔案樣板規範。實體樣板放在 [`../assets/template
 
 **Private Views 區塊**：從 `body` 抽出的子 View，以 `private var` 或 `private func` 回傳 `some View`；`.toolbar { }` 抽出的內容回傳 `some ToolbarContent`，同樣放這一區。判斷只看回傳型別：給 `.background`、`.overlay` 用的背景 helper 回傳 `some View` 也放這裡，回傳 `CGFloat`、`Color`、`some Gesture` 等值的才屬於下方的 Private Method。
 
-**Nested Types 區塊**：只放此 View 專屬、且 ViewModel 完全不碰的型別，例如 `Layout` 常數、`Tab` 列舉。會被 ViewModel 讀寫的狀態型別一律宣告在 ViewModel 的 Nested Types。
+**Nested Types 區塊**：只放此 View 專屬、且 ViewModel 完全不碰的型別，例如 `Tab` 列舉。間距、顏色、字型、圓角不寫原始值，依 `project-structure.md` 的 DesignSystem 一節用 Token；其餘只在此 View 使用的常數，例如特定圖示的尺寸、最多顯示筆數，不包成 `Layout` 列舉，依 `coding-style.md` 的「`static` 的使用時機」寫成區域 `let`、instance `private let` 或 `static let`。會被 ViewModel 讀寫的狀態型別一律宣告在 ViewModel 的 Nested Types。
 
 **Private Method 區塊的收納規則**：只放**純 UI 計算**，判斷標準三條同時成立：
 
@@ -179,7 +179,7 @@ var total: Decimal {
 var body: some View {
     NavigationStack {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: Spacing.medium) {
                 header
 
                 statsSection
@@ -320,7 +320,7 @@ func cancel()
 | 值要與後端的數字代碼對應，或需要天然的排序 | `Int` |
 | 純粹在程式內分類，不需要任何外部表示 | 不加 raw type |
 
-不加 raw type 時 `Codable` 仍可自動合成，會以 case 名稱的字串編碼；若連 `Codable` 都不需要就一併拿掉。本體只放 cases（enum 沒有 stored property，此為 `formatting.md` 分區順序的型別特例）；非 private 的 computed properties 放 `// MARK: - Computed Properties` extension，private 的放 Private Method。
+不加 raw type 時 `Codable` 仍可自動合成，會以 case 名稱的字串編碼；若連 `Codable` 都不需要就一併拿掉。本體只放 cases，以及依 `coding-style.md`「`static` 的使用時機」需要的 `private static let` 常數，常數放在 cases 之後的 `// MARK: - Properties`（enum 沒有 instance stored property，此為 `formatting.md` 分區順序的型別特例）；非 private 的 computed properties 放 `// MARK: - Computed Properties` extension，private 的放 Private Method。
 
 **樣板不含 init，`init?(rawValue:)` 交由編譯器合成。** 只有「raw value 與 case 名稱不一一對應」或需要容錯解析（例如未知值落到 `.unknown`）時才手寫，放在本體 cases 之後的 `// MARK: - Init` 區塊；手寫版必須列出所有 case，`default` 只允許 `return nil` 或 `self = .unknown`。
 
@@ -349,7 +349,7 @@ init?(rawValue: String) {
 
 ### domain/EnumWithAssociatedValue.swift
 
-有 associated value 的列舉。不帶 raw value，預設遵循 `Equatable`、`Sendable`。分區順序：本體只放 cases，extension 依序為 Nested Types → Computed Properties → Internal Method → Codable → Private Method。
+有 associated value 的列舉。不帶 raw value，預設遵循 `Equatable`、`Sendable`。分區順序：本體只放 cases（需要 `static let` 常數時同上一節，放在 cases 之後的 `// MARK: - Properties`），extension 依序為 Nested Types → Computed Properties → Internal Method → Codable → Private Method。
 
 **`Codable` 只在需要時才寫，一般情況整組省略。** 樣板內的 `// MARK: - Codable` extension（含遵循宣告、`init(from:)`、`encode(to:)`）與 Nested Types 的 `CodingKeys` 是一組，只有在這個 enum 需要與 JSON 互轉時才保留；不需要時把整個 Codable extension 與 `CodingKeys` 一起刪掉。不要只刪一半，例如把 `Codable` 改回型別行卻刪掉 `init(from:)`，那會退回自動合成的 `{"exampleWithValue": {"_0": "x"}}` 形狀。依 `formatting.md` 的遵循宣告規則，手寫的 `init(from:)` 屬於 protocol 實作，放在 Codable extension 而非本體 Init 區。
 
@@ -638,7 +638,7 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 - **一個測試只允許一組 When / Then**；需要驗證多個結果時用多個 `#expect`，需要多個動作時拆成多個測試或改用 `@Test(arguments:)`。TCA 在 Given 用 `send` 建立前置狀態不算第二個動作，見 `tca-architecture.md` 測試一節。
 - **`@Suite` 只在需要共用 setup、tag 或序列化執行（`.serialized`）時使用**，單純分組不加。
 - **測試型別過大時，依受測行為拆成獨立的測試型別，不以 `extension` 跨檔拆分**（`formatting.md` 的「Extension 的使用時機」）：每個型別一個檔案，型別與檔名為 `<TypeUnderTest><行為>Tests`，行為段用 UpperCamelCase 英文（例如 `RootFeatureNavigationTests.swift`），與 `<TypeUnderTest>Tests.swift` 放同一個資料夾。`@MainActor`、`.serialized` 依拆出的型別各自判斷，只標在需要的那幾個上。拆開後共用的 helper 依下一條放置。參數化測試的資料型別同樣拆成獨立型別，不寫成 `extension` 分檔。
-- **受測物件預設在 Given 直接建立**：組裝只有一兩行時不抽 helper，例如 `let sut = OrderService(client: client)`。真的需要 helper 時依下一條放置；helper 可以建立受測型別本身（包含受測的 Client），但它的依賴必須是由參數傳入或每次呼叫新建的測試替身（Mock、攔截請求的 transport），不得建立會碰真實環境的依賴，也不得把持有可變狀態或外部資源的受測物件、測試替身存進 `static`，否則會打到真實環境或讓狀態跨測試殘留。`@Test(arguments:)` 的資料沒有實例可用，可寫 `private static`，內容可以是不可變的值；只在測試本體使用、由自訂 `static` 工廠建立的固定資料不寫 `static let`：只有單一測試型別使用時，寫 instance `private let` 或 `private func`；多個測試型別共用時，寫 `<TypeUnderTest>TestSupport` 的 `static func`，每次呼叫重新建立。
+- **受測物件預設在 Given 直接建立**：組裝只有一兩行時不抽 helper，例如 `let sut = OrderService(client: client)`。真的需要 helper 時依下一條放置；helper 可以建立受測型別本身（包含受測的 Client），但它的依賴必須是由參數傳入或每次呼叫新建的測試替身（Mock、攔截請求的 transport），不得建立會碰真實環境的依賴，也不得把持有可變狀態或外部資源的受測物件、測試替身存進 `static`，否則會打到真實環境或讓狀態跨測試殘留。`@Test(arguments:)` 的資料沒有實例可用，可寫 `private static`，內容可以是不可變的值；只在測試本體使用的固定資料依使用範圍決定：只有一個測試方法使用時寫在該測試的區域 `let`；同一測試型別的多個測試方法共用時寫 instance `private let`，需要帶參數或每次重建時寫 `private func`，不寫 `static let`；多個測試型別共用時放進 `<TypeUnderTest>TestSupport`，符合字面值常數三項條件的寫 `static let`，由自訂 `static` 工廠建立的寫 `static func`，每次呼叫重新建立。
 - **測試共用的 helper 依使用範圍放置，不留在其中一個測試型別上讓其他型別呼叫**：只有一個測試型別用的，寫成該型別的 `private` 成員；同資料夾多個測試型別共用的，放同資料夾的 `<TypeUnderTest>TestSupport.swift`；跨資料夾共用的，同一個檔案移到測試 target 的 `Support/`（`project-structure.md` 的「測試目錄」）。helper 幾乎只在改同一組測試時變動，放在使用它的測試旁邊，改動才集中、歸屬也清楚。
 - **`<TypeUnderTest>TestSupport` 是無 case 的 `enum`，成員一律 `static`**，分區照 `formatting.md`。`<TypeUnderTest>` 是這組測試型別共同的受測型別，也就是 `<TypeUnderTest>Tests` 去掉 `Tests`；不同受測型別的測試共用時，歸到 helper 處理的那個受測型別，例如建立 `OrderService` 的 helper 放 `OrderServiceTestSupport`。一個受測型別只有一個 TestSupport，位置依使用範圍最廣的成員決定；使用範圍擴大時整個檔案一起搬，不拆成兩份。跨 Feature 通用的 Model 固定值仍是 `Fixtures/<Model>+Fixture.swift`，Mock 仍放 `Mocks/`；預設值和 `fixture` 不同、只給一組測試用的建構 helper（例如 `makeOrder`）留在 TestSupport。
 - **`private` 型別不能出現在非 `private` 成員的簽章或型別裡**，最常碰到的是 `@Test(arguments:)` 的參數型別：`@Test` 方法是 internal，參數型別是 `private` 就無法編譯。這時把該型別改成 internal（不寫存取修飾詞），不用 `fileprivate`，也不為此把 `@Test` 方法改成 `private`。參數資料本身（例如 `private static let cases`）可以維持 `private`，只有元素型別要 internal；只在測試本體或 `private` 成員裡用到的型別照樣 `private`。
@@ -653,15 +653,16 @@ entry 旁不加註解。正式實作的注入位置固定在 App 根部的 `.env
 @MainActor
 func load_服務成功_狀態變成已載入() async {
     // Given
+    let profile = Profile.fixture(name: "Leo")
     let service = MockProfileService()
-    service.fetchProfileResult = .success(.fixture(name: "Leo"))
+    service.fetchProfileResult = .success(profile)
     let viewModel = ProfileViewModel(profileService: service)
 
     // When
     await viewModel.load()
 
     // Then
-    #expect(viewModel.state == .loaded(.fixture(name: "Leo")))
+    #expect(viewModel.state == .loaded(profile))
     #expect(service.fetchProfileCallCount == 1)
 }
 
@@ -713,7 +714,7 @@ func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
 - 元素查詢一律透過 accessibility identifier，不用顯示文字或索引定位。
 
 - **launch argument 固定 `-uiTesting`**，在 `launchApp()` 以 `app.launchArguments = ["-uiTesting"]` 傳入；App 端在根部檢查 `CommandLine.arguments` 含此旗標時注入 Preview stub，UI Test 不打真實 API。需要特定資料情境時，替 `launchApp()` 加上場景參數，在 `launch()` 前以 `app.launchEnvironment["UITEST_SCENARIO"]` 傳場景名稱。
-- **不強制 Page Object**；單一畫面的測試直接查詢元素，超過三個畫面的流程才為每個畫面建立 `<Screen>Screen` struct 封裝元素查詢與操作。
+- **不強制 Page Object**；單一畫面的測試直接查詢元素，超過三個畫面的流程才為每個畫面建立 `<Screen>Screen` struct 封裝元素查詢與操作。Page Object 的型別標 `@MainActor`，因為 `XCUIElement` 的 API 隔離在 main actor，測試型別上的 `@MainActor` 不會傳到另一個 struct；init 只保存 `app`；切換到該畫面並等待就緒的流程寫成 instance 方法，例如 `func open() throws -> Self`，呼叫端寫 `try OrdersScreen(app: app).open()`。不寫會操作畫面的 `static` 工廠，依 `coding-style.md` 的「`static` 的使用時機」，工廠不得有 I/O，畫面操作也算。
 - **失敗時的截圖由 XCTest 自動附加**，不手動 `XCTAttachment`；只有在需要對比視覺結果時才手動截圖並命名。
 
 ## 常見錯誤檢查清單
@@ -731,9 +732,9 @@ func addCategory_寫入失敗_丟出儲存失敗錯誤() async throws {
 - [ ] 測試型別以 `extension` 跨檔拆分（`<TypeUnderTest>Tests+<行為>.swift`），而非拆成獨立的 `<TypeUnderTest><行為>Tests`
 - [ ] `@Test` 方法或 UI 測試 `func test…()` 的 `///` 摘要沒以「驗證」開頭（寫成「… 時，…」的情境句），或只把名稱三段換句話說；helper、`setUpWithError` 這類其他方法的摘要加了「驗證」
 - [ ] `<Name>Records` 宣告 protocol 或 `DependencyKey`、由 View、ViewModel 或 Feature 型別呼叫、自行取得 Database、呼叫 `save()`，或在 `read` 範圍內修改資料
-- [ ] 由自訂 `static` 工廠建立、只在測試本體使用的固定資料寫成 `static let`
+- [ ] 只在單一測試型別的測試本體使用的固定資料寫成 `static let`，或跨測試型別共用、由自訂 `static` 工廠建立的固定資料寫成 `static let`
 - [ ] 一兩行就能組裝的受測物件抽成 helper；helper 建立會碰真實環境的依賴，或把持有可變狀態或外部資源的受測物件、測試替身存進 `static`
 - [ ] 共用 helper 留在某個測試型別上讓其他型別呼叫；同資料夾共用的沒放 `<TypeUnderTest>TestSupport`、跨資料夾共用的沒放 `Support/`，或一個受測型別有兩個 TestSupport
 - [ ] 為了讓 `private` 型別出現在 internal 簽章而加 `fileprivate`，或把 `@Test` 方法改成 `private`
 - [ ] 測試不必要地加上 `@MainActor`（測試對象不是 `@MainActor` 型別，或只有部分測試需要卻標在整個型別上）或 `@Suite(.serialized)`（沒有無法隔離的共用資源）
-- [ ] UI 測試把 `XCUIApplication` 存成 stored property（`!` 或 Optional），或在 `setUpWithError` 建立、啟動 App；`setUpWithError` 等覆寫寫在型別本體或 `Lifecycle` 分區，而非 `// MARK: - XCTestCase` extension；沒有需要清理的資源卻留著只呼叫 `super` 的 `tearDownWithError`
+- [ ] UI 測試把 `XCUIApplication` 存成 stored property（`!` 或 Optional），或在 `setUpWithError` 建立、啟動 App；`setUpWithError` 等覆寫寫在型別本體或 `Lifecycle` 分區，而非 `// MARK: - XCTestCase` extension；沒有需要清理的資源卻留著只呼叫 `super` 的 `tearDownWithError`；Page Object 以 `static` 工廠切換畫面或點擊元素

@@ -279,12 +279,12 @@ private extension ProfileFeature {
 ### Body 與 Effect
 
 - **要**：`body` 只負責組合，本畫面自己的邏輯放 Private Method 的 `core(state: inout State, action: Action) -> Effect<Action>`，`body` 以 `Reduce(core)` 引用；不在 `body` 內寫 `Reduce { state, action in ... }` 閉包。
-- **要**：`body` 的組合順序固定：`BindingReducer()`（有才寫）→ `Scope`（固定子 Feature）→ `Reduce(core)`；`.ifLet` 與 `.forEach` 以 modifier 形式接在 `Reduce(core)` 之後。
+- **要**：`body` 的組合順序固定：`BindingReducer()`（有才寫）→ `Scope`（固定子 Feature）→ `Reduce(core)`；`.ifLet` 與 `.forEach` 以 modifier 形式接在 `Reduce(core)` 之後。邏輯需要看到子 Feature 或 presentation 處理後的狀態時，可在最後再接一個收尾的 `Reduce(<動詞開頭的方法>)`。例如收到 `.dismiss` 時，`core` 先執行，`destination` 之後才清成 `nil`，所以 `core` 看不到清空後的狀態。收尾方法的簽章與 `core` 相同，以 Private Method 參照傳入、排在 `core` 之後；其他邏輯一律留在 `core`。
 - **要**：`core` 內 `switch action` 的 case 順序與 `Action` 宣告順序一致；每個 case 本體換行、case 之間空一行，同 `formatting.md`。
 - **要**：Effect 只用 `.run`，內部是 async/await；`Task.detached`、GCD、Combine 依鐵則 5 禁用。Service 的 typed throws 在 `.run` 內以 `do throws(<Service 的錯誤型別>) { } catch { }` 接住，轉成 `Result` 送回 Action：`.run` 是 closure，一般 `do` / `catch` 的 `error` 在這裡是 `any Error`，放不進 `Result<T, E>`（`formatting.md` 的「Closure 與 Trailing Closure」）。
 - **要**：畫面出現時要啟動的 Effect（初次載入、`AsyncStream` / `.values` 監聽）一律綁在 `.view(.task)`，由 View 的 `.task` modifier 觸發，離開畫面時 SwiftUI 自動取消，不需要 `CancelID`。
 - **要**：只有使用者動作觸發、且需要手動取消或去重的 Effect（搜尋防抖、可取消的送出）才用 `CancelID`（Nested Types 內的 `enum`）配 `.cancellable(id:cancelInFlight:)` 與 `.cancel(id:)`。
-- **要**：同一個 case 超過十行時，把 Effect 或狀態更新抽成 Private Method，方法名稱以動詞開頭並回傳 `Effect<Action>`，排在 `core` 之後。
+- **要**：同一個 case 超過十行時（行數算法見 `coding-style.md` 的「函式拆分」），把 Effect 或狀態更新抽成 Private Method，方法名稱以動詞開頭並回傳 `Effect<Action>`，排在 `core` 之後。
 - **避免**：在 `Reduce` 內直接呼叫 Service（同步阻塞 reducer）；在 Effect 內讀寫 `state`（只能讀取閉包捕獲的值）；`return .send` 以外的方式串多個 Action。
 
 ```swift
@@ -311,7 +311,14 @@ private extension ProfileFeature {
         switch action {
         case .view(.task):
             state.isLoading = true
-            return loadProfile()
+            return .run { send in
+                do throws(ProfileError) {
+                    let profile = try await service.fetchProfile()
+                    await send(.profileResponse(.success(profile)))
+                } catch {
+                    await send(.profileResponse(.failure(error)))
+                }
+            }
 
         case .profileResponse(.success(let profile)):
             state.isLoading = false
@@ -325,20 +332,6 @@ private extension ProfileFeature {
 
         case .delegate, .destination:
             return .none
-        }
-    }
-
-    /// 向 Service 取得個人資料，結果以 `profileResponse` 送回
-    ///
-    /// - Returns: 載入個人資料的 Effect
-    func loadProfile() -> Effect<Action> {
-        .run { send in
-            do throws(ProfileError) {
-                let profile = try await service.fetchProfile()
-                await send(.profileResponse(.success(profile)))
-            } catch {
-                await send(.profileResponse(.failure(error)))
-            }
         }
     }
 }
@@ -358,7 +351,7 @@ Feature 型別過大、需要拆檔時依序處理：
 
 從 `tca/FeatureView.swift` 複製。分區與 `presentation/View.swift` 相同（Properties → Body → Private Views → Nested Types → Private Method → Preview），差別只在 Properties 與 Init：
 
-- **要**：狀態只來自 `@Bindable var store: StoreOf<<Screen>Feature>`，由父 View 以 `store.scope` 或 App 進入點以 `Store(initialState:reducer:)` 建立後傳入；不寫 Init。除了 `store`，可以另外持有無障礙與版面需要的值：`@Environment` 的環境值（`locale`、`dynamicTypeSize`、`horizontalSizeClass` 或專案自訂的版面分類）、`@ScaledMetric`、`static let` 常數；`@State` 的限制見下方。
+- **要**：狀態只來自 `@Bindable var store: StoreOf<<Screen>Feature>`，由父 View 以 `store.scope` 或 App 進入點以 `Store(initialState:reducer:)` 建立後傳入；不寫 Init。除了 `store`，可以另外持有無障礙與版面需要的值：`@Environment` 的環境值（`locale`、`dynamicTypeSize`、`horizontalSizeClass` 或專案自訂的版面分類）、`@ScaledMetric`、常數（依 `coding-style.md` 的「`static` 的使用時機」寫成 instance `let` 或 `static let`）；`@State` 的限制見下方。
 - **要**：Properties 的順序固定為 `static let` → `@Environment` → `@ScaledMetric` → `@Bindable var store` → `@State` / `@FocusState` → `@Binding` → 一般 `let` / `var`，同一組內依名稱字母排序。
 - **要**：畫面出現時的載入固定寫 `.task { await store.send(.view(.task)).finish() }`，不用 `onAppear`；`finish()` 讓 Effect 跟著 View 生命週期，離開畫面自動取消。
 - **要**：畫面只讀 `store` 的狀態、只送 `store.send(.view(...))`；`@State` 只允許純 UI 狀態（捲動位置、焦點、動畫旗標）且 Feature 完全不碰。
@@ -381,9 +374,9 @@ TCA 原生導航取代 Coordinator：Stack 導航由根 Feature 的 `Path` 管�
 
 - **要**：需要 sheet、alert、confirmationDialog 或 fullScreenCover 的畫面，在 `State` 加 `@Presents var destination: Destination.State?`，`Destination` 為 Nested Types 內的 `@Reducer enum Destination`；`Action` 加 `case destination(PresentationAction<Destination.Action>)`；`body` 的 `Reduce` 後接 `.ifLet(\.$destination, action: \.destination)`。
 - **要**：View 以 `.sheet(item: $store.scope(\.destination?.<case>, action: \.destination.<case>))` 綁定；alert 用 `.alert($store.scope(\.destination?.alert, action: \.destination.alert))`。
-- **要**：一個畫面只有一個 `destination`，所有可呈現的目的地都是它的 case；不為 sheet 與 alert 各開一個 optional。
+- **要**：一個畫面只有一個 `destination`，所有可呈現的目的地都是它的 case；不為 sheet 與 alert 各開一個 optional。只有 alert 的畫面也不直接寫 `@Presents var alert`；等目前的目的地關閉後才顯示的通知，同樣是 `Destination` 的 case：先暫存在 `State`，由 View 在 `.sheet`、`.fullScreenCover` 的 `onDismiss` 送出 view action，`core` 收到後才設定 `.alert`。`destination` 清成 `nil` 時，畫面可能還在關閉動畫中，不能當成畫面已關閉的訊號。
 - **要**：`@Reducer enum` 產生的 `Path.State` / `Destination.State` 不會自動 `Equatable`，在 Nested Types extension 之後補一個 `// MARK: - Equatable` 的空 extension：`extension <Screen>Feature.Destination.State: Equatable {}`，否則父 `State` 無法 `Equatable`。
-- **要**：建構 alert、confirmationDialog 的方法（`static func deleteConfirmation(name:) -> Self`）寫在 `extension <Screen>Feature.Destination.State`，以 `// MARK: - Internal Method` 分區，排在 Nested Types 之後、`Equatable` 之前。`Destination.State` 由巨集產生，本體無法加成員，這是 `formatting.md`「巢狀型別」不另開 extension 的唯一例外，也是「一個檔案只宣告一個頂層型別」的例外之一；`Destination` 拆到 `<Screen>Feature+Destination.swift` 時，這兩個 extension 一起搬過去。
+- **要**：建構 alert、confirmationDialog 的方法（`static func deleteConfirmation(name:) -> Self`）寫在 `extension <Screen>Feature.Destination.State`，以 `// MARK: - Internal Method` 分區，排在 Nested Types 之後、`Equatable` 之前。不論行數與呼叫次數都寫在這裡，不套用 `coding-style.md`「函式拆分」的 15 行門檻。`Destination.State` 由巨集產生，本體無法加成員，這是 `formatting.md`「巢狀型別」不另開 extension 的唯一例外，也是「一個檔案只宣告一個頂層型別」的例外之一；`Destination` 拆到 `<Screen>Feature+Destination.swift` 時，這兩個 extension 一起搬過去。
 - **避免**：跨畫面的 push 走 `Destination`（那是 `Path` 的事）；`Destination` 的 case 指向其他 Feature 模組的畫面。
 
 ### 動詞對應
@@ -525,6 +518,7 @@ extension DependencyValues {
 - **要**：主檔依 `formatting.md` 的群組標頭分組，順序固定：`// MARK: - Protocol`（protocol 本體；有預設實作時接著它的 Internal Method、Private Method）→ `// MARK: - Implementation`（正式實作與它的六區）→ `// MARK: - DependencyKey`（`<Name>Key`）→ `// MARK: - DependencyValues` → `// MARK: - Preview`（`Preview<Name>` 與它的分區，整組包在一個 `#if DEBUG` 內，排在檔尾）。
 - **要**：`<Name>Key` 是 enum，遵循宣告在型別行，`liveValue`、`previewValue` 寫在本體、不分區（`formatting.md` 的「遵循宣告在型別行還是 extension」例外五）。
 - **要**：`liveValue` 為 computed property，回傳正式實作。
+- **要**：Database 的儲存容器（`ModelContainer`、`NSPersistentContainer`）不以 `static let` 或其他 `static` 成員保存。只有依賴系統用到時，在 `liveValue` 內建立，依賴系統第一次存取後會快取；App 啟動流程也要讀取開啟結果時（例如開不起來時切換畫面、回報診斷），由 App 進入點建立一次，在任何依賴被存取前以 `prepareDependencies` 注入 Database，開啟結果直接傳給需要它的啟動流程。App 進入點要先以 `RuntimeEnvironment` 判斷執行環境再開容器，因為 `prepareDependencies` 撤不回已經開啟或遷移的磁碟資料庫：只有正式啟動才建立磁碟容器並注入；Preview 沿用 Database 的 `previewValue`；單元測試不注入，維持未覆寫即失敗；UI 測試依 `-uiTesting` 注入測試資料庫。
 - **要**：`previewValue` 以 `#if DEBUG` 包住，回傳同檔 Preview 群組的 `Preview<Name>`（例如 `PreviewAPIClient`）；stub 維持頂層型別、命名 `Preview<Name>`，init 的 `RuntimeEnvironment.allowsPreviewStub` 斷言保留。
 - **例外**：Database 的 `previewValue` 不寫 stub，改成回傳正式型別搭記憶體容器並 seed 範例資料（SwiftData 用 in-memory 的 `ModelContainer`），getter 第一行同樣 `assert(RuntimeEnvironment.allowsPreviewStub, ...)`；因此 Database 主檔沒有 `Preview<Name>` 與 Preview 群組，套 `tca/Client.swift` 時刪掉。Database 的 stub 得自己重寫一遍查詢，假資料也容易和真實行為脫節；以它為下層的 Service 怎麼接見「Service」的 `previewValue` 例外。
 - **要**：**不宣告 `testValue`**。只有 `liveValue` 的依賴在測試中未經 `withDependencies` 覆寫就存取時，TCA 會直接讓測試失敗；測 Service 的 `liveValue` 時漏注入 Mock 就會被擋下，不會連到真正的網路或資料庫。
@@ -666,7 +660,7 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 - [ ] TCA 專案出現 ViewModel、Coordinator、`@Entry`、`EnvironmentValues+Services.swift`，或 MVVM 專案出現 `@Reducer`
 - [ ] Feature 型別本體分區順序不是 State → Action → Dependencies → Body；`Path` / `Destination` / `CancelID` 寫在本體內而非 Nested Types extension；`Destination.State` 缺 `Equatable` extension；alert 建構方法沒寫在 `extension <Screen>Feature.Destination.State`
 - [ ] `@Dependency(\.xxx)` 與 `private var xxx` 未超過 100 字元卻拆成兩行
-- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；`core` 不是 Private Method 區的第一個方法；`core` 的 `switch` 或整個 `Action` 的分派移到輔助型別
+- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；收尾的 `Reduce` 處理不需要看到子 Feature 或 presentation 處理後狀態的邏輯；畫面用 `@Presents var alert` 或第二個 `@Presents`，而非 `Destination` 的 case；以 `destination` 清空當成畫面已關閉，接著設定下一個 alert，而不是等 `onDismiss` 的 view action；`core` 不是 Private Method 區的第一個方法；`core` 的 `switch` 或整個 `Action` 的分派移到輔助型別
 - [ ] `State` 的 computed property 另開 `extension <Screen>Feature.State`，而非寫在 `State` 本體；`State` 本體順序不是 stored → 非 private computed → init → nested type → 方法
 - [ ] `State` 缺 `@ObservableState` 或 `Equatable`；`State` 持有 Service；外部注入的值宣告成 `var` 或在宣告處給了預設值
 - [ ] 內部回應的 `Result` 錯誤型別寫成 `any Error` 而非 Service 的錯誤型別；`.run` 內接 typed error 的 `do` 沒寫 `throws(E)`
@@ -680,6 +674,7 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 - [ ] Service 缺 `testValue`，或 `testValue` 不是全部 `unimplemented`；`liveValue` 寫成 `static let` 或內有 `.shared`；`previewValue` 未包 `#if DEBUG` 或缺 `assert`；`DependencyKey` extension 內不是 `liveValue` → `previewValue` → `testValue`
 - [ ] 依賴的 `DependencyKey` 註冊、`DependencyValues` 屬性、`previewValue` 或 Preview stub 拆到 `+Dependency`、`+Preview`、`Preview<Name>.swift` 等獨立檔，而非寫在 Service、Client、Store、Database 的主檔；Service 的 `extension DependencyValues` 沒放檔尾
 - [ ] Client / Store / Database 主檔的群組順序不是 Protocol → Implementation → DependencyKey → DependencyValues → Preview；宣告了 `testValue`
+- [ ] Database 的儲存容器以 `static` 成員保存；App 啟動流程要讀取開啟結果，容器卻不是由 App 進入點建立並以 `prepareDependencies` 注入
 - [ ] Database 的 `previewValue` 寫成 `Preview<Name>` stub，而非 seed 範例資料的記憶體資料庫；以 Database 為下層的 Service，`previewValue` 回傳固定假資料而非 `liveValue`
 - [ ] `@Shared` 帶 persistence key；跨 Feature 模組共享
 - [ ] 測試關閉 exhaustivity；Feature 測試整個替換 Service 而非只覆寫用到的 closure；用 Mock class 記錄 Service 呼叫而非 `LockIsolated`；`receive` 依賴 `Action: Equatable`

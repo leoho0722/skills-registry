@@ -370,7 +370,7 @@ extension MockURLProtocol {
 - **要**：protocol 遵循 extension 內的實作順序與 protocol 的宣告順序一致，protocol 本身依 Internal Method 的使用先後宣告；同一個 protocol 的正式實作、Preview stub、Mock 都照這個順序。系統 protocol 依 Apple 的宣告順序，例如 `Codable` 為 `init(from:)` → `encode(to:)`。
 - **要**：stored property 不依存取層級排序，`private let` 與 `let` 可以混排；View 以外的型別除了 static 在前，不另外規定順序。
 - **例外**：TCA Feature 型別的 `core(state:action:)` 永遠是 Private Method 區的第一個方法，排在 static method 之前，見 `tca-architecture.md`。
-- **避免**：把 static stored property 放進 extension。Swift 允許在 extension 宣告 static stored property，本規範仍一律放本體的 Properties 區，讓型別持有的狀態集中在一處。
+- **避免**：把 static stored property 放進 extension。Swift 允許在 extension 宣告 static stored property，本規範仍一律放本體的 Properties 區，讓型別持有的狀態集中在一處。擴充非自己的型別時無法放本體，可在該 extension 宣告 `static let`（例如 DesignSystem 的 `Color.brandPrimary`）；泛型型別與 protocol extension 不能宣告 static stored property，依 `coding-style.md` 的「`static` 的使用時機」改寫唯讀 computed property。
 
 `ProfileCache` 的 `init` 要用 `directory` 與 `makeFileName(for:)` 算出 stored property `fileURL`，當下實例尚未建立完成，所以這兩個成員是 `static`：
 
@@ -666,7 +666,7 @@ try await database.write { context throws(PersistenceError) in
 - **要**：modifier 依下表四組順序排列，未列出的 modifier 依其效果歸入對應組；同組內依需求排列，因為 `padding` 與 `background` 的先後會改變結果，不強制字母排序。
 - **要**：子 View 抽取依 `file-templates.md` 的「`body` 只放大框架」規則，不設行數門檻。
 - **要**：Private Views 以內容命名，不加 `View` 後綴：`header`、`statsSection`、`emptyState`；接受參數的用 `func`，名稱同樣不加後綴：`row(for item: Item)`。
-- **要**：容器的 `{` 與宣告同行（`VStack(spacing: 16) {`），同一容器內的子 View 之間空一行；`if` / `else` 分支內只有一個子 View 時不空行。
+- **要**：容器的 `{` 與宣告同行（`VStack(spacing: Spacing.medium) {`），同一容器內的子 View 之間空一行；`if` / `else` 分支內只有一個子 View 時不空行。
 - **要**：條件式 View 直接在 builder 內寫 `if` / `if let` / `switch`。
 - **要**：`#Preview` 放檔案最末的 Preview 區，多個 Preview 各自以字串具名。
 - **避免**：用三元運算子或 `.map` 產生 View（`condition ? viewA : viewB`、`item.map { Text($0) }`），可讀性差且型別推斷慢。
@@ -685,7 +685,7 @@ try await database.write { context throws(PersistenceError) in
 var body: some View {
     NavigationStack {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: Spacing.medium) {
                 header
 
                 statsSection
@@ -741,7 +741,7 @@ var body: some View {
 - [ ] MARK 順序錯置，或同一區塊拆成兩個 extension
 - [ ] private 的 computed property 放在 Computed Properties，或非 private 的放在 Private Method
 - [ ] SwiftUI View 回傳 `some View` 或 `some ToolbarContent` 的成員（含背景 helper）放在 Private Method，或回傳 `CGFloat`、`Color`、`some Gesture` 等值的放在 Private Views；非 View 型別自創 Private Views 區
-- [ ] 區內 static 沒排在 instance 之前；Private Method 區內 method 排在 property 之前；static stored property 放在 extension
+- [ ] 區內 static 沒排在 instance 之前；Private Method 區內 method 排在 property 之前；可放在自有型別本體的 static stored property 寫在 extension
 - [ ] Private Views 沒有依 `body` 使用順序排，或把 `var` 與 `func` 分開排而拆散呼叫者與被它呼叫的子 View
 - [ ] Private Method 的 helper 沒有依呼叫者在前、深度優先；Internal Method 沒有依使用先後；protocol 實作與 Preview stub、Mock 的順序和 protocol 宣告不一致
 - [ ] 巢狀型別另開 extension 或加 MARK 分區

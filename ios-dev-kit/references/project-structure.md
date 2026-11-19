@@ -342,7 +342,7 @@ Features/<Feature>/
 | 自訂 `FormatStyle` | `Core/Formatters/<Name>FormatStyle.swift` | 一開始就放，一個樣式一個檔案 |
 | 視覺定義與共用 UI 元件 | `Core/DesignSystem/`，結構見下 | Tokens 與 Styles 一開始就放；Components 在第二個 Feature 要用時才抽 |
 | 跨 Feature 共用的 Model 與 Error | 方案 A、B 留在原 Feature 的 `Domain/`（允許跨 Feature 引用 Domain）；方案 C 搬到 `Shared` | 方案 A、B 不搬，方案 C 必搬 |
-| 常數 | 只有一個型別用時放該型別的 Nested Types；跨型別的版面尺寸放 `Core/DesignSystem/Tokens/` | 出現第二個使用者才進 Core |
+| 常數 | 間距、顏色、字型、圓角不寫原始值，依 DesignSystem 一節用 Token，不另寫常數；其餘只有一個型別用的常數（例如特定圖示的尺寸、最多顯示筆數）留在該型別內，寫法依 `coding-style.md` 的「`static` 的使用時機」；跨型別共用的版面尺寸放所選方案 DesignSystem 的 `Tokens/`（方案 A 為 `Core/DesignSystem/Tokens/`） | 出現第二個使用者才搬出該型別 |
 
 - **要**：抽到 `Core/` 的門檻是「第二個 Feature 出現需求」，不預先抽；唯一例外是 Extensions、Formatters、Tokens、Styles，它們天生跨 Feature。
 - **要**：只在同一 Feature 內多個畫面共用的子 View，放該 Feature 的 `Presentation/Components/`，不進 `Core/`。
@@ -461,7 +461,7 @@ DesignSystem/
 - [ ] 新 Feature 缺四個資料夾或六個最小檔案；根畫面不在 `Root/` 或型別不叫 `<Feature>RootView`
 - [ ] 畫面資料夾內有第二個 ViewModel、Model 或 Service；一個 Feature 出現第二個 Service
 - [ ] `Core/` 出現業務名詞；只有一個 Feature 用的 Component 被抽進 `Core/`
-- [ ] DesignSystem 依賴 `Core` 或 Feature；畫面內出現未經 Token 的顏色、字型、間距
+- [ ] DesignSystem 依賴 `Core` 或 Feature；畫面內出現未經 Token 的顏色、字型、間距、圓角
 - [ ] Feature package 依賴其他 Feature package；`Package.swift` 缺 `swiftLanguageModes: [.v6]`
 - [ ] 測試檔位置未鏡像主 target；為 View 或 Coordinator 寫單元測試；Mocks、Fixtures 或 Support 分了子資料夾；共用的測試 helper 放進 Mocks 或 Fixtures；測試專用、替非自己型別加功能的 extension 不在依賴它的 Support 檔旁邊，或放進 `Core/Extensions/`
 - [ ] Fixture 不叫 `fixture`、參數沒有預設值、內含隨機值或目前時間
