@@ -544,7 +544,7 @@ struct FeeRuleTests {
 - **要**：有自己的輸入與輸出、本體達 15 行的獨立演算法，才抽成同型別的 private 方法，不寫成 local function（寫在使用它的函式內的 `func`）。
 - **要**：重複使用的邏輯依範圍決定。由多個方法或 computed property 共用時，可抽成同型別的 private 方法，不受 15 行門檻限制。只在同一函式內重複時：本體一兩行的運算式不抽 helper，各處共用同一次計算結果時寫區域 `let`，各處需要分別求值時直接寫在各處；3 行以上的抽成同型別的 private 方法，只有需要捕捉外層區域變數、本體未達 15 行時才寫 local function。
 - **要**：local function 只用於上一條的情況；不在 local function 內再宣告 local function，也不讓它逃逸。local function 讀取 class 的 instance 成員時不需要寫 `self.`，逃逸後會隱藏對 `self` 的強持有。
-- **要**：View 的子 View 依 `file-templates.md` 的「`body` 只放大框架」抽取，不看行數；TCA `core` 的 case 超過十行時依 `tca-architecture.md` 抽成 Private Method；TCA 的 alert、confirmationDialog 建構方法依 `tca-architecture.md` 一律寫在 `extension <Screen>Feature.Destination.State`；樣板明定要獨立宣告的方法（例如 UI 測試的 `launchApp()`）照樣板寫。這些都不套用本節的行數門檻。
+- **要**：View 的子 View 依 `file-templates.md` 的「`body` 只放大框架」抽取，不看行數；TCA `core` 的 case 超過十行時依 `tca-architecture.md` 抽成 Private Method；TCA 中建構 `Destination` alert、confirmationDialog case 的方法依 `tca-architecture.md` 一律寫在 `extension <Screen>Feature.Destination.State`；樣板明定要獨立宣告的方法（例如 UI 測試的 `launchApp()`）照樣板寫。這些都不套用本節的行數門檻。
 - **避免**：只被呼叫一次、只有幾行的 private helper，讀者得跳到別處才看得懂原本那一段。
 
 ```swift
@@ -901,7 +901,7 @@ private extension ProfileViewModel {
 - [ ] 存取控制：成員未從 `private` 起手、明寫 `internal`、出現 `fileprivate`、為測試放寬存取層級、屬性包裝與存取控制順序顛倒
 - [ ] 型別：`class` 未加 `final`、不打算被覆寫的型別成員寫 `class` 而非 `static`、可變共享狀態用 `class` 加 lock 而非 `actor`、`typealias` 給基本型別取別名、tuple 跨函式邊界、只有一個實作卻定義 protocol
 - [ ] `static`：語言、框架或本規範未要求，卻在可直接寫、寫成區域 `let` 或 instance 成員時用 `static`（包含只被 instance 成員共用的常數，以及包成型別內 `Layout` 列舉的常數）；型別無法或不宜保存 instance 常數，卻仍寫成 instance `let`，導致自動合成的遵循、編碼輸出或持久化欄位改變；只因沒用到 `self` 就改成 `static`、不符合使用時機表、只為消除編譯錯誤才改成 `static`、用途是字面值常數卻不符合三項條件（自訂 `static` 工廠不算字面值）、以 `static` 寫死會隨環境或測試改變的值、`Logger` 不符合專屬條件或 `subsystem` 用 `!`、可變的 stored `static var`（`@TaskLocal` 宣告不算）、`static let` 指向 actor、lock 或帶可變狀態的 `class`（`GlobalActor.shared` 除外）、`static func` 本身發起 I/O 或讀寫共享狀態（錯誤轉換 helper 執行傳入的操作、資料存取 helper 使用傳入的 `context` 不算）、資料存取 helper 自行取得依賴、開啟交易、保存 `context`、呼叫 `save()` 或在 `read` 範圍內修改資料、正式程式碼以 `static let`、`static var` 或 `static func` 建立、保存或回傳 Service、Client、Store、Database，或 `ModelContainer` 等儲存容器與包著它們的值（框架要求的成員除外）
-- [ ] 函式拆分：只在一處使用、只有幾行的邏輯抽成 helper（本規範或樣板明定要獨立宣告的方法除外，例如 alert 建構方法、UI 測試的 `launchApp()`）；本體達 15 行的獨立演算法沒有抽出，或抽成 local function；local function 沒有捕捉外層區域變數、本體達 15 行、巢狀或逃逸；同一函式內重複的一兩行運算式另抽 helper，或 3 行以上的邏輯既沒有抽成 private 方法，也不是符合條件的 local function；行數含宣告行、空行或註解，或排版換行的運算式只算一行
+- [ ] 函式拆分：只在一處使用、只有幾行的邏輯抽成 helper（本規範或樣板明定要獨立宣告的方法除外，例如 `Destination` 的 alert 建構方法、UI 測試的 `launchApp()`）；本體達 15 行的獨立演算法沒有抽出，或抽成 local function；local function 沒有捕捉外層區域變數、本體達 15 行、巢狀或逃逸；同一函式內重複的一兩行運算式另抽 helper，或 3 行以上的邏輯既沒有抽成 private 方法，也不是符合條件的 local function；行數含宣告行、空行或註解，或排版換行的運算式只算一行
 - [ ] Optional：`if let` 用在該提早離開的地方、`guard` 的 `else` 內有業務邏輯（離開前記錄 log 不算）、optional chaining 超過兩層、`??` 掩蓋錯誤、`Bool?`、`.none`
 - [ ] 強制解包：`!` 左側含變數、`try!`、`as!`、`IBOutlet` 以外的隱式解包、字面值 `!` 出現在一般方法內而非 `static let` 或測試 fixture、字面值 `!` 的成功與否取決於 App 打包內容或裝置資源（例如 `Bundle(identifier:)`）
 - [ ] Error：全域 `AppError`、Error 帶 raw value、Service 方法未用 typed throws、Service 外洩 `URLError` / `DecodingError`、`catch` 子句分散而非通用 `catch` 內 `switch`
