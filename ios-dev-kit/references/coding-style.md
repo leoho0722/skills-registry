@@ -246,25 +246,25 @@ enum Layout {
 3. 值或邏輯依賴實例，或只在實例建立完成後使用，寫 instance 成員：常數寫 instance `let`，函式寫 instance 方法，即使它們不依賴實例、只是被多個 instance 成員共用。常數的前提是型別能在本體保存它，而且保存後不改變自動合成的遵循、編碼輸出或持久化欄位；做不到時走第 4 步。
 4. 以上都不適用，而且說得出下列任一理由，才用 `static`：
    - **沒有可用的實例**：`init` 內 stored property 尚未全部賦值、property initializer、預設參數、`@Test(arguments:)`、建立實例的工廠，以及由框架要求的 `static` 成員或它建立的 closure 直接或間接呼叫、沿途沒有能承載這個方法的 `self` 的情況；已依本順序確定為 `static` 的成員要用到的常數與函式也算。呼叫端只是自己寫成 `static` 不算。
-   - **由多個型別共用**：放進無 case 的 `enum` 命名空間或 `<TypeUnderTest>TestSupport`。
-   - **型別無法或不宜保存 instance 常數**：有 case 的 `enum` 與 extension 不能宣告 instance stored property；型別要自動合成 `Equatable`、`Hashable`，而常數的型別不遵循時，加入後就無法合成；自動合成 `Codable` 且沒有以 `CodingKeys` 排除它時，它會被編碼進輸出，並出現無法解碼的警告；SwiftData `@Model` 的 stored property 預設會成為儲存欄位，寫 `let` 也無法展開巨集。這時寫 `static let`：頂層型別放本體的 Properties 區，巢狀型別依 `formatting.md` 的「巢狀型別」就地宣告，擴充非自己的型別時寫在該 extension。泛型型別與 protocol extension 不能宣告 static stored property，改寫回傳字面值的唯讀 computed property：只有 instance 成員使用時寫 instance getter，已有成立的 `static` 呼叫端時寫 `static var`。存取層級都依實際呼叫範圍決定。
+   - **由多個型別共用**：放進無 case 的 `enum` 命名空間或 `<TypeUnderTest>TestSupport`。以成員為單位判斷，不以命名空間整體判斷：命名空間內只被一個型別使用的成員，搬回該型別，依本順序重新判斷，通常是 private 方法。本規範明定成員或抽取條件的命名空間不適用這一句：`<Name>Records` 依 `file-templates.md` 的 `data/Records.swift`，`RuntimeEnvironment` 依同檔的 `core/RuntimeEnvironment.swift`。
+   - **型別無法或不宜保存 instance 常數**：有 case 的 `enum` 與 extension 不能宣告 instance stored property；型別要自動合成 `Equatable`、`Hashable`，而常數的型別不遵循時，加入後就無法合成；自動合成 `Codable` 且沒有以 `CodingKeys` 排除它時，它會被編碼進輸出，並出現無法解碼的警告；SwiftData `@Model` 的 stored property 預設會成為儲存欄位，寫 `let` 也無法展開巨集；`static` 成員不會進 schema，寫在本體不影響儲存欄位與版本指紋。這時寫 `static let`：頂層型別放本體的 Properties 區，巢狀型別依 `formatting.md` 的「巢狀型別」就地宣告，擴充非自己的型別時寫在該 extension。以下兩種情況無法宣告 static stored property，改寫回傳字面值的唯讀 computed property：泛型型別與 protocol extension；常數的型別是不遵循 `Sendable` 的系統或第三方型別，例如 `[PartialKeyPath<OrderRecord>]`：所在型別沒有 global actor 隔離時，Swift 6 會判定它不是並行安全而無法編譯；有隔離時雖然能宣告，存取會被限制在該 actor。本規範兩種都改寫 computed property，也不為了寫成 `static let` 而把型別改成 `& Sendable`。computed property 只有 instance 成員使用時寫 instance getter，已有成立的 `static` 呼叫端時寫 `static var`，依存取層級放 Computed Properties 或 Private Method 區。存取層級都依實際呼叫範圍決定。
 
 確定需要 `static` 後，還要符合下表的用途。不論寫成 stored 或 computed，會隨部署環境、帳號或遠端設定改變，或測試需要換值的值，都不能用 `static` 寫死，改由 init 參數傳入。
 
 | 用途 | 條件 | 例子 |
 |---|---|---|
-| 字面值常數 | `static let`（泛型型別與 protocol extension 寫回傳字面值的唯讀 `static var`），同時符合下方三項條件 | `Layout.spacing`、`Notification.Name("didSync")` |
-| 行程內不變的衍生值 | computed property，只由字面值常數或行程啟動後不變的系統值算出 | `RuntimeEnvironment.isPreview` |
+| 字面值常數 | `static let`（泛型型別、protocol extension，以及常數型別不遵循 `Sendable` 時，寫回傳字面值的唯讀 `static var`），同時符合下方三項條件 | `Layout.spacing`、`Notification.Name("didSync")` |
+| 行程內不變的衍生值 | computed property，只由字面值常數或行程啟動後不變的系統值（例如啟動參數，以及由啟動端設定、行程內不改寫的環境變數）算出 | `RuntimeEnvironment.isPreview` |
 | 純函式與工廠 | 結果只由參數決定，沒有 I/O，不讀寫可變狀態，也不建立或回傳 Service、Client、Store、Database | `normalizedID(from:)`、`fixture(...)` |
 | 錯誤轉換 helper | 只執行呼叫端傳入的操作，並把失敗轉成領域錯誤；本身不做其他 I/O，也不持有狀態 | `PersistenceError.mapFetch { ... }` |
 | 資料存取 helper | 通過判斷順序後，以無 case `enum` 收納同步 `static func`，只在當次呼叫內使用呼叫端傳入的 `ModelContext` 或已開啟的交易；不另取依賴、不另開資料庫或交易、不保存 `context`、不讓 `context` 或受管理物件逸出隔離域，也不決定提交或回滾。透過 Database 存取時，`read` 只做查詢，新增、刪除或修改受管理物件一律走 `write`；版本化 migration callback 使用框架傳入的 `context`，由 stage 決定何時儲存。最外層入口限 Database 實作、Service 正式實作與版本化 migration callback；由這些入口發起並傳遞同一個 `context` 的 helper 互呼與內部 helper 也算 | `CategoryRecords.insert(name:in:)` |
 | 框架或語言要求 | protocol 的型別成員要求（含 `GlobalActor.shared`）、運算子、`@TaskLocal`、`@main` 的 `main()`、`FormatStyle` 等點語法存取子 | `EnvironmentKey.defaultValue`、`DependencyKey.liveValue` |
 | `os.Logger` | 非泛型型別的多個成員共用時寫 `private static let logger`；`subsystem` 用字面值或 `Bundle.main.bundleIdentifier ?? "固定字串"`，`category` 用字面值。泛型型別不能宣告 static stored property：有實例、型別能保存屬性，而且不會破壞 `Codable`、`Equatable` 等自動合成的遵循時，用 instance `private let logger`，否則寫區域 `let` | `Logger(subsystem: "com.example.app", category: "Sync")` |
-| 測試支援 | 跨測試型別共用的 helper（`<TypeUnderTest>TestSupport`），以及 `@Test(arguments:)` 的資料（可寫 `private static`）；不持有可變的 stored property，也不把持有可變狀態或外部資源的受測物件、測試替身存進 `static`，不可變的值可作為 `@Test(arguments:)` 的資料。只在單一測試型別的測試本體使用的 helper 寫 `private func`；固定資料只有一個測試方法使用時寫該測試的區域 `let`，同一測試型別的多個測試方法共用時寫 instance `private let`；跨測試型別共用、由自訂 `static` 工廠建立的固定資料寫 `static func`，不寫 `static let`。固定資料的替代寫法與受測物件的組裝規則見 `file-templates.md` 的 tests/Tests.swift 一節 | `makeOrder(...)` |
+| 測試支援 | 跨測試型別共用的 helper（`<TypeUnderTest>TestSupport`），以及 `@Test(arguments:)` 的資料（可寫 `private static`）；不持有可變的 stored property，也不把持有可變狀態或外部資源的受測物件、測試替身存進 `static`，不可變的值可作為 `@Test(arguments:)` 的資料。只在單一測試型別的測試本體使用的 helper 寫 `private func`；固定資料只有一個測試方法使用時寫該測試的區域 `let`，同一測試型別的多個測試方法共用時寫 instance `private let`，由其他 instance 固定資料組成、不帶參數時寫 private 唯讀 computed property；跨測試型別共用的固定資料，只有符合字面值常數三項條件、資料型別遵循 `Sendable`，而且能宣告成 static stored property 時才寫 `static let`，其餘一律寫 `static func`（例如由自訂 `static` 工廠或 `AlertState` 建立的），這些不寫成 `static let` 或 `static var`。固定資料的替代寫法與受測物件的組裝規則見 `file-templates.md` 的 tests/Tests.swift 一節 | `makeOrder(...)` |
 
 字面值常數必須同時符合：
 
-1. **值在寫程式時就確定**：只由字面值、系統提供的固定值、其他字面值常數，或以這些值呼叫初始化器的結果組成。初始化器可以是系統型別或專案值型別的（包含自動合成的 memberwise init），但只能保存或純粹轉換引數。`Date()`、`UUID()`、讀取 `ProcessInfo` 或檔案的結果都不算；呼叫專案自訂的 `static` 工廠也不算，即使引數全是字面值。
+1. **值在寫程式時就確定**：只由字面值、系統提供的固定值、其他字面值常數，或以這些值呼叫初始化器的結果組成。初始化器可以是系統型別、第三方值型別或專案值型別的（包含自動合成的 memberwise init），但只能保存或純粹轉換引數；以 result builder 建構時，builder 與外層初始化器都只組合或純粹轉換固定資料才算。初始化器內部會產生識別值的不算，例如 `AlertState`、`ConfirmationDialogState`、`ButtonState` 的 `init` 會呼叫 `UUID()`，每次建立的 id 都不同。`Date()`、`UUID()`、讀取 `ProcessInfo` 或檔案的結果都不算；呼叫專案自訂的 `static` 工廠也不算，即使引數全是字面值。
 2. **值只是資料**：數值、字串、`URL`、`Color`、`CGSize` 這類值。Service、Client、Store、Database、closure 與其他會執行工作的物件都不算，即使它們是不可變的 `struct`。`os.Logger` 不走這三項條件，依上表的專屬條件判斷。
 3. **寫死就是正確答案**：所有實例都用同一個值，不隨部署環境、帳號或遠端設定改變，測試也不需要換值。不符合時改由 init 參數傳入。
 
@@ -540,11 +540,12 @@ struct FeeRuleTests {
 ## 函式拆分
 
 - **要**：只在一處使用的小段邏輯留在原處，不抽成 helper：一兩行的計算寫在呼叫端，只被一個 computed property 使用的格式化直接寫在該 property 內。
-- **要**：行數只數本體非空白、非註解的行：函式與 local function 數 `{` 與 `}` 之間，TCA `core` 的 case 從標籤的冒號之後，數到同一個 `switch` 的下一個 `case`／`default` 標籤或該 `switch` 的 `}` 之前，巢狀 `switch` 的標籤不算；`return` 也算一行，以逗號共用一份本體的多個 pattern 只算一次；因排版換行的引數與運算式照實際行數計算。
+- **要**：行數只數本體非空白、非註解的行：函式與 local function 數 `{` 與 `}` 之間，TCA `core` 的 case 從標籤的冒號之後，數到同一個 `switch` 的下一個 `case`／`default` 標籤或該 `switch` 的 `}` 之前，巢狀 `switch` 的標籤不算；`return` 也算一行，以逗號共用一份本體的多個 pattern 只算一次；因排版換行的引數與運算式照實際行數計算，包含 closure 依 `formatting.md` 必須寫成多行而展開的行（例如位在另一個 closure 內的 `#Predicate { }`）。
 - **要**：有自己的輸入與輸出、本體達 15 行的獨立演算法，才抽成同型別的 private 方法，不寫成 local function（寫在使用它的函式內的 `func`）。
 - **要**：重複使用的邏輯依範圍決定。由多個方法或 computed property 共用時，可抽成同型別的 private 方法，不受 15 行門檻限制。只在同一函式內重複時：本體一兩行的運算式不抽 helper，各處共用同一次計算結果時寫區域 `let`，各處需要分別求值時直接寫在各處；3 行以上的抽成同型別的 private 方法，只有需要捕捉外層區域變數、本體未達 15 行時才寫 local function。
 - **要**：local function 只用於上一條的情況；不在 local function 內再宣告 local function，也不讓它逃逸。local function 讀取 class 的 instance 成員時不需要寫 `self.`，逃逸後會隱藏對 `self` 的強持有。
-- **要**：View 的子 View 依 `file-templates.md` 的「`body` 只放大框架」抽取，不看行數；TCA `core` 的 case 超過十行時依 `tca-architecture.md` 抽成 Private Method；TCA 中建構 `Destination` alert、confirmationDialog case 的方法依 `tca-architecture.md` 一律寫在 `extension <Screen>Feature.Destination.State`；樣板明定要獨立宣告的方法（例如 UI 測試的 `launchApp()`）照樣板寫。這些都不套用本節的行數門檻。
+- **要**：`init` 同樣適用本節。例外是以 early return 算出 stored property 初始值的 helper：`init` 在 stored property 全部賦值前不能提早 `return`，寫回 `init` 得改成巢狀 `if let`，所以可以留成 private 方法；這時實例尚未建立完成，依「`static` 的使用時機」寫 `static`。
+- **要**：View 的子 View 依 `file-templates.md` 的「`body` 只放大框架」抽取，不看行數；View 為了不在 `body` 宣告區域變數而抽出的成員（例如只用一次、回傳 `Binding` 的 computed property）比照子 View；TCA `core` 的 case 超過十行時依 `tca-architecture.md` 抽成 Private Method；TCA 中建構 `Destination` alert、confirmationDialog case 的方法依 `tca-architecture.md` 一律寫在 `extension <Screen>Feature.Destination.State`；樣板明定要獨立宣告的方法（例如 UI 測試的 `launchApp()`）照樣板寫。這些都不套用本節「只在一處使用就留在原處」與行數門檻的規定。
 - **避免**：只被呼叫一次、只有幾行的 private helper，讀者得跳到別處才看得懂原本那一段。
 
 ```swift
@@ -559,7 +560,7 @@ var appVersion: String {
 
 ## Optional 處理
 
-- **要**：`guard let` 優先於 `if let`：需要提早離開的用 `guard let`，只有在 nil 時仍要繼續執行後續邏輯才用 `if let`。`guard` 的 `else` 只放 `return`、`throw`、`continue`、`break`，不放其他邏輯；離開前先記錄警告或 log 不算其他邏輯，禁止的是業務邏輯，例如改變狀態、呼叫 Service。
+- **要**：`guard let` 優先於 `if let`：需要提早離開的用 `guard let`，只有在 nil 時仍要繼續執行後續邏輯，或 nil 時要執行業務邏輯（見下一句）才用 `if let`。`guard` 的 `else` 只放 `return`、`throw`、`continue`、`break`，不放其他邏輯；離開前先記錄警告或 log 不算其他邏輯，禁止的是業務邏輯，例如改變狀態、呼叫 Service。寫在 `return` 運算式裡也一樣：`return submitEdit(state: &state)` 這類會改變狀態或呼叫 Service 的呼叫，表示兩個分支都有業務邏輯，改用 `if let` / `else`（非 Optional 的條件用 `if` / `else`）。
 - **要**：同名解包用簡寫 `guard let profile`、`if let profile`，不寫 `guard let profile = profile`。
 - **要**：多個 Optional 用逗號串在同一個 `guard let` / `if let`，巢狀不超過一層。
 - **要**：optional chaining 最多兩層（`user?.profile?.avatar`），更深就先 `guard let` 拆開，否則 nil 的來源無法辨識。
@@ -822,7 +823,7 @@ var body: some View {
 
 - **要**：**所有宣告一律有 `///`，沒有例外**，不分存取層級：型別、protocol 與其每個要求、extension 內的每個方法與 computed property、stored property、enum 的每個 case、nested type、`private` 成員、測試方法、protocol 遵循 extension 內的實作。
 - **要**：protocol 要求與其實作**兩邊都寫**，但內容不同：protocol 上寫「做什麼、呼叫端能期待什麼」；實作上寫「這個實作怎麼做」，例如資料來源、有無快取、平台限制、與其他實作的差異。實作端不複製 protocol 的句子。
-- **要**：第一行一句話摘要，句末不加句號。方法、函式、`init` 說明「做什麼」，動詞開頭：省略主詞，從這個宣告做的動作寫起，動作前可以先寫方式或時機（「依識別碼取得個人資料」「每個測試前以假資料模式啟動 App」）；測試方法一律以「驗證」開頭，見 `file-templates.md` 的 tests/Tests.swift 一節。型別、屬性、`case` 說明「這是什麼」，不受動詞開頭限制：型別說明職責與使用時機；屬性寫成名詞片語（「唯一識別碼」「顯示給使用者看的名稱」），`Bool` 屬性用「是否」問句（「是否已付款」），裝 closure 的屬性（TCA Service 的操作）視同方法、動詞開頭；`case` 寫它代表的情況（「使用者中途放棄」）。
+- **要**：第一行一句話摘要，句末不加句號。摘要超過 100 字元時先精簡；精簡後仍超過，就在下一行 `///` 接著寫，中間不空行，DocC 仍視為同一段摘要。方法、函式、`init` 說明「做什麼」，動詞開頭：省略主詞，從這個宣告做的動作寫起，動作前可以先寫方式或時機（「依識別碼取得個人資料」「每個測試前以假資料模式啟動 App」）；測試方法一律以「驗證」開頭，見 `file-templates.md` 的 tests/Tests.swift 一節。型別、屬性、`case` 說明「這是什麼」，不受動詞開頭限制：型別說明職責與使用時機；屬性寫成名詞片語（「唯一識別碼」「顯示給使用者看的名稱」），`Bool` 屬性用「是否」問句（「是否已付款」），裝 closure 的屬性（TCA Service 的操作）視同方法、動詞開頭；`case` 寫它代表的情況（「使用者中途放棄」）。
 - **要**：摘要後空一行，依序寫 `- Parameter x:`（單一參數）或 `- Parameters:`（多個參數，每個一行縮排）、`- Returns:`、`- Throws:`。**有參數就一定寫參數、有回傳值就一定寫回傳、會 throw 就一定寫 Throws**，不因名稱已清楚而省略；`Throws` 寫出哪些情況丟哪個 case。
 - **要**：`init` 一律有摘要，說明建立出來的東西是什麼、需要什麼；參數依上一條寫。
 - **要**：enum case 帶 associated value 時，每個 value 都以 `- Parameter` / `- Parameters:` 說明，寫法與函式參數相同；沒有 label 的 value 以型別名稱小寫作為名稱（`- Parameter profile:`）。
@@ -900,9 +901,9 @@ private extension ProfileViewModel {
 - [ ] 命名：`Manager` / `Handler` / `Provider` 用在不符本意的型別、`Helper` / `Util` 後綴、`get` 前綴、否定式 `Bool`、以型別當後綴（`userArray`）、`Id` 而非 `ID`、泛型用單字母
 - [ ] 存取控制：成員未從 `private` 起手、明寫 `internal`、出現 `fileprivate`、為測試放寬存取層級、屬性包裝與存取控制順序顛倒
 - [ ] 型別：`class` 未加 `final`、不打算被覆寫的型別成員寫 `class` 而非 `static`、可變共享狀態用 `class` 加 lock 而非 `actor`、`typealias` 給基本型別取別名、tuple 跨函式邊界、只有一個實作卻定義 protocol
-- [ ] `static`：語言、框架或本規範未要求，卻在可直接寫、寫成區域 `let` 或 instance 成員時用 `static`（包含只被 instance 成員共用的常數，以及包成型別內 `Layout` 列舉的常數）；型別無法或不宜保存 instance 常數，卻仍寫成 instance `let`，導致自動合成的遵循、編碼輸出或持久化欄位改變；只因沒用到 `self` 就改成 `static`、不符合使用時機表、只為消除編譯錯誤才改成 `static`、用途是字面值常數卻不符合三項條件（自訂 `static` 工廠不算字面值）、以 `static` 寫死會隨環境或測試改變的值、`Logger` 不符合專屬條件或 `subsystem` 用 `!`、可變的 stored `static var`（`@TaskLocal` 宣告不算）、`static let` 指向 actor、lock 或帶可變狀態的 `class`（`GlobalActor.shared` 除外）、`static func` 本身發起 I/O 或讀寫共享狀態（錯誤轉換 helper 執行傳入的操作、資料存取 helper 使用傳入的 `context` 不算）、資料存取 helper 自行取得依賴、開啟交易、保存 `context`、呼叫 `save()` 或在 `read` 範圍內修改資料、正式程式碼以 `static let`、`static var` 或 `static func` 建立、保存或回傳 Service、Client、Store、Database，或 `ModelContainer` 等儲存容器與包著它們的值（框架要求的成員除外）
-- [ ] 函式拆分：只在一處使用、只有幾行的邏輯抽成 helper（本規範或樣板明定要獨立宣告的方法除外，例如 `Destination` 的 alert 建構方法、UI 測試的 `launchApp()`）；本體達 15 行的獨立演算法沒有抽出，或抽成 local function；local function 沒有捕捉外層區域變數、本體達 15 行、巢狀或逃逸；同一函式內重複的一兩行運算式另抽 helper，或 3 行以上的邏輯既沒有抽成 private 方法，也不是符合條件的 local function；行數含宣告行、空行或註解，或排版換行的運算式只算一行
-- [ ] Optional：`if let` 用在該提早離開的地方、`guard` 的 `else` 內有業務邏輯（離開前記錄 log 不算）、optional chaining 超過兩層、`??` 掩蓋錯誤、`Bool?`、`.none`
+- [ ] `static`：語言、框架或本規範未要求，卻在可直接寫、寫成區域 `let` 或 instance 成員時用 `static`（包含只被 instance 成員共用的常數，以及包成型別內 `Layout` 列舉的常數）；型別無法或不宜保存 instance 常數，卻仍寫成 instance `let`，導致自動合成的遵循、編碼輸出或持久化欄位改變；常數型別不遵循 `Sendable` 時為了寫成 `static let` 改成 `& Sendable`；無 case 的 `enum` 命名空間內有只被一個型別使用的成員（`<Name>Records`、`RuntimeEnvironment` 除外）；只因沒用到 `self` 就改成 `static`、不符合使用時機表、只為消除編譯錯誤才改成 `static`、用途是字面值常數卻不符合三項條件（自訂 `static` 工廠不算字面值）、以 `static` 寫死會隨環境或測試改變的值、`Logger` 不符合專屬條件或 `subsystem` 用 `!`、可變的 stored `static var`（`@TaskLocal` 宣告不算）、`static let` 指向 actor、lock 或帶可變狀態的 `class`（`GlobalActor.shared` 除外）、`static func` 本身發起 I/O 或讀寫共享狀態（錯誤轉換 helper 執行傳入的操作、資料存取 helper 使用傳入的 `context` 不算）、資料存取 helper 自行取得依賴、開啟交易、保存 `context`、呼叫 `save()` 或在 `read` 範圍內修改資料、正式程式碼以 `static let`、`static var` 或 `static func` 建立、保存或回傳 Service、Client、Store、Database，或 `ModelContainer` 等儲存容器與包著它們的值（框架要求的成員除外）
+- [ ] 函式拆分：只在一處使用、只有幾行的邏輯抽成 helper（本規範或樣板明定要獨立宣告的方法除外，例如 `Destination` 的 alert 建構方法、UI 測試的 `launchApp()`；`init` 以 early return 算出初始值的 helper、View 為了不在 `body` 宣告區域變數而抽出的成員也不算）；本體達 15 行的獨立演算法沒有抽出，或抽成 local function；local function 沒有捕捉外層區域變數、本體達 15 行、巢狀或逃逸；同一函式內重複的一兩行運算式另抽 helper，或 3 行以上的邏輯既沒有抽成 private 方法，也不是符合條件的 local function；行數含宣告行、空行或註解，或排版換行的運算式只算一行
+- [ ] Optional：`if let` 用在該提早離開、nil 時又沒有業務邏輯的地方、`guard` 的 `else` 內有業務邏輯（離開前記錄 log 不算；`return` 會改變狀態或呼叫 Service 的呼叫也算業務邏輯）、optional chaining 超過兩層、`??` 掩蓋錯誤、`Bool?`、`.none`
 - [ ] 強制解包：`!` 左側含變數、`try!`、`as!`、`IBOutlet` 以外的隱式解包、字面值 `!` 出現在一般方法內而非 `static let` 或測試 fixture、字面值 `!` 的成功與否取決於 App 打包內容或裝置資源（例如 `Bundle(identifier:)`）
 - [ ] Error：全域 `AppError`、Error 帶 raw value、Service 方法未用 typed throws、Service 外洩 `URLError` / `DecodingError`、`catch` 子句分散而非通用 `catch` 內 `switch`
 - [ ] Error：`try?` 用在主要資料讀寫或必要欄位、`try?` 未附「失敗可忽略」註解、空的 `catch`（含只有註解的）、只 `print` 的 `catch`、`CancellationError` 顯示給使用者、`fatalError` 用於執行期狀況或呼叫前沒有 `//` 說明原因
@@ -910,4 +911,4 @@ private extension ProfileViewModel {
 - [ ] Concurrency：`@MainActor` 標在方法而非型別、Service / Model 標 `@MainActor`、`@unchecked Sendable` 壓警告、`nonisolated(unsafe)`、`DispatchQueue.main.async`
 - [ ] Task：`Task.detached`、`init` 內建 Task、可重複觸發的 Task 未持有與取消、`catch` 內未先檢查 `Task.isCancelled`
 - [ ] 註解：任何宣告缺 `///`（含 `private`、`case`、`init`、protocol 實作）、有參數缺 `- Parameter`、有回傳缺 `- Returns`、會 throw 缺 `- Throws`、associated value 缺 `- Parameter`
-- [ ] 註解：方法的摘要不是動詞開頭、測試方法的摘要不是以「驗證」開頭、術語與縮寫、複述名稱、冗言贅字、實作端複製 protocol 的句子、`// TODO` 沒有 issue 編號、被註解掉的程式碼、複述程式碼的 `//`、一般概念詞（sheet、alert、iPad）加了反引號
+- [ ] 註解：方法的摘要不是動詞開頭、測試方法的摘要不是以「驗證」開頭、摘要未先精簡就換行，或換行時中間空行、術語與縮寫、複述名稱、冗言贅字、實作端複製 protocol 的句子、`// TODO` 沒有 issue 編號、被註解掉的程式碼、複述程式碼的 `//`、一般概念詞（sheet、alert、iPad）加了反引號

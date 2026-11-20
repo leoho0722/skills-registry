@@ -101,7 +101,7 @@ Features/<Feature>/
 本體以外依既有規範以同檔 extension 分區，順序固定：
 
 1. `Nested Types`（extension）：`Path`、`Destination`、`CancelID` 等 Feature 專屬型別；順序固定 `Path` → `Destination` → `CancelID` → 其他依字母排序。`@Reducer enum` 放 extension 內與放本體內效果相同，已驗證。
-2. `Private Method`（`private extension`）：第一個方法固定是 `core(state:action:)`，其後是抽出的 Effect 方法，依 `formatting.md` 的呼叫者在前、深度優先排列；`core` 排第一本身就符合這條通則。有 private static method 時也排在 `core` 之後，這是 `formatting.md`「區內排序」static 在前的例外，讓 reducer 的入口一打開就看得到；private computed property 仍依該節排在所有方法之前。
+2. `Private Method`（`private extension`）：第一個方法固定是 `core(state:action:)`，其後是抽出的 Effect 方法，依 `formatting.md` 的呼叫者在前、深度優先排列；`core` 排第一本身就符合這條通則。有收尾的 `Reduce` 時，依同一條通則排成：`core` → `core` 抽出的方法 → 收尾方法 → 收尾方法抽出的方法。有 private static method 時也排在 `core` 之後，這是 `formatting.md`「區內排序」static 在前的例外，讓 reducer 的入口一打開就看得到；private computed property 仍依該節排在所有方法之前。
 
 `State` 與 `Action` 必須在本體：`@Reducer` 巨集只會替本體內的 `Action` 加上 `@CasePathable`，搬到 extension 會失去 case key path。`@Dependency` 是 property wrapper，展開後是 stored property，Swift 不允許 extension 宣告 stored property，所以也必須在本體；官方文件一律寫在 `Action` 之後、`body` 之前，本規範以 `Dependencies` 區名固定這個位置。`body` 留本體則比照 SwiftUI `View` 的 Body 例外。`body` 的型別寫 `some ReducerOf<Self>`，與 TCA 官方文件的範例一致；TCA 1.25.5 時這個寫法曾讓 `@Reducer` 巨集展開出現 circular reference 錯誤，1.26.2 已實測不再重現。`@Reducer`、`@ObservableState`、`@CasePathable` 各自獨立一行，寫在被修飾的宣告正上方，doc comment 在巨集之上；`@Dependency(\.xxx)` 則與 `private var xxx` 寫在同一行，整行超過 100 字元才在 `)` 之後換行。用不到的區塊直接省略，不留空 MARK。
 
@@ -271,7 +271,7 @@ private extension ProfileFeature {
 | 交給父層的結果 | `case delegate(Delegate)`，`Delegate` 為 `@CasePathable enum`，遵循 `Equatable` | 只有本 Feature 的 `body` | 以「結果」命名：`finished(Order)`、`cancelled`、`profileUpdated(Profile)` |
 | 內部回應 | 直接平放在 `Action` | 只有本 Feature 的 Effect | `<名詞>Response(Result<..., <Service 的錯誤型別>>)`，例如 `Result<Profile, ProfileError>`，與 Service 的 typed throws 一致，不用 `any Error`；導航相關為 `path(...)`、`destination(...)` |
 
-- **要**：`Action` 內 case 順序固定 `view` → `delegate` → `path` / `destination` → 其他內部回應依字母排序；nested enum 順序 `View` → `Delegate`。
+- **要**：`Action` 內 case 順序固定 `binding`（有才寫，見下方 `BindableAction`）→ `view` → `delegate` → `path` / `destination` / `notice` → 其他內部回應依字母排序；nested enum 順序 `View` → `Delegate`。
 - **要**：`body` 收到 `.delegate` 一律 `return .none`，由父 reducer 在自己的 `body` 處理。
 - **要**：需要 `BindableAction` 時 `Action` 遵循它並加 `case binding(BindingAction<State>)`，排在 `view` 之前；`body` 的第一個 reducer 為 `BindingReducer()`。
 - **避免**：View 送 `view` 以外的 action；一個 case 同時代表使用者操作與內部回應；把 `Result` 拆成兩個 case（`succeeded` / `failed`）。
@@ -279,7 +279,7 @@ private extension ProfileFeature {
 ### Body 與 Effect
 
 - **要**：`body` 只負責組合，本畫面自己的邏輯放 Private Method 的 `core(state: inout State, action: Action) -> Effect<Action>`，`body` 以 `Reduce(core)` 引用；不在 `body` 內寫 `Reduce { state, action in ... }` 閉包。
-- **要**：`body` 的組合順序固定：`BindingReducer()`（有才寫）→ `Scope`（固定子 Feature）→ `Reduce(core)`；`.ifLet` 與 `.forEach` 以 modifier 形式接在 `Reduce(core)` 之後。邏輯需要看到子 Feature 或 presentation 處理後的狀態時，可在最後再接一個收尾的 `Reduce(<動詞開頭的方法>)`。例如收到 `.dismiss` 時，`core` 先執行，`destination` 之後才清成 `nil`，所以 `core` 看不到清空後的狀態。收尾方法的簽章與 `core` 相同，以 Private Method 參照傳入、排在 `core` 之後；其他邏輯一律留在 `core`。
+- **要**：`body` 的組合順序固定：`BindingReducer()`（有才寫）→ `Scope`（固定子 Feature）→ `Reduce(core)`；`.ifLet` 與 `.forEach` 以 modifier 形式接在 `Reduce(core)` 之後。邏輯需要看到子 Feature 或 presentation 處理後的狀態時，可在最後再接一個收尾的 `Reduce(<動詞開頭的方法>)`。例如收到 `.dismiss` 時，`core` 先執行，`destination` 之後才清成 `nil`，所以 `core` 看不到清空後的狀態。收尾方法的簽章與 `core` 相同，以 Private Method 參照傳入；其他邏輯一律留在 `core`。
 - **要**：`core` 內 `switch action` 的 case 順序與 `Action` 宣告順序一致；每個 case 本體換行、case 之間空一行，同 `formatting.md`。
 - **要**：Effect 只用 `.run`，內部是 async/await；`Task.detached`、GCD、Combine 依鐵則 5 禁用。Service 的 typed throws 在 `.run` 內以 `do throws(<Service 的錯誤型別>) { } catch { }` 接住，轉成 `Result` 送回 Action：`.run` 是 closure，一般 `do` / `catch` 的 `error` 在這裡是 `any Error`，放不進 `Result<T, E>`（`formatting.md` 的「Closure 與 Trailing Closure」）。
 - **要**：畫面出現時要啟動的 Effect（初次載入、`AsyncStream` / `.values` 監聽）一律綁在 `.view(.task)`，由 View 的 `.task` modifier 觸發，離開畫面時 SwiftUI 自動取消，不需要 `CancelID`。
@@ -373,7 +373,7 @@ TCA 原生導航取代 Coordinator：Stack 導航由根 Feature 的 `Path` 管�
 ### Tree：畫面內的 Destination
 
 - **要**：需要 sheet、alert、confirmationDialog 或 fullScreenCover 的畫面，在 `State` 加 `@Presents var destination: Destination.State?`，`Destination` 為 Nested Types 內的 `@Reducer enum Destination`；`Action` 加 `case destination(PresentationAction<Destination.Action>)`；`body` 的 `Reduce` 後接 `.ifLet(\.$destination, action: \.destination)`。
-- **要**：View 以 `.sheet(item: $store.scope(\.destination?.<case>, action: \.destination.<case>))` 綁定；alert 用 `.alert($store.scope(\.destination?.alert, action: \.destination.alert))`。
+- **要**：View 以 `.sheet(item: $store.scope(\.destination?.<case>, action: \.destination.<case>))` 綁定；alert 用 `.alert($store.scope(\.destination?.alert, action: \.destination.alert))`。不寫帶 `state:` 標籤的 `$store.scope(state: \.$destination, action: \.destination).alert`，TCA 1.26.2 已將它軟棄用並改名為 `scope(_:action:)`。以上寫法適用於未開啟 package trait `ComposableArchitecture2DeprecationOverloads` 的專案：開啟後，`$store` 不帶標籤的 `scope` 只接受 `WritableKeyPath<State, PresentationState<…>>`，`\.destination?.alert` 無法編譯，改依 TCA 2 的遷移指引寫成 `$store.scope(\.$destination, action: \.destination)` 再接 `.alert`／`.sheet`，原始碼註明 alert 與 confirmationDialog 還要額外處理；下方獨立 `notice` 的綁定同樣改成 `\.$notice`。
 - **要**：一個畫面只有一個 `destination`，所有可呈現的目的地都是它的 case；不為 sheet 與 alert 各開一個 optional，只有 alert 的畫面也不直接寫 `@Presents var alert`。
 - **例外**：等目前的目的地關閉後才顯示的通知，放在與 `destination` 分開的 `@Presents var notice: AlertState<<通知按鈕的 action>>?`，這是單一 `destination` 的唯一例外。接線如下：
     - `Action` 加 `case notice(PresentationAction<<通知按鈕的 action>>)`，兩處用同一個型別：畫面已有 `Destination.Alert` 時沿用，沒有時另外宣告（`@Reducer enum Destination` 不會自動產生 `Alert`）。
@@ -381,12 +381,12 @@ TCA 原生導航取代 Coordinator：Stack 導航由根 Feature 的 `Path` 管�
     - View 以獨立的 `.alert($store.scope(\.notice, action: \.notice))` 呈現。
     - 通知的 `AlertState` 直接建構，不寫成 `Destination.State` 的建構方法；需要抽方法時依 `coding-style.md` 的「函式拆分」。
 
-  不放進 `destination`，是依 TCA 1.26.2、以 `\.destination?.alert` scope 綁定時的實測結果，原因有兩個。第一，確認框關閉動畫期間，把同一個 `destination` 改設成新 alert，SwiftUI 不會呈現，也不會寫回 `nil`，狀態會卡住。第二，改成 `destination` 的另一個 case 配獨立 `.alert` 也不行，確認框晚到的 `nil` 會把通知一起關掉。同樣的寫法在另一個流程沒有重現卡住，推測與非同步回應到達的時機有關，實際時序尚未驗證；由於無法保證回應到達時關閉動畫已結束，延後顯示的通知一律放獨立的 `notice`。通知與目的地不會同時呈現：
+  不放進 `destination`，是依 TCA 1.26.2、以 `\.destination?.alert` scope 綁定時的實測結果，原因有兩個。第一，確認框關閉動畫期間，把同一個 `destination` 改設成新 alert，SwiftUI 不會呈現，也不會寫回 `nil`，狀態會卡住。第二，改成 `destination` 的另一個 case 配獨立 `.alert` 也不行，確認框晚到的 `nil` 會把通知一起關掉。同樣的寫法在另一個流程沒有重現卡住，推測與非同步回應到達的時機有關，實際時序尚未驗證；由於無法保證回應到達時關閉動畫已結束，延後顯示的通知一律放獨立的 `notice`。目的地關閉後才顯示通知時，依下列規則設定 `notice`：
     - 前一個目的地是 sheet、fullScreenCover 時，通知先暫存在 `State`，由 View 在 `onDismiss` 送出 view action，`core` 收到後才設定 `notice`。`destination` 清成 `nil` 時，畫面可能還在關閉動畫中，不能當成 sheet 已關閉的訊號。
     - 前一個目的地是確認用的 alert 時沒有 `onDismiss`，由收尾的 `Reduce` 在 `destination` 清空後設定 `notice`。通知用獨立的綁定，不受確認框關閉動畫影響。
     - 通知顯示中又到達新通知時，`notice` 維持目前這則，不取代也不暫存，新通知丟棄，需要追蹤時記 log。依 TCA 1.26.2、iOS 26.5 的實測，顯示中把 `notice` 換成新通知，畫面仍是第一則，第二則在關閉後也不會出現，`State` 與畫面不一致。
-    - 前一個目的地是 confirmationDialog 時，目前沒有實測依據，本規範暫不規定。
-- **要**：`@Reducer enum` 產生的 `Path.State` / `Destination.State` 不會自動 `Equatable`，在 Nested Types extension 之後補一個 `// MARK: - Equatable` 的空 extension：`extension <Screen>Feature.Destination.State: Equatable {}`，否則父 `State` 無法 `Equatable`。
+    - 前一個目的地是 confirmationDialog 時，以及通知顯示中又要呈現新的目的地（例如另一個流程要開 sheet）時，目前沒有實測依據，本規範暫不規定。
+- **要**：`@Reducer enum` 產生的 `Path.State` / `Destination.State` 不會自動 `Equatable`，在 Nested Types extension 之後補一個 `// MARK: - Equatable` 的空 extension：`extension <Screen>Feature.Destination.State: Equatable {}`，否則父 `State` 無法 `Equatable`。`Destination.Action` 不補 `Equatable`：`receive` 以 case key path 比對，不依賴 `Action: Equatable`（見「測試」一節），所以不需要另開 extension。
 - **要**：建構 `Destination` 的 alert、confirmationDialog case 的方法（`static func deleteConfirmation(name:) -> Self`）寫在 `extension <Screen>Feature.Destination.State`，以 `// MARK: - Internal Method` 分區，排在 Nested Types 之後、`Equatable` 之前。不論行數與呼叫次數都寫在這裡，不套用 `coding-style.md`「函式拆分」的 15 行門檻。`Destination.State` 由巨集產生，本體無法加成員，這是 `formatting.md`「巢狀型別」不另開 extension 的唯一例外，也是「一個檔案只宣告一個頂層型別」的例外之一；`Destination` 拆到 `<Screen>Feature+Destination.swift` 時，這兩個 extension 一起搬過去。
 - **避免**：跨畫面的 push 走 `Destination`（那是 `Path` 的事）；`Destination` 的 case 指向其他 Feature 模組的畫面。
 
@@ -557,6 +557,7 @@ extension DependencyValues {
 - **要**：測試本體 Given / When / Then，受測的那一次 `send` 連同它的狀態 closure 都算 When，`receive` 與 `#expect` 為 Then。三個標記的位置照 `file-templates.md` 測試一節：寫在同一縮排層級，不寫進 `send` 的 closure。
 - **要**：只有 `send`、沒有 `receive` 的測試，`// Then` 不寫進 `send` 的 closure：`send` 之後空一行寫 `// Then`，再用 `#expect(store.state.x == 值)` 斷言關鍵結果。`send` 的 closure 屬於 When，Then 段要有自己的斷言。有 `receive` 時照舊，`receive` 放 Then。
 - **要**：前置狀態能直接設進初始 State 的就直接設，不用 `send` 走一遍：先 `var initial = CategoryListFeature.State()`、`initial.errorMessage = "儲存失敗"`，再建 `TestStore(initialState: initial)`。必須跑過 reducer 或 effect 才會有的前置狀態（例如正在執行的計時 effect），Given 可以 `send`／`receive`，一樣寫出完整的狀態變化。When 只留受測的那一次 `send`；Given 裡用來建立前置狀態的 `send` 不算 `file-templates.md`「一個測試只允許一組 When / Then」的第二個動作。
+- **要**：alert 與 confirmationDialog 的預期值在測試端寫成完整字面值（標題、按鈕的 role 與 action、訊息），不呼叫正式程式碼 `Destination.State` 的建構方法；呼叫它會讓測試和正式程式碼用同一段建構邏輯互相比對，驗不出文案、按鈕順序或 action 寫錯。宣告位置與寫法依 `file-templates.md` 測試一節的固定資料規則；`AlertState`、`ConfirmationDialogState` 的初始化器每次都會產生新的 id，不符合字面值常數的條件，跨測試型別共用時寫 TestSupport 的 `static func`，不寫 `static let`。
 - **要**：`send`、`receive` 的狀態斷言 closure 與 `withDependencies` 的 closure 用 `$0`，本體有多個敘述也一樣，不另取參數名。這是 TCA 官方寫法，這三處的 `$0` 固定代表要修改的 State 或依賴，不會被誤讀，屬於 `formatting.md` `$0` 規則的「修改 `inout` 值的 closure」例外；其他 closure 照常具名。
 - **避免**：`exhaustivity = .off`；測 View；在測試裡直接呼叫 `Feature().reduce(into:action:)`；為 `Path` / `Destination` 子 reducer 單獨開測試檔（它們透過父 Feature 的測試覆蓋，除非本身是獨立畫面）。
 
@@ -669,14 +670,14 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 ## 常見錯誤檢查清單
 
 - [ ] TCA 專案出現 ViewModel、Coordinator、`@Entry`、`EnvironmentValues+Services.swift`，或 MVVM 專案出現 `@Reducer`
-- [ ] Feature 型別本體分區順序不是 State → Action → Dependencies → Body；`Path` / `Destination` / `CancelID` 寫在本體內而非 Nested Types extension；`Destination.State` 缺 `Equatable` extension；`Destination` 的 alert 建構方法沒寫在 `extension <Screen>Feature.Destination.State`
+- [ ] Feature 型別本體分區順序不是 State → Action → Dependencies → Body；`Path` / `Destination` / `CancelID` 寫在本體內而非 Nested Types extension；`Destination.State` 缺 `Equatable` extension；另開 `extension <Screen>Feature.Destination.Action: Equatable {}`；`Destination` 的 alert 建構方法沒寫在 `extension <Screen>Feature.Destination.State`
 - [ ] `@Dependency(\.xxx)` 與 `private var xxx` 未超過 100 字元卻拆成兩行
-- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；收尾的 `Reduce` 處理不需要看到子 Feature 或 presentation 處理後狀態的邏輯；畫面用 `@Presents var alert`，或為延後顯示的通知以外的目的地另開 `@Presents`；延後顯示的通知放進 `destination`；sheet、fullScreenCover 之後的通知不等 `onDismiss` 的 view action 就設定；通知顯示中把 `notice` 換成新通知，或暫存新通知待目前這則關閉後釋出；`core` 不是 Private Method 區的第一個方法；`core` 的 `switch` 或整個 `Action` 的分派移到輔助型別
+- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；收尾的 `Reduce` 處理不需要看到子 Feature 或 presentation 處理後狀態的邏輯；畫面用 `@Presents var alert`，或為延後顯示的通知以外的目的地另開 `@Presents`；延後顯示的通知放進 `destination`；sheet、fullScreenCover 之後的通知不等 `onDismiss` 的 view action 就設定；通知顯示中把 `notice` 換成新通知，或暫存新通知待目前這則關閉後釋出；`core` 不是 Private Method 區的第一個方法；收尾方法沒有排在 `core` 抽出的方法之後；View 以帶 `state:` 標籤的 `$store.scope(state:action:)` 綁定 sheet 或 alert；`core` 的 `switch` 或整個 `Action` 的分派移到輔助型別
 - [ ] `State` 的 computed property 另開 `extension <Screen>Feature.State`，而非寫在 `State` 本體；`State` 本體順序不是 stored → 非 private computed → init → nested type → 方法
 - [ ] `State` 缺 `@ObservableState` 或 `Equatable`；`State` 持有 Service；外部注入的值宣告成 `var` 或在宣告處給了預設值
 - [ ] 內部回應的 `Result` 錯誤型別寫成 `any Error` 而非 Service 的錯誤型別；`.run` 內接 typed error 的 `do` 沒寫 `throws(E)`
 - [ ] TCA View 以 `@Environment` 取無障礙與版面以外的值（例如 Service）；Properties 順序不是 `static let` → `@Environment` → `@ScaledMetric` → `store` → `@State` / `@FocusState` → `@Binding` → 一般 `let` / `var`
-- [ ] `Action` 缺 `view` / `delegate` 分組；View 送了 `view` 以外的 action；view case 用命令式命名
+- [ ] `Action` 缺 `view` / `delegate` 分組；case 順序不是 `binding`（有才寫）→ `view` → `delegate` → `path` / `destination` / `notice` → 其他依字母排序；View 送了 `view` 以外的 action；view case 用命令式命名
 - [ ] `body` 收到 `.delegate` 沒有 `return .none`；`.delegate` 在本 Feature 內被處理
 - [ ] Effect 用 `.run` 以外的方式；`Reduce` 內直接呼叫 Service；畫面出現的載入用 `onAppear` 而非 `.task` 加 `finish()`
 - [ ] `NavigationStack` 不在 `<Feature>RootView`；非根畫面持有 `StackState`
@@ -688,7 +689,7 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 - [ ] Database 的儲存容器以 `static` 成員保存；App 啟動流程要讀取開啟結果，容器卻不是由 App 進入點建立並以 `prepareDependencies` 注入
 - [ ] Database 的 `previewValue` 寫成 `Preview<Name>` stub，而非 seed 範例資料的記憶體資料庫；以 Database 為下層的 Service，`previewValue` 回傳固定假資料而非 `liveValue`
 - [ ] `@Shared` 帶 persistence key；跨 Feature 模組共享
-- [ ] 測試關閉 exhaustivity；Feature 測試整個替換 Service 而非只覆寫用到的 closure；用 Mock class 記錄 Service 呼叫而非 `LockIsolated`；`receive` 依賴 `Action: Equatable`
+- [ ] 測試關閉 exhaustivity；Feature 測試整個替換 Service 而非只覆寫用到的 closure；用 Mock class 記錄 Service 呼叫而非 `LockIsolated`；`receive` 依賴 `Action: Equatable`；alert 或 confirmationDialog 的預期值呼叫正式程式碼 `Destination.State` 的建構方法，而非寫成完整字面值
 - [ ] 父層測試的名稱第一段寫了子層的內層 Action（如 `saveButtonTapped_`）而非受測 Feature 最外層的 case；`view` 分組被當成一層寫成 `view_`
 - [ ] 能直接設進初始 State 的前置狀態卻在 Given 用 `send` 走一遍；When 有兩個以上的 `send`
 - [ ] `// Then` 寫進 `send` 的 closure；只有 `send` 的測試在 `send` 之後缺 `// Then` 與 `#expect(store.state...)`

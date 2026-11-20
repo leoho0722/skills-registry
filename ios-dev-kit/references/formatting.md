@@ -37,7 +37,7 @@ Xcode 設定對應：Settings → Text Editing → Indentation 設 Spaces / 4；
 - **要**：陣列、字典字面值寫成多行時，每個元素獨立一行、縮排 4 格，`]` 單獨一行對齊起始欄位；最後一個元素後面一律加逗號，新增或刪除最後一個元素時 diff 只動一行。單行字面值不加尾隨逗號。唯一引數是字面值時 `]` 與右括號貼合成 `])`，見「參數與引數對齊」。
 - **避免**：用 `+` 串接字串來壓行，會讓搜尋字串失效。
 - **避免**：`if` / `guard` 的條件續行用固定 4 格，會與本體同層而失去視覺分界。
-- **避免**：在以下四處斷行，超過 100 也維持一行：`import`、`case` 宣告、closure 簽章（依「Closure 與 Trailing Closure」的處理順序做完仍超過時）、沒有參數的函式宣告與函式型別（沒有參數就無處可斷，不在 `)` 之後拆行）。有參數的函式簽章不在此列，只有一個參數也依「參數與引數對齊」斷行。
+- **避免**：在以下五處斷行，超過 100 也維持一行：`import`、`case` 宣告、closure 簽章（依「Closure 與 Trailing Closure」的處理順序做完仍超過時）、沒有參數的函式宣告與函式型別（沒有參數就無處可斷，不在 `)` 之後拆行）、給工具整行讀取的標記註解（例如 `// spectra-scenario:`，斷行後工具讀不到完整內容）。有參數的函式簽章不在此列，只有一個參數也依「參數與引數對齊」斷行。
 - **要**：`switch` 的每個 `case` 本體一律另起一行縮排 4 格，即使只有一個表達式；不寫成 `case .x: value` 單行，`default` 同樣適用。`case` 之間的空行見「空行規則」。
 - **要**：`switch` 的多 pattern `case` 清單整行超過 100 時，在逗號之後斷行：每行排滿，在不超過 100 的最後一個逗號之後才斷，不依語意分組，也不每個 pattern 各佔一行；續行比 `case` 多縮排 **8 格**，與縮排 4 格的 case 本體錯開，一眼分得出是 pattern 還是本體；`:` 接在最後一個 pattern 之後。這是「續行固定 4 格」的例外。上面不斷行清單裡的「`case` 宣告」指 enum 的 case 宣告，不含 switch 的 pattern 清單。
 
@@ -370,7 +370,7 @@ extension MockURLProtocol {
 - **要**：protocol 遵循 extension 內的實作順序與 protocol 的宣告順序一致，protocol 本身依 Internal Method 的使用先後宣告；同一個 protocol 的正式實作、Preview stub、Mock 都照這個順序。系統 protocol 依 Apple 的宣告順序，例如 `Codable` 為 `init(from:)` → `encode(to:)`。
 - **要**：stored property 不依存取層級排序，`private let` 與 `let` 可以混排；View 以外的型別除了 static 在前，不另外規定順序。
 - **例外**：TCA Feature 型別的 `core(state:action:)` 永遠是 Private Method 區的第一個方法，排在 static method 之前，見 `tca-architecture.md`。
-- **避免**：把 static stored property 放進 extension。Swift 允許在 extension 宣告 static stored property，本規範仍一律放本體的 Properties 區，讓型別持有的狀態集中在一處。擴充非自己的型別時無法放本體，可在該 extension 宣告 `static let`（例如 DesignSystem 的 `Color.brandPrimary`）；泛型型別與 protocol extension 不能宣告 static stored property，依 `coding-style.md` 的「`static` 的使用時機」改寫唯讀 computed property。
+- **避免**：把 static stored property 放進 extension。Swift 允許在 extension 宣告 static stored property，本規範仍一律放本體的 Properties 區，讓型別持有的狀態集中在一處。擴充非自己的型別時無法放本體，可在該 extension 宣告 `static let`（例如 DesignSystem 的 `Color.brandPrimary`）；泛型型別與 protocol extension 不能宣告 static stored property；常數型別是不遵循 `Sendable` 的系統或第三方型別時，本規範同樣不寫 static stored property。這兩種情況依 `coding-style.md` 的「`static` 的使用時機」改寫唯讀 computed property，依存取層級放 Computed Properties 或 Private Method 區。
 
 `ProfileCache` 的 `init` 要用 `directory` 與 `makeFileName(for:)` 算出 stored property `fileURL`，當下實例尚未建立完成，所以這兩個成員是 `static`：
 
@@ -470,7 +470,7 @@ private extension ProfileViewModel {
 ### Extension 的使用時機
 
 - **要**：extension 只用於三件事：依上述順序分區、遵循 protocol、為非自己的型別加功能。
-- **要**：為非自己的型別（`Date`、`String`、`View`、系統或第三方型別）加功能時，放 `Core/Extensions/`，預設一個型別一檔 `<Type>+Extensions.swift`，檔內依功能以 `// MARK: - <功能>` 分區。其中某個功能明顯自成一組（例如 `Date` 的相對時間計算）時，拆成 `<Type>+<Feature>.swift`，一個關注點一檔；拆分後不再保留 `<Type>+Extensions.swift`，全部改為功能命名，同一型別不混用兩種檔名。唯一例外是 `EnvironmentValues+Services.swift`，它是 `@Entry` 清單而非一般擴充。TCA 專案的 `extension DependencyValues` 也不放這裡，寫在該依賴的主檔，位置見 `tca-architecture.md` 的「依賴注入」。
+- **要**：為非自己的型別（`Date`、`String`、`View`、系統或第三方型別）加功能時，放 `Core/Extensions/`，預設一個型別一檔 `<Type>+Extensions.swift`，檔內依功能以 `// MARK: - <功能>` 分區。其中某個功能明顯自成一組（例如 `Date` 的相對時間計算）時，拆成 `<Type>+<Feature>.swift`，一個關注點一檔；拆分後不再保留 `<Type>+Extensions.swift`，全部改為功能命名，同一型別不混用兩種檔名。`<Type>+<Feature>.swift` 只有一個功能，檔名已說明功能，檔內不再依功能分區，改用 Computed Properties、Internal Method、Private Method 等固定區名，依存取層級分區。唯一例外是 `EnvironmentValues+Services.swift`，它是 `@Entry` 清單而非一般擴充。TCA 專案的 `extension DependencyValues` 也不放這裡，寫在該依賴的主檔，位置見 `tca-architecture.md` 的「依賴注入」。
 - **要**：測試 target 專用、替非自己的型別加功能的 extension（例如只給測試用的 `View` 量測 helper）同樣獨立成檔，檔名與 MARK 依上一條，不寫在其他型別的檔案尾端；放在它依賴的 Support 檔或 `<TypeUnderTest>TestSupport.swift` 所在的資料夾，不放 `Core/Extensions/`（那是主 target 的資料夾），見 `project-structure.md` 的「測試目錄」。
 - **避免**：同一區塊拆成兩個 extension，例如兩個 `// MARK: - Internal Method`。
 - **避免**：跨檔 extension 自己的型別，包含依子領域拆出的 `<Name>+<Domain>.swift`。型別過大時依 `file-templates.md` 的「Protocol 過大時的處理順序」拆責任；責任單一的型別留在同一個檔案。測試 target 的型別同樣適用，過大時拆成獨立的測試型別，見 `file-templates.md` 的 tests/Tests.swift 一節。例外只有兩種：TCA 的 `<Screen>Feature+Path.swift`、`<Screen>Feature+Destination.swift`（`tca-architecture.md` 的「拆分」），以及測試 target 的 `<Model>+Fixture.swift`（`project-structure.md` 的「Mocks 與 Fixtures」）。
@@ -718,7 +718,7 @@ var body: some View {
 
 ## 常見錯誤檢查清單
 
-- [ ] 行寬超過 100，或用縮短命名、刪標籤的方式壓行
+- [ ] 行寬超過 100（正文明列可超過 100 的情況除外，例如超長字串、「換行與斷行」列出的不斷行之處、「參數與引數對齊」允許的右括號行），或用縮短命名、刪標籤的方式壓行；給工具整行讀取的標記註解被斷行
 - [ ] 尾隨空白、只含縮排的空行、檔尾缺換行或多於一個換行
 - [ ] 運算子放行尾而非續行行首
 - [ ] `switch` 的 `case` 本體與 `case` 寫在同一行
@@ -736,7 +736,7 @@ var body: some View {
 - [ ] 一個檔案宣告兩個以上的頂層型別（protocol 與實作同檔、TCA Client / Store / Database 主檔、TCA `Destination.State` 的 extension 除外）
 - [ ] 同檔多個頂層宣告缺群組標頭，或群組順序不是 Protocol → Implementation → DependencyKey → DependencyValues → Preview；`Preview` 群組沒有整組包在 `#if DEBUG` 內
 - [ ] 跨檔 extension 自己的型別，包含 `<Name>+<Domain>.swift` 與測試的 `<TypeUnderTest>Tests+<行為>.swift`（TCA 的 `<Screen>Feature+Path.swift`、`+Destination.swift` 與測試 target 的 `<Model>+Fixture.swift` 除外）
-- [ ] 替非自己的型別加功能的 extension（含測試 target 專用的）寫在其他型別的檔案尾端，或 MARK 用函式名稱、被擴充的型別名而非功能名稱，或測試專用的放進 `Core/Extensions/`
+- [ ] 替非自己的型別加功能的 extension（含測試 target 專用的）寫在其他型別的檔案尾端，或 `<Type>+Extensions.swift` 的 MARK 用函式名稱、被擴充的型別名而非功能名稱，或 `<Type>+<Feature>.swift` 沒有依存取層級用固定區名分區，或測試專用的放進 `Core/Extensions/`
 - [ ] SwiftUI View 用跨檔 extension 分檔，或為了分檔把 `private` 的 `@State`、`@Environment` 降成 internal
 - [ ] MARK 順序錯置，或同一區塊拆成兩個 extension
 - [ ] private 的 computed property 放在 Computed Properties，或非 private 的放在 Private Method
