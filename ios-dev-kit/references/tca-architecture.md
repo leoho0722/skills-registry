@@ -1,6 +1,6 @@
 # TCA Architecture（Composable Architecture 專案規範）
 
-Leo Ho 個人 iOS 專案採用 [The Composable Architecture](https://github.com/pointfreeco/swift-composable-architecture)（以下稱 TCA）時的規範。依據 TCA 1.x 系列的官方文件與 API，不綁定特定小版本，以 `@Reducer`、`@ObservableState`、`@Presents`、`StackState` 這一代 API 為準；平台下限 iOS 17，因為 `@ObservableState` 與 `@Presents` 依賴 Observation。本檔只規範 Presentation 層，Domain / Data / Core 的規則與 `project-structure.md`、`coding-style.md`、`formatting.md` 完全相同，本檔不重述。
+Leo Ho 個人 iOS 專案採用 [The Composable Architecture](https://github.com/pointfreeco/swift-composable-architecture)（以下稱 TCA）時的規範。依據 TCA 1.x 系列的官方文件與 API，不綁定特定小版本（少數條文註明最低版本，例如 `scope` 寫法需要 1.26.0），以 `@Reducer`、`@ObservableState`、`@Presents`、`StackState` 這一代 API 為準；平台下限 iOS 17，因為 `@ObservableState` 與 `@Presents` 依賴 Observation。本檔只規範 Presentation 層，Domain / Data / Core 的規則與 `project-structure.md`、`coding-style.md`、`formatting.md` 完全相同，本檔不重述。
 
 ## 目錄
 
@@ -69,11 +69,12 @@ Features/<Feature>/
 │   ├── Root/
 │   │   ├── <Feature>RootFeature.swift    # tca/Feature.swift；持有 Path，串 NavigationStack
 │   │   └── <Feature>RootView.swift       # tca/FeatureView.swift
-│   └── <Screen>/
-│       ├── <Screen>Feature.swift         # tca/Feature.swift
-│       ├── <Screen>Feature+Path.swift    # 選用，Path / Destination 子 reducer 過大時拆檔
-│       ├── <Screen>View.swift            # tca/FeatureView.swift
-│       └── <Screen><Part>View.swift      # 選用，同 MVVM
+│   ├── <Screen>/
+│   │   ├── <Screen>Feature.swift         # tca/Feature.swift
+│   │   ├── <Screen>Feature+Path.swift    # 選用，Path / Destination 子 reducer 過大時拆檔
+│   │   ├── <Screen>View.swift            # tca/FeatureView.swift
+│   │   └── <Screen><Part>View.swift      # 選用，同 MVVM
+│   └── Formatting/                       # 選用，同 MVVM
 ├── Domain/                               # 同 MVVM
 └── Data/
     ├── <Feature>Service.swift            # tca/Service.swift
@@ -281,7 +282,7 @@ private extension ProfileFeature {
 - **要**：`body` 只負責組合，本畫面自己的邏輯放 Private Method 的 `core(state: inout State, action: Action) -> Effect<Action>`，`body` 以 `Reduce(core)` 引用；不在 `body` 內寫 `Reduce { state, action in ... }` 閉包。
 - **要**：`body` 的組合順序固定：`BindingReducer()`（有才寫）→ `Scope`（固定子 Feature）→ `Reduce(core)`；`.ifLet` 與 `.forEach` 以 modifier 形式接在 `Reduce(core)` 之後。邏輯需要看到子 Feature 或 presentation 處理後的狀態時，可在最後再接一個收尾的 `Reduce(<動詞開頭的方法>)`。例如收到 `.dismiss` 時，`core` 先執行，`destination` 之後才清成 `nil`，所以 `core` 看不到清空後的狀態。收尾方法的簽章與 `core` 相同，以 Private Method 參照傳入；其他邏輯一律留在 `core`。
 - **要**：`core` 內 `switch action` 的 case 順序與 `Action` 宣告順序一致；每個 case 本體換行、case 之間空一行，同 `formatting.md`。
-- **要**：Effect 只用 `.run`，內部是 async/await；`Task.detached`、GCD、Combine 依鐵則 5 禁用。Service 的 typed throws 在 `.run` 內以 `do throws(<Service 的錯誤型別>) { } catch { }` 接住，轉成 `Result` 送回 Action：`.run` 是 closure，一般 `do` / `catch` 的 `error` 在這裡是 `any Error`，放不進 `Result<T, E>`（`formatting.md` 的「Closure 與 Trailing Closure」）。
+- **要**：非同步工作的 Effect 只用 `.run`，內部是 async/await；`.none` 與同步送出 action 的 `.send` 不在此限。`Task.detached`、GCD、Combine 依鐵則 5 禁用。Service 的 typed throws 在 `.run` 內以 `do throws(<Service 的錯誤型別>) { } catch { }` 接住，轉成 `Result` 送回 Action：`.run` 是 closure，一般 `do` / `catch` 的 `error` 在這裡是 `any Error`，放不進 `Result<T, E>`（`formatting.md` 的「Closure 與 Trailing Closure」）。
 - **要**：畫面出現時要啟動的 Effect（初次載入、`AsyncStream` / `.values` 監聽）一律綁在 `.view(.task)`，由 View 的 `.task` modifier 觸發，離開畫面時 SwiftUI 自動取消，不需要 `CancelID`。
 - **要**：只有使用者動作觸發、且需要手動取消或去重的 Effect（搜尋防抖、可取消的送出）才用 `CancelID`（Nested Types 內的 `enum`）配 `.cancellable(id:cancelInFlight:)` 與 `.cancel(id:)`。
 - **要**：同一個 case 超過十行時（行數算法見 `coding-style.md` 的「函式拆分」），把 Effect 或狀態更新抽成 Private Method，方法名稱以動詞開頭並回傳 `Effect<Action>`，排在 `core` 之後。
@@ -352,6 +353,7 @@ Feature 型別過大、需要拆檔時依序處理：
 從 `tca/FeatureView.swift` 複製。分區與 `presentation/View.swift` 相同（Properties → Body → Private Views → Nested Types → Private Method → Preview），差別只在 Properties 與 Init：
 
 - **要**：狀態只來自 `@Bindable var store: StoreOf<<Screen>Feature>`，由父 View 以 `store.scope` 或 App 進入點以 `Store(initialState:reducer:)` 建立後傳入；不寫 Init。除了 `store`，可以另外持有無障礙與版面需要的值：`@Environment` 的環境值（`locale`、`dynamicTypeSize`、`horizontalSizeClass` 或專案自訂的版面分類）、`@ScaledMetric`、常數（依 `coding-style.md` 的「`static` 的使用時機」寫成 instance `let` 或 `static let`）；`@State` 的限制見下方。
+- **要**：`scope` 一律寫不帶 `state:` 標籤的 `scope(_:action:)`，建立子 store 的 `store.scope`、`ForEach` 用的 scope，以及 `NavigationStack`、sheet、alert 綁定用的 `$store.scope` 都一樣，例如 `store.scope(\.child, action: \.child)`、`store.scope(\.path[id: id], action: \.path[id: id])`。在預設的 package trait 下，帶標籤的 `scope(state:action:)` 在 TCA 1.26.2 的各 `scope` overload 都已軟棄用，並改名為不帶標籤的版本；開啟 `ComposableArchitecture2DeprecationOverloads` 時，presentation 綁定另依 Destination 一節的 trait 說明。這條只適用於 TCA 1.26.0 以上：1.25.x 的 `Store` 只有帶標籤的版本，這類專案維持帶標籤的寫法，不算違規；要升級 TCA 時先告知使用者，不自行升級。
 - **要**：Properties 的順序固定為 `static let` → `@Environment` → `@ScaledMetric` → `@Bindable var store` → `@State` / `@FocusState` → `@Binding` → 一般 `let` / `var`，同一組內依名稱字母排序。
 - **要**：畫面出現時的載入固定寫 `.task { await store.send(.view(.task)).finish() }`，不用 `onAppear`；`finish()` 讓 Effect 跟著 View 生命週期，離開畫面自動取消。
 - **要**：畫面只讀 `store` 的狀態、只送 `store.send(.view(...))`；`@State` 只允許純 UI 狀態（捲動位置、焦點、動畫旗標）且 Feature 完全不碰。
@@ -373,7 +375,7 @@ TCA 原生導航取代 Coordinator：Stack 導航由根 Feature 的 `Path` 管�
 ### Tree：畫面內的 Destination
 
 - **要**：需要 sheet、alert、confirmationDialog 或 fullScreenCover 的畫面，在 `State` 加 `@Presents var destination: Destination.State?`，`Destination` 為 Nested Types 內的 `@Reducer enum Destination`；`Action` 加 `case destination(PresentationAction<Destination.Action>)`；`body` 的 `Reduce` 後接 `.ifLet(\.$destination, action: \.destination)`。
-- **要**：View 以 `.sheet(item: $store.scope(\.destination?.<case>, action: \.destination.<case>))` 綁定；alert 用 `.alert($store.scope(\.destination?.alert, action: \.destination.alert))`。不寫帶 `state:` 標籤的 `$store.scope(state: \.$destination, action: \.destination).alert`，TCA 1.26.2 已將它軟棄用並改名為 `scope(_:action:)`。以上寫法適用於未開啟 package trait `ComposableArchitecture2DeprecationOverloads` 的專案：開啟後，`$store` 不帶標籤的 `scope` 只接受 `WritableKeyPath<State, PresentationState<…>>`，`\.destination?.alert` 無法編譯，改依 TCA 2 的遷移指引寫成 `$store.scope(\.$destination, action: \.destination)` 再接 `.alert`／`.sheet`，原始碼註明 alert 與 confirmationDialog 還要額外處理；下方獨立 `notice` 的綁定同樣改成 `\.$notice`。
+- **要**：View 以 `.sheet(item: $store.scope(\.destination?.<case>, action: \.destination.<case>))` 綁定；alert 用 `.alert($store.scope(\.destination?.alert, action: \.destination.alert))`。不寫帶 `state:` 標籤的 `$store.scope(state: \.$destination, action: \.destination).alert`，見 View 一節的 `scope` 條文。以上寫法適用於未開啟 package trait `ComposableArchitecture2DeprecationOverloads` 的專案：開啟後，`$store` 不帶標籤的 `scope` 只接受 `WritableKeyPath<State, PresentationState<…>>`，`\.destination?.alert` 無法編譯，改依 TCA 2 的遷移指引寫成 `$store.scope(\.$destination, action: \.destination)` 再接 `.alert`／`.sheet`（1.25.x 沒有不帶標籤的版本，保留 `state:` 標籤），原始碼註明 alert 與 confirmationDialog 還要額外處理；下方獨立 `notice` 的綁定同樣改成 `\.$notice`。
 - **要**：一個畫面只有一個 `destination`，所有可呈現的目的地都是它的 case；不為 sheet 與 alert 各開一個 optional，只有 alert 的畫面也不直接寫 `@Presents var alert`。
 - **例外**：等目前的目的地關閉後才顯示的通知，放在與 `destination` 分開的 `@Presents var notice: AlertState<<通知按鈕的 action>>?`，這是單一 `destination` 的唯一例外。接線如下：
     - `Action` 加 `case notice(PresentationAction<<通知按鈕的 action>>)`，兩處用同一個型別：畫面已有 `Destination.Alert` 時沿用，沒有時另外宣告（`@Reducer enum Destination` 不會自動產生 `Alert`）。
@@ -548,6 +550,16 @@ extension DependencyValues {
 - **要**：一律用 `TestStore`，**不關 exhaustivity**：每個 `send` 與 `receive` 都寫出完整的狀態變化，未接收的 Action 與未斷言的變化就是測試失敗。
 - **要**：`receive` 用 case key path（`store.receive(\.profileResponse.success)`），不依賴 `Action: Equatable`。成功值為 `Void` 的 `Result` 不可再接 `.success`（Swift 6.3.3 會在 IR 產生階段崩潰，已驗證），改為 `store.receive(\.xxxResponse)`。
 - **要**：Service 沒有 Mock。`TestStore` 的 `withDependencies` 只覆寫這個測試用到的 closure（`$0.categoryService.addCategory = ...`），不整個替換 Service；沒覆寫的 closure 被呼叫時，`testValue` 的 `unimplemented` 會讓測試失敗。時間、UUID 等系統依賴用 TCA 內建的 `continuousClock`、`uuid` 覆寫，不自建。
+- **要**：多個測試共用同一組固定環境（例如固定的現在時間，以及和它搭配的行事曆、時區）時，用 swift-dependencies 的 Swift Testing trait 統一注入，例如 `@Suite(.dependencies(TestEnvironment.fixDateEnvironment))`。
+    - `fixDateEnvironment` 是 `static func fixDateEnvironment(_ values: inout DependencyValues)`，一次設定這組環境的所有依賴，例如 `date`、`calendar`、`timeZone`。注入的 `calendar` 先把 `timeZone` 設成和注入的 `timeZone` 同一個固定時區；行事曆沒有固定時區時，同一個時間在不同機器上會落在不同日期。它不設定 `continuousClock`，時鐘照上一條覆寫。
+    - 這個函式和它依賴的常數（例如 `fixedNow`）沒有對應的受測型別，依 `file-templates.md` 的 `<TypeUnderTest>TestSupport` 一條放置：兩個以上的測試型別使用時放 `Support/` 的主題命名空間（例如 `TestEnvironment`），只有一個測試型別使用時寫該型別的 `private static` 成員。測試拿同一個常數算預期值時，依「測試固定資料依使用範圍宣告」的例外，不拆成各測試一份。
+    - trait 標在需要的最小範圍，比照 `file-templates.md` 的 `@MainActor` 一條：只有部分測試需要時標在那幾個 `@Test`，整個測試型別都需要時才標在 `@Suite`；沒注入的依賴被存取時會失敗，這個訊號要保留給其他測試。`@Suite` 的引數不能引用自己的型別，巨集展開會出現 circular reference，`private` 成員也存取不到（已實測）；設定函式屬於這個測試型別時，trait 標在各個需要的 `@Test`，寫 `@Test(.dependencies(Self.fixDateEnvironment))`，即使整個型別都需要。
+    - 不在各測試的 `withDependencies` 重寫這組固定值的其中一部分（例如只寫 `$0.date = .constant(fixedNow)`），也不另寫包裝 `withDependencies` 的 helper（例如 `withFixedNow { }`）。單一測試要換成別的時間時，在 trait 之下只覆寫要換的那一項。Feature 測試整個測試都要換時，寫在建立 `TestStore` 時的 `withDependencies:`；測試中途才要換時，改 `TestStore` 自己的 `store.dependencies` 或用 `store.withDependencies { } operation: { }`。不用全域的 `withDependencies` 包住 `send`：`TestStore` 建立時就保存了整份依賴，reducer 讀不到全域的覆寫。其他測試寫在包住整個受測呼叫的 `withDependencies`。
+    - trait 由 `DependenciesTestSupport` 提供，測試 target 要連結這個 product，使用的測試檔要 `import DependenciesTestSupport`。這條需要 swift-dependencies 1.10.0 以上、Swift 6.1 以上：
+        - 1.8.0 起 trait 以 `withDependencies` 包住整個測試，測試內建立的 `TestStore` 會沿用注入的值；1.4.0 到 1.7.x 是另一套實作。
+        - 1.10.0 起 `.dependencies(_:)` 的參數是 `async` 簽章，受 MainActor 隔離的設定函式（例如 `@MainActor` 測試型別裡的，或預設隔離為 MainActor 的 target 裡的）可以直接傳入，不必標 `nonisolated`（已實測）；1.10.0 以前是同步簽章，傳不進去。
+        - 1.10.0 以前的專案維持原本的寫法，不算違規；要升級 swift-dependencies 時先告知使用者，不自行升級。
+    - XCTest 不能用 Swift Testing trait：效能測試改把同一個函式傳給 `withDependencies(TestEnvironment.fixDateEnvironment) { ... }`，不另寫 helper。
 - **要**：會失敗的 closure 先以 typealias 宣告成常數再注入：`let failingAdd: CategoryService.AddCategory = { _ in throw .saveFailed }`。以 `let` 加型別宣告、而且位置在函式本體、不在任何 closure 裡時，Swift 推斷得出 typed throws，closure 不用任何標註；寫在其他 closure 本體內（例如整個測試本體包在 `withDependencies` 或 `withIsolatedStorage` 內）或直接賦值給屬性時，要依 `formatting.md` 補 `throws(E)`。回傳特定值的 stub 直接在 `withDependencies` 內賦值，本體不會 throw，不用任何標註。
 - **要**：要驗證呼叫次數或收到的參數時，用 `LockIsolated` 記錄，取代 Mock 的 `callCount` 與 `receivedArguments`。
 - **要**：Service 本身的邏輯在 `<Feature>ServiceTests.swift` 測，位置同 `project-structure.md` 的測試目錄：以 `withDependencies` 把 Client / Store 換成 Mock，再取 `<Feature>Service.liveValue` 測正式實作。Client / Store 的 Mock 沿用 `tests/MockService.swift`，把 `Service` 換成 `Client` / `Store`。`testValue` 是給 Feature 測試用的替身，裡面沒有邏輯，不測它。驗證 Service 丟出的錯誤時用 `file-templates.md` 測試一節的 `actualError` 寫法，不用 `#expect(throws:)`。
@@ -672,14 +684,14 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 - [ ] TCA 專案出現 ViewModel、Coordinator、`@Entry`、`EnvironmentValues+Services.swift`，或 MVVM 專案出現 `@Reducer`
 - [ ] Feature 型別本體分區順序不是 State → Action → Dependencies → Body；`Path` / `Destination` / `CancelID` 寫在本體內而非 Nested Types extension；`Destination.State` 缺 `Equatable` extension；另開 `extension <Screen>Feature.Destination.Action: Equatable {}`；`Destination` 的 alert 建構方法沒寫在 `extension <Screen>Feature.Destination.State`
 - [ ] `@Dependency(\.xxx)` 與 `private var xxx` 未超過 100 字元卻拆成兩行
-- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；收尾的 `Reduce` 處理不需要看到子 Feature 或 presentation 處理後狀態的邏輯；畫面用 `@Presents var alert`，或為延後顯示的通知以外的目的地另開 `@Presents`；延後顯示的通知放進 `destination`；sheet、fullScreenCover 之後的通知不等 `onDismiss` 的 view action 就設定；通知顯示中把 `notice` 換成新通知，或暫存新通知待目前這則關閉後釋出；`core` 不是 Private Method 區的第一個方法；收尾方法沒有排在 `core` 抽出的方法之後；View 以帶 `state:` 標籤的 `$store.scope(state:action:)` 綁定 sheet 或 alert；`core` 的 `switch` 或整個 `Action` 的分派移到輔助型別
+- [ ] `body` 內直接寫 `Reduce { state, action in ... }` 閉包，而不是 `Reduce(core)`；收尾的 `Reduce` 處理不需要看到子 Feature 或 presentation 處理後狀態的邏輯；畫面用 `@Presents var alert`，或為延後顯示的通知以外的目的地另開 `@Presents`；延後顯示的通知放進 `destination`；sheet、fullScreenCover 之後的通知不等 `onDismiss` 的 view action 就設定；通知顯示中把 `notice` 換成新通知，或暫存新通知待目前這則關閉後釋出；`core` 不是 Private Method 區的第一個方法；收尾方法沒有排在 `core` 抽出的方法之後；任何 `store.scope`、`$store.scope` 寫成帶 `state:` 標籤的 `scope(state:action:)`（TCA 1.26.0 以上）；`core` 的 `switch` 或整個 `Action` 的分派移到輔助型別
 - [ ] `State` 的 computed property 另開 `extension <Screen>Feature.State`，而非寫在 `State` 本體；`State` 本體順序不是 stored → 非 private computed → init → nested type → 方法
 - [ ] `State` 缺 `@ObservableState` 或 `Equatable`；`State` 持有 Service；外部注入的值宣告成 `var` 或在宣告處給了預設值
 - [ ] 內部回應的 `Result` 錯誤型別寫成 `any Error` 而非 Service 的錯誤型別；`.run` 內接 typed error 的 `do` 沒寫 `throws(E)`
 - [ ] TCA View 以 `@Environment` 取無障礙與版面以外的值（例如 Service）；Properties 順序不是 `static let` → `@Environment` → `@ScaledMetric` → `store` → `@State` / `@FocusState` → `@Binding` → 一般 `let` / `var`
 - [ ] `Action` 缺 `view` / `delegate` 分組；case 順序不是 `binding`（有才寫）→ `view` → `delegate` → `path` / `destination` / `notice` → 其他依字母排序；View 送了 `view` 以外的 action；view case 用命令式命名
 - [ ] `body` 收到 `.delegate` 沒有 `return .none`；`.delegate` 在本 Feature 內被處理
-- [ ] Effect 用 `.run` 以外的方式；`Reduce` 內直接呼叫 Service；畫面出現的載入用 `onAppear` 而非 `.task` 加 `finish()`
+- [ ] 非同步工作的 Effect 用 `.run` 以外的方式（`.none`、`.send` 不算）；`Reduce` 內直接呼叫 Service；畫面出現的載入用 `onAppear` 而非 `.task` 加 `finish()`
 - [ ] `NavigationStack` 不在 `<Feature>RootView`；非根畫面持有 `StackState`
 - [ ] Feature 模組之間引用對方的 Feature 型別（`AppFeature` 引用 `RootFeature` 除外）
 - [ ] Service 寫成 protocol 加實作；用了 `@DependencyClient`、`XxxClient` 命名或型別下標取用；closure 屬性缺 typealias
@@ -689,7 +701,7 @@ func addCategory_名稱前後有空白_存入去掉空白的名稱() async throw
 - [ ] Database 的儲存容器以 `static` 成員保存；App 啟動流程要讀取開啟結果，容器卻不是由 App 進入點建立並以 `prepareDependencies` 注入
 - [ ] Database 的 `previewValue` 寫成 `Preview<Name>` stub，而非 seed 範例資料的記憶體資料庫；以 Database 為下層的 Service，`previewValue` 回傳固定假資料而非 `liveValue`
 - [ ] `@Shared` 帶 persistence key；跨 Feature 模組共享
-- [ ] 測試關閉 exhaustivity；Feature 測試整個替換 Service 而非只覆寫用到的 closure；用 Mock class 記錄 Service 呼叫而非 `LockIsolated`；`receive` 依賴 `Action: Equatable`；alert 或 confirmationDialog 的預期值呼叫正式程式碼 `Destination.State` 的建構方法，而非寫成完整字面值
+- [ ] 測試關閉 exhaustivity；Feature 測試整個替換 Service 而非只覆寫用到的 closure；用 Mock class 記錄 Service 呼叫而非 `LockIsolated`；`receive` 依賴 `Action: Equatable`；多個測試共用的固定環境（時間、行事曆、時區）在各測試的 `withDependencies` 重寫其中一部分，或另寫包裝 `withDependencies` 的 helper，而非 Swift Testing trait（swift-dependencies 1.10.0 以上、Swift 6.1 以上）；單一測試的覆寫以全域的 `withDependencies` 包住 `send`，而非寫在建立 `TestStore` 時或用 `TestStore` 自己的 `store.dependencies`、`store.withDependencies`；注入的 `calendar.timeZone` 與注入的 `timeZone` 不是同一個固定時區；固定環境的 trait 標在比需要更大的範圍，或在 `@Suite` 引用自己型別的設定函式；設定函式標了不需要的 `nonisolated`（swift-dependencies 1.10.0 以上、Swift 6.1 以上）；alert 或 confirmationDialog 的預期值呼叫正式程式碼 `Destination.State` 的建構方法，而非寫成完整字面值
 - [ ] 父層測試的名稱第一段寫了子層的內層 Action（如 `saveButtonTapped_`）而非受測 Feature 最外層的 case；`view` 分組被當成一層寫成 `view_`
 - [ ] 能直接設進初始 State 的前置狀態卻在 Given 用 `send` 走一遍；When 有兩個以上的 `send`
 - [ ] `// Then` 寫進 `send` 的 closure；只有 `send` 的測試在 `send` 之後缺 `// Then` 與 `#expect(store.state...)`

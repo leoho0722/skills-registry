@@ -38,7 +38,7 @@ Leo Ho 個人 iOS 專案目錄結構規範。
 
 | 層 | 放什麼 | 對應樣板 |
 | --- | --- | --- |
-| Presentation | View、ViewModel、Coordinator | `presentation/*` |
+| Presentation | View、ViewModel、Coordinator、用到本 Feature 型別或業務名詞的 FormatStyle | `presentation/*`、`core/FormatStyle.swift` |
 | Domain | Model、Enum、Error、UseCase（可選） | `domain/*` |
 | Data | Service（該 Feature 專屬）與其 Preview stub | `data/*` |
 | Core | Client、Store、Database、FormatStyle、Extensions、Environment、RuntimeEnvironment、DesignSystem | `core/*` 與 `data/Service.swift` 改後綴 |
@@ -295,10 +295,11 @@ Features/<Feature>/
 │   ├── Root/                             # 根畫面：Feature 的進入點，串 NavigationStack
 │   │   ├── <Feature>RootView.swift       # presentation/View.swift
 │   │   └── <Feature>RootViewModel.swift  # presentation/ViewModel.swift
-│   └── <Screen>/                         # 其他畫面，一個畫面一個資料夾
-│       ├── <Screen>View.swift
-│       ├── <Screen>ViewModel.swift
-│       └── <Screen><Part>View.swift      # 選用，從過大的 View 抽出的獨立 View
+│   ├── <Screen>/                         # 其他畫面，一個畫面一個資料夾
+│   │   ├── <Screen>View.swift
+│   │   ├── <Screen>ViewModel.swift
+│   │   └── <Screen><Part>View.swift      # 選用，從過大的 View 抽出的獨立 View
+│   └── Formatting/                       # 選用，用到本 Feature 型別或業務名詞的 <Name>FormatStyle.swift
 ├── Domain/
 │   ├── <Name>.swift                      # domain/Model.swift、domain/Enum.swift、domain/EnumWithAssociatedValue.swift
 │   ├── <Feature>Error.swift              # domain/Error.swift
@@ -339,12 +340,12 @@ Features/<Feature>/
 | Client / Store / Database | `Core/Networking/`、`Core/Storage/`、`Core/Persistence/` | 一開始就放，見「根目錄結構」 |
 | `@Entry` 清單、`RuntimeEnvironment` | `Core/Environment/` | 一開始就放 |
 | 對系統或第三方型別的擴充 | `Core/Extensions/<Type>+Extensions.swift` | 一開始就放，不在 Feature 內寫 extension |
-| 自訂 `FormatStyle` | `Core/Formatters/<Name>FormatStyle.swift` | 一開始就放，一個樣式一個檔案 |
+| 自訂 `FormatStyle` | 只用到 Core 看得到的型別、名稱不帶業務名詞時放 `Core/Formatters/<Name>FormatStyle.swift`；用到 Feature 自己的型別或離不開業務名詞時放該 Feature 的 `Presentation/Formatting/`；判斷見下方「Formatters」 | 一開始就放，一個樣式一個檔案 |
 | 視覺定義與共用 UI 元件 | `Core/DesignSystem/`，結構見下 | Tokens 與 Styles 一開始就放；Components 在第二個 Feature 要用時才抽 |
 | 跨 Feature 共用的 Model 與 Error | 方案 A、B 留在原 Feature 的 `Domain/`（允許跨 Feature 引用 Domain）；方案 C 搬到 `Shared` | 方案 A、B 不搬，方案 C 必搬 |
-| 常數 | 間距、顏色、字型、圓角不寫原始值，依 DesignSystem 一節用 Token，不另寫常數；其餘只有一個型別用的常數（例如特定圖示的尺寸、最多顯示筆數）留在該型別內，寫法依 `coding-style.md` 的「`static` 的使用時機」；跨型別共用的版面尺寸放所選方案 DesignSystem 的 `Tokens/`（方案 A 為 `Core/DesignSystem/Tokens/`） | 出現第二個使用者才搬出該型別 |
+| 常數 | 間距、顏色、字型、圓角不寫原始值，依 DesignSystem 一節用 Token，不另寫常數；其餘只有一個型別用的常數（例如特定圖示的尺寸、最多顯示筆數）留在該型別內，寫法依 `coding-style.md` 的「`static` 的使用時機」；跨型別共用的版面尺寸放所選方案 DesignSystem 的 `Tokens/`（方案 A 為 `Core/DesignSystem/Tokens/`）。無障礙識別碼目錄、App 與測試 target 共用的常數不搬，見 `coding-style.md`「命名空間以成員為單位判斷」的「不適用」 | 出現第二個使用者才搬出該型別 |
 
-- **要**：抽到 `Core/` 的門檻是「第二個 Feature 出現需求」，不預先抽；唯一例外是 Extensions、Formatters、Tokens、Styles，它們天生跨 Feature。
+- **要**：抽到 `Core/` 的門檻是「第二個 Feature 出現需求」，不預先抽；唯一例外是 Extensions、`Core/Formatters/` 的樣式、Tokens、Styles，它們天生跨 Feature；用到 Feature 型別或離不開業務名詞的 `FormatStyle` 不在此列，見「Formatters」。
 - **要**：只在同一 Feature 內多個畫面共用的子 View，放該 Feature 的 `Presentation/Components/`，不進 `Core/`。
 - **避免**：`Core/` 內出現業務名詞。`Core/DesignSystem/Components/ProfileCard.swift` 是錯的，它該叫 `UserCard` 或留在 Profile Feature。
 - **避免**：Feature 之間直接引用對方的 Component 或 Extension；要共用就抽到 `Core/`。
@@ -371,7 +372,15 @@ DesignSystem/
 
 ### Formatters
 
-自訂 `FormatStyle` 實作放在 `Core/Formatters/`，一個樣式一個檔案，檔名 `<Name>FormatStyle.swift`，對應測試放在測試 target 的鏡像路徑。View 與 ViewModel 都不得自行定義格式化邏輯，規則見 `file-templates.md` 的 View 一節。
+自訂 `FormatStyle` 一個樣式一個檔案，檔名 `<Name>FormatStyle.swift`。位置看樣式用到的所有型別，包含輸入、設定值與依賴，不只看輸入型別：
+
+1. **只用到 Core 看得到的型別**（系統型別、Core 自己的型別），**而且規則能用不帶業務名詞的名稱描述**（例如每 4 碼加空格的 `GroupedDigitsFormatStyle`）：放 `Core/Formatters/`。只需要 Model 的一兩個欄位時，輸入就用那些值，例如 `Text(order.total, format: .currency(code: order.currency))`，不要把整個 Model 當輸入。名稱離不開業務名詞、規則只屬於一個 Feature 時（例如 `OrderNumberFormatStyle`），即使只用系統型別，也依第 3 種放該 Feature，因為 `Core/` 不得出現業務名詞。
+2. **需要多個欄位，兩個以上 Feature 各自的型別要套用同一套規則，而且樣式本身也能用不帶業務名詞的名稱描述**（名稱離不開業務名詞時見下方「先問使用者」）：在 Core 宣告不帶業務名詞的 protocol（例如 `AmountDisplayable`），樣式寫成以它為約束的泛型（`AmountFormatStyle<Input: AmountDisplayable>`），放 `Core/Formatters/`；各 Feature 的 Domain 型別各自遵循。protocol 至少要有兩個型別遵循，依 `coding-style.md` 的型別一節；便利存取子的泛型寫法見 `file-templates.md` 的 `core/FormatStyle.swift`。
+3. **用到某個 Feature 自己的型別**（該 Feature 的 Model、`State` 或專用值型別），或名稱離不開該 Feature 的業務名詞：Core 不能引用 Feature 的型別，也不得出現業務名詞，放該 Feature 的 `Presentation/Formatting/`。
+
+以下情況目前沒有規定，先問使用者：第 3 種樣式之後也要給其他 Feature 使用；多個 Feature 共用的規則名稱離不開業務名詞（例如發票字軌）；方案 C 的兩個 Feature 要用同一個 `Shared` Model 的多個欄位格式化，只有一個具體型別，不符合第 2 種「至少兩個型別遵循」。
+
+測試依下方「測試目錄」鏡像樣式所在的 target 或 package：單一 App target 時，`Core/Formatters/` 的樣式測試放 `Core/Formatters/`，Feature 專用樣式的測試平放在 `Features/<Feature>/`，不另開 `Formatting/` 子資料夾；方案 B、C 依 package 的測試目錄規則，以各 package 為基準鏡像，不重複加 `Core/`、`Features/` 前綴。View 與 ViewModel 都不得自行定義格式化邏輯，規則見 `file-templates.md` 的 View 一節。
 
 ## 測試目錄
 
@@ -384,6 +393,7 @@ DesignSystem/
 │   ├── <Screen>ViewModelTests.swift
 │   ├── <Feature>ServiceTests.swift         # 鏡像 Data
 │   ├── <Verb><Noun>UseCaseTests.swift      # 鏡像 Domain/UseCases
+│   ├── <Name>FormatStyleTests.swift        # 鏡像 Presentation/Formatting，平放
 │   └── <TypeUnderTest>TestSupport.swift    # 同資料夾多個測試型別共用的 helper
 ├── Core/
 │   ├── Formatters/<Name>FormatStyleTests.swift
@@ -395,7 +405,7 @@ DesignSystem/
 ├── Fixtures/                               # 測試用固定資料
 │   ├── <Model>+Fixture.swift               # extension <Model> { static func fixture(...) }
 │   └── <model>.json                        # 只給解碼測試用
-└── Support/                                # 跨資料夾共用的 TestSupport，平放
+└── Support/                                # 跨資料夾共用的 TestSupport，與沒有受測型別的主題命名空間，平放
     └── <TypeUnderTest>TestSupport.swift
 ```
 
@@ -409,7 +419,7 @@ DesignSystem/
 ### Mocks 與 Fixtures
 
 - **要**：Mock 一律放 `Mocks/` 平放，不依 Feature 分子資料夾；跨 Feature 測試共用，命名與內容依 `file-templates.md` 的 `tests/MockService.swift` 一節。
-- **要**：多個測試型別共用的 helper 不放 `Mocks/`、`Fixtures/`：同資料夾共用的放該資料夾的 `<TypeUnderTest>TestSupport.swift`，跨資料夾共用的放 `Support/`，平放、不分子資料夾；規則見 `file-templates.md` 的 tests/Tests.swift 一節。
+- **要**：多個測試型別共用的 helper 不放 `Mocks/`、`Fixtures/`：同資料夾共用的放該資料夾的 `<TypeUnderTest>TestSupport.swift`，跨資料夾共用的放 `Support/`，平放、不分子資料夾；沒有對應受測型別的共用設定或 helper（例如固定時間環境）放 `Support/` 裡以主題命名的命名空間；規則見 `file-templates.md` 的 tests/Tests.swift 一節。
 - **要**：測試 target 專用、替非自己的型別加功能的 extension（例如只給測試用的 `View` 量測 helper），放在它依賴的 Support 檔或 `<TypeUnderTest>TestSupport.swift` 所在的資料夾，檔名 `<Type>+<Feature>.swift`（例如 `View+LayoutMeasurement.swift`）；不放 `Core/Extensions/`，那是主 target 的資料夾。規則見 `formatting.md` 的「Extension 的使用時機」。
 - **要**：Fixture 以 extension 形式提供，一個 Model 一檔 `<Model>+Fixture.swift`，放 `Fixtures/`：
 
