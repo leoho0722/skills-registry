@@ -53,7 +53,7 @@ Presentation ──▶ Domain ◀── Data
 
 - **要**：Presentation 依賴 Domain 的型別與 Data 的 protocol；ViewModel 持有 `any <Name>ServiceProtocol`，讀寫 Domain 的 Model。
 - **要**：Data 依賴 Domain，Service 回傳 Domain 的 Model、丟 Domain 的 Error；Data 依賴 Core 的 Client / Store / Database。
-- **要**：Domain 只依賴 Core 與 Foundation；Core 只依賴 Foundation 與 SwiftUI，不知道任何 Feature 存在。
+- **要**：Domain 只依賴 Core 與 Foundation；Core 不知道任何 Feature 存在，只依賴系統框架（例如 Foundation、SwiftUI、`Persistence/` 的 SwiftData、`Extensions/` 處理影像的 ImageIO），以及技術能力需要的套件（Client 包裝的第三方 SDK、TCA 專案註冊依賴用的 ComposableArchitecture）。
 - **要**：跨 Feature 只允許引用對方 **Domain 層的 Model 與 Error**；需要對方 Service 的能力時，由 ViewModel 或 UseCase 組合，不直接注入對方的 Service。
 - **避免**：反向依賴：Domain `import SwiftUI`、Domain 知道 Service 存在、Data 知道 ViewModel 或 View 存在、Core 引用任何 Feature 的型別。
 - **避免**：跨 Feature 引用對方的 View、ViewModel、Coordinator、Service；Feature 之間的導航一律經由 App 層的根 Coordinator。
@@ -171,7 +171,7 @@ init 注入為主；Service 透過 SwiftUI Environment 送到 View。方案 A �
 <Project>/
 ├── Packages/
 │   ├── Core/
-│   │   ├── Package.swift                 # 無依賴
+│   │   ├── Package.swift                 # 無專案內 package 依賴；外部套件依「分層原則」
 │   │   ├── Sources/Core/                 # 內容同單一 target 的 Core/，DesignSystem 除外
 │   │   └── Tests/CoreTests/
 │   ├── DesignSystem/
@@ -231,7 +231,7 @@ let package = Package(
 ```text
 <Project>/
 ├── Packages/
-│   ├── Core/                             # 無依賴
+│   ├── Core/                             # 無專案內 package 依賴；外部套件依「分層原則」
 │   ├── DesignSystem/                     # 無依賴，與 Core 平行
 │   ├── Shared/                           # 依賴 Core；只放跨 Feature 共用的 Model、Error
 │   └── Features/
@@ -364,7 +364,7 @@ DesignSystem/
 ```
 
 - **方案 A**：放 `Core/DesignSystem/`，上面三個子資料夾直接建立；顏色與圖示用 App target 的 `Assets.xcassets`。
-- **方案 B 與 C**：抽成獨立的 `Packages/DesignSystem/`，與 `Core` 平行、**互不依賴**，兩者都只依賴 SwiftUI；Feature 同時依賴兩者。升級 A → B 時，DesignSystem 與 Core、Shared 一起抽出，A 的資料夾結構就是 package 的 `Sources/DesignSystem/` 結構，不用重排。
+- **方案 B 與 C**：抽成獨立的 `Packages/DesignSystem/`，與 `Core` 平行、**互不依賴**；DesignSystem 只依賴 SwiftUI，Core 的依賴依「分層原則」；Feature 同時依賴兩者。升級 A → B 時，DesignSystem 與 Core、Shared 一起抽出，A 的資料夾結構就是 package 的 `Sources/DesignSystem/` 結構，不用重排。
 - **要**：Tokens 只放語意名稱（`Color.brandPrimary`、`Font.headline`、`Spacing.medium`），不放原始值的直接使用者；畫面內不得出現 `Color(red:green:blue:)` 或 `.padding(13)` 這種未經 Token 的值。
 - **要**：Components 一律有 `#Preview`，且 Preview 不依賴任何 Service。
 - **要**：package 形式時，`.xcassets` 放 `Sources/DesignSystem/Resources/` 並在 `Package.swift` 宣告 `resources: [.process("Resources")]`，程式內以 `Bundle.module` 取用；自訂字型在 App 啟動時以 `CTFontManagerRegisterFontsForURL` 註冊，不能靠 `Info.plist` 的 `UIAppFonts`。
@@ -377,6 +377,8 @@ DesignSystem/
 1. **只用到 Core 看得到的型別**（系統型別、Core 自己的型別），**而且規則能用不帶業務名詞的名稱描述**（例如每 4 碼加空格的 `GroupedDigitsFormatStyle`）：放 `Core/Formatters/`。只需要 Model 的一兩個欄位時，輸入就用那些值，例如 `Text(order.total, format: .currency(code: order.currency))`，不要把整個 Model 當輸入。名稱離不開業務名詞、規則只屬於一個 Feature 時（例如 `OrderNumberFormatStyle`），即使只用系統型別，也依第 3 種放該 Feature，因為 `Core/` 不得出現業務名詞。
 2. **需要多個欄位，兩個以上 Feature 各自的型別要套用同一套規則，而且樣式本身也能用不帶業務名詞的名稱描述**（名稱離不開業務名詞時見下方「先問使用者」）：在 Core 宣告不帶業務名詞的 protocol（例如 `AmountDisplayable`），樣式寫成以它為約束的泛型（`AmountFormatStyle<Input: AmountDisplayable>`），放 `Core/Formatters/`；各 Feature 的 Domain 型別各自遵循。protocol 至少要有兩個型別遵循，依 `coding-style.md` 的型別一節；便利存取子的泛型寫法見 `file-templates.md` 的 `core/FormatStyle.swift`。
 3. **用到某個 Feature 自己的型別**（該 Feature 的 Model、`State` 或專用值型別），或名稱離不開該 Feature 的業務名詞：Core 不能引用 Feature 的型別，也不得出現業務名詞，放該 Feature 的 `Presentation/Formatting/`。
+
+系統樣式不寫成自訂型別，在使用處寫完整的鏈。同一組設定（例如 `.currency(code: "TWD").precision(.fractionLength(0))`）被至少兩個能依賴 Core 的型別使用時，可在 `extension FormatStyle where Self == <系統樣式型別>` 加 `static func` 便利存取子（例如 `Decimal.FormatStyle.Currency` 的 `twd(locale:)`），條件是：只組合系統樣式的修飾，`locale` 等環境值由參數傳入、不讀 `.current`；名稱描述格式本身，不帶業務名詞；依放置表的「對系統或第三方型別的擴充」放 `Core/Extensions/`。不能依賴 Core 的使用處（例如 DesignSystem，見上方 DesignSystem 一節）不計入使用型別，照樣寫完整的鏈。需要額外邏輯時（例如 `nil` 顯示佔位符、當天顯示「今天」）就不只是系統樣式的組合，依上方三種寫成自訂樣式。
 
 以下情況目前沒有規定，先問使用者：第 3 種樣式之後也要給其他 Feature 使用；多個 Feature 共用的規則名稱離不開業務名詞（例如發票字軌）；方案 C 的兩個 Feature 要用同一個 `Shared` Model 的多個欄位格式化，只有一個具體型別，不符合第 2 種「至少兩個型別遵循」。
 
@@ -411,10 +413,10 @@ DesignSystem/
 
 ### 測什麼
 
-- **要**：只為 ViewModel、Service、Client、Store、Database、UseCase、FormatStyle、Extensions 寫單元測試；測試檔名 `<TypeUnderTest>Tests.swift`，位置鏡像該型別在主 target 的資料夾；過大時依受測行為拆成 `<TypeUnderTest><行為>Tests.swift`，放同一個資料夾，見 `file-templates.md` 的 tests/Tests.swift 一節。
+- **要**：只為 ViewModel、Service、Client、Store、Database、UseCase、FormatStyle、Extensions，以及測試 target 的工具型別（`file-templates.md` tests 一節）寫單元測試；工具型別的測試和它放在同一個主題資料夾，沒有主 target 可鏡像；測試檔名 `<TypeUnderTest>Tests.swift`，位置鏡像該型別在主 target 的資料夾；過大時依受測行為拆成 `<TypeUnderTest><行為>Tests.swift`，放同一個資料夾，見 `file-templates.md` 的 tests/Tests.swift 一節。
 - **要**：Model 與 Enum 預設不測；例外是有手寫 `init(from:)` / `encode(to:)`、手寫 `init?(rawValue:)`、或 computed property 含判斷邏輯時，只測那些手寫的部分。
 - **避免**：為 View、Coordinator 寫單元測試；View 由 Preview 與 UI Test 覆蓋，Coordinator 的導航由 UI Test 覆蓋。
-- **避免**：一個測試檔測多個型別，或測試檔的位置與主 target 不對應。
+- **避免**：一個測試檔測多個型別，或測試檔的位置與主 target 不對應（測試 target 的工具型別與它的測試除外）。
 
 ### Mocks 與 Fixtures
 
@@ -473,5 +475,6 @@ DesignSystem/
 - [ ] `Core/` 出現業務名詞；只有一個 Feature 用的 Component 被抽進 `Core/`
 - [ ] DesignSystem 依賴 `Core` 或 Feature；畫面內出現未經 Token 的顏色、字型、間距、圓角
 - [ ] Feature package 依賴其他 Feature package；`Package.swift` 缺 `swiftLanguageModes: [.v6]`
-- [ ] 測試檔位置未鏡像主 target；為 View 或 Coordinator 寫單元測試；Mocks、Fixtures 或 Support 分了子資料夾；共用的測試 helper 放進 Mocks 或 Fixtures；測試專用、替非自己型別加功能的 extension 不在依賴它的 Support 檔旁邊，或放進 `Core/Extensions/`
+- [ ] 測試檔位置未鏡像主 target（測試 target 的工具型別與它的測試除外）；為 View 或 Coordinator 寫單元測試；Mocks、Fixtures 或 Support 分了子資料夾；共用的測試 helper 放進 Mocks 或 Fixtures；測試專用、替非自己型別加功能的 extension 不在依賴它的 Support 檔旁邊，或放進 `Core/Extensions/`
 - [ ] Fixture 不叫 `fixture`、參數沒有預設值、內含隨機值或目前時間
+- [ ] 系統樣式包成自訂 `FormatStyle` 型別；能依賴 Core 的使用型別不到兩個的系統樣式設定加了便利存取子；不能依賴 Core 的使用處（例如 DesignSystem）用了便利存取子；系統樣式的便利存取子讀 `.current`、名稱帶業務名詞、含系統樣式以外的邏輯，或不在 `Core/Extensions/`（自訂樣式的便利存取子依 `file-templates.md` 的 `core/FormatStyle.swift` 寫在樣式自己的檔案）

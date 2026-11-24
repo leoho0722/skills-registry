@@ -253,22 +253,27 @@ enum Layout {
 
 - 呼叫型別的算法：
     - 正式程式碼的命名空間只算正式程式碼的呼叫型別；測試 target 的命名空間（例如 TestSupport）只算測試型別的呼叫。
-    - 測試不算正式程式碼成員的呼叫端，不論是直接測它，還是拿它建立資料或算預期值。成員搬成 private 後，改由擁有它的型別的測試涵蓋，不為了測試放寬存取層級。
+    - 測試不算正式程式碼成員的呼叫端，不論是直接測它，還是拿它建立資料或算預期值。成員搬成 private 後，改由擁有它的型別的測試涵蓋，不為了測試放寬存取層級。正式程式碼裡只對系統型別做通用運算的成員不搬回呼叫端，見下方「系統型別的通用運算」；其餘搬回後擁有者的測試涵蓋不到的情況（例如擁有者唯一的入口只接收測試建立不出的系統型別），目前沒有規定，先問使用者。
+    - `#Preview` 與 `PreviewProvider` 也不算呼叫型別：它們和測試一樣只用來展示，不決定正式邏輯的歸屬。Preview 要用時改走擁有者對外的成員，例如建立 `State` 後讀它的 computed property。只被 Preview 使用、沒有其他呼叫端的成員目前沒有規定，先問使用者，不依下方「沒有任何呼叫端」一條刪除。
+    - 同一個頂層型別與它的巢狀型別算同一個呼叫型別，例如 TCA 的 Feature 與它的 `State`、`Destination`。成員搬到它讀寫的那個型別，寫在該型別的本體，依 `formatting.md` 的「巢狀型別」就地寫，不另開 `extension Outer.Nested`（TCA 巨集產生的 `Destination.State` 本體無法加成員，依 `tca-architecture.md` 的既有例外寫在 extension）；存取層級依實際呼叫範圍，外層型別也要呼叫時不加 `private`。例如 Feature 的 reducer 與 `State` 的方法都呼叫、只讀寫 `State` 的成員，寫成 `State` 本體的方法（要修改時加 `mutating`）；reducer 也要呼叫，所以不加 `private`，依 `tca-architecture.md` 的 `State` 本體順序排在非 private 方法。
     - 呼叫端本身是另一個命名空間的成員時，往上追到不是命名空間的型別再計算；途中遇到下方「不適用」裡本規範明定保留的命名空間（例如 `<Name>Records`）就停在那裡，把它算成一個呼叫型別。彙總所有呼叫鏈後只剩它一個時，由它承載這個成員，例如收成它的 private helper；兩個以上的 Records 都呼叫時，留在命名空間。
     - 呼叫端是同一個型別、但分散在不同檔案（例如多個檔案各自的 `extension DependencyValues`）時，搬成 private 會跨不了檔，視為多個型別共用，留在命名空間。
+- 系統型別的通用運算：正式程式碼的命名空間裡，成員只被一個型別呼叫，但只對 Apple 系統框架的型別做通用運算時（名稱與參數都不帶業務名詞，也不內含 App 的設定值，例如以 ImageIO 把影像 `Data` 降採樣並重編碼成 JPEG），而且呼叫端所在的位置能依賴 Core，不搬回呼叫端，改寫成該型別的擴充，依 `project-structure.md` 放置表的「對系統或第三方型別的擴充」放 `Core/Extensions/`，測試依同檔「測試目錄」鏡像擴充所在的位置。呼叫端不能依賴 Core 時（例如 DesignSystem，見 `project-structure.md` 的 DesignSystem 一節），照本規則搬回呼叫端。App 的設定值（例如像素上限、壓縮品質）由呼叫端以參數傳入，擴充不給預設值；設定值依 `project-structure.md` 放置表的「常數」一列留在呼叫端。唯一呼叫端是 View 時不適用這一條，依下一條「唯一的呼叫端是 View」處理（例如依 `displayScale` 把 `CGFloat` 對齊像素的版面計算，寫進該 View 的 Private Method）。第三方型別的運算，以及測試 target 的命名空間，都不適用這一條，照本規則判斷，不搬進主 target 的 `Core/Extensions/`；測試 target 既有的測試專用擴充，位置依 `project-structure.md` 的「Mocks 與 Fixtures」。
 - 唯一的呼叫端是 View 時，依性質決定去處：
     - 純 UI 計算（版面數值、`Color`、`Bool` 這類，條件見 `file-templates.md` 的 `presentation/View.swift`）搬進該 View 的 Private Method。
     - 業務邏輯搬到 ViewModel，TCA 專案搬到 Feature 的 `State`：寫 computed property，需要參數（例如 `locale`）時寫 `State` 的方法。View 本身不持有 store 或 ViewModel 時，由持有它的上層 View 取值後傳入。
     - 給畫面顯示的格式化一律改寫成 `FormatStyle`，見下方「不適用」。
-- 成員沒有任何呼叫端時（正式程式碼的命名空間看正式呼叫端，測試 target 的命名空間看測試呼叫端），它是沒用到的程式碼，連同只測它的測試一起刪除。例外有兩種：
+- 成員沒有任何呼叫端時（正式程式碼的命名空間看正式呼叫端，測試 target 的命名空間看測試呼叫端），它是沒用到的程式碼，連同只測它的測試一起刪除。例外有三種：
     - 已排定的後續變更要用，而且有變更文件明確點名這個成員與要用它的變更：保留到那個變更；那個變更完成或取消後仍沒有呼叫端，就刪除。
     - 只是轉呼叫正式邏輯的測試入口（例如讓測試呼叫 private 建構方法的 `makeXForTesting`）：不刪測試，改成讓測試走正式入口（例如讓正式入口接受參數），不為了測試另開入口。
+    - 仍有 `#Preview` 或 `PreviewProvider` 引用、沒有正式呼叫端的成員：不刪除，依上方「`#Preview` 與 `PreviewProvider`」一條先問使用者。
 - 以下不適用本規則：
-    - 給畫面顯示的格式化 helper：不看呼叫端數量，依鐵則 8 一律改寫成 `FormatStyle`，放置位置見 `project-structure.md` 的「Formatters」。Data 層組資料用的字串（例如匯出 CSV、組請求參數）不是顯示格式化，照本規則判斷。
+    - 給畫面顯示的格式化 helper：輸入是一個要呈現的值，輸出是這個值依 locale 等規則呈現的顯示文字（數字、日期、金額、百分比這類）。不看呼叫端數量，依鐵則 8 一律改寫成 `FormatStyle`，放置位置見 `project-structure.md` 的「Formatters」。挑選或組合文案的 helper 不算，即使句中內插了格式化過的值，例如依生物辨識種類回傳不同 key 的標題、把上限數值內插進提示句的 `LocalizedStringResource`：它們照本規則判斷，句中的值仍以 `FormatStyle` 格式化；唯一呼叫端是 View 時，依狀態決定文案比照 `file-templates.md` `presentation/View.swift` 的「常見誤放」屬於 ViewModel 的職責，依上方搬到 ViewModel 或 `State`。搬過去時回傳型別用 Foundation 的 `LocalizedStringResource`，不用 SwiftUI 的 `LocalizedStringKey`，因為非 UI 層不 import SwiftUI（`formatting.md` 的 import 規則）；`Text` 可以直接接收 `LocalizedStringResource`。Data 層組資料用的字串（例如匯出 CSV、組請求參數）不是顯示格式化，照本規則判斷。
     - 無障礙識別碼目錄：成員存在與否由目錄本身決定，搬走後目錄就不完整；帶參數的識別碼產生方法（例如 `orderRow(id:)`）也算。
     - App 與測試 target 共用的資料與常數，例如 Preview 與 snapshot 測試共用的固定資料、UI 測試也要用的識別碼，以及 UI 測試必須和 App 端種子資料一致的值（`file-templates.md` 的「測試固定資料依使用範圍宣告」）。
     - 本規範明定成員或抽取條件的命名空間：`<Name>Records` 依 `file-templates.md` 的 `data/Records.swift`，`RuntimeEnvironment` 依同檔的 `core/RuntimeEnvironment.swift`。
-    - 依 `file-templates.md` tests 一節拆出的參數化測試資料型別。
+    - 依 `file-templates.md` tests 一節拆出的參數化測試資料型別：範圍只有 `@Test(arguments:)` 的資料，以及只用來組這些資料的 private helper；測試本體直接使用的固定資料不在範圍內，依同一節的「測試固定資料依使用範圍宣告」。
+    - 測試 target 的工具型別：在測試 target 內實作、本身有測試驗證工具行為的工具（例如以合成輸入或固定樣本檔測試的守門測試用原始碼掃描器），算受測型別，依 `file-templates.md` tests 一節的「測試 target 的工具型別」。
 
 確定需要 `static` 後，還要符合下表的用途。不論寫成 stored 或 computed，會隨部署環境、帳號或遠端設定改變，或測試需要換值的值，都不能用 `static` 寫死，改由 init 參數傳入。
 
@@ -923,6 +928,7 @@ private extension ProfileViewModel {
 - [ ] 存取控制：成員未從 `private` 起手、明寫 `internal`、出現 `fileprivate`、為測試放寬存取層級、屬性包裝與存取控制順序顛倒
 - [ ] 型別：`class` 未加 `final`、不打算被覆寫的型別成員寫 `class` 而非 `static`、可變共享狀態用 `class` 加 lock 而非 `actor`、`typealias` 給基本型別取別名、tuple 跨函式邊界、只有一個實作卻定義 protocol
 - [ ] `static`：語言、框架或本規範未要求，卻在可直接寫、寫成區域 `let` 或 instance 成員時用 `static`（包含只被 instance 成員共用的常數，以及包成型別內 `Layout` 列舉的常數）；型別無法或不宜保存 instance 常數，卻仍寫成 instance `let`，導致自動合成的遵循、編碼輸出或持久化欄位改變；常數型別不遵循 `Sendable` 時為了寫成 `static let` 改成 `& Sendable`；收納共用函式的命名空間內，有只被一個型別呼叫，或沒有任何呼叫端的成員（範圍與例外都見「命名空間以成員為單位判斷」）；唯一呼叫端是 View 時，業務邏輯被搬進 View，或純 UI 計算被搬進 `State`、ViewModel；給畫面顯示的格式化 helper 留在命名空間而沒有改寫成 `FormatStyle`；只因沒用到 `self` 就改成 `static`、不符合使用時機表、只為消除編譯錯誤才改成 `static`、用途是字面值常數卻不符合三項條件（自訂 `static` 工廠不算字面值）、以 `static` 寫死會隨環境或測試改變的值、`Logger` 不符合專屬條件或 `subsystem` 用 `!`、可變的 stored `static var`（`@TaskLocal` 宣告不算）、`static let` 指向 actor、lock 或帶可變狀態的 `class`（`GlobalActor.shared` 除外）、`static func` 本身發起 I/O 或讀寫共享狀態（錯誤轉換 helper 執行傳入的操作、資料存取 helper 使用傳入的 `context` 不算）、資料存取 helper 自行取得依賴、開啟交易、保存 `context`、呼叫 `save()` 或在 `read` 範圍內修改資料、正式程式碼以 `static let`、`static var` 或 `static func` 建立、保存或回傳 Service、Client、Store、Database，或 `ModelContainer` 等儲存容器與包著它們的值（框架要求的成員除外）；正式程式碼裡供 Preview 與 snapshot 共用、要求每次結果相同的範例資料，仍用會產生識別值的預設參數（不論寫成 `static let`、getter 或工廠），而非改傳固定識別值
+- [ ] 命名空間成員：挑選或組合文案的 helper 被當成格式化 helper 改寫成 `FormatStyle`，或搬進 ViewModel、`State` 後仍回傳 `LocalizedStringKey`；計算呼叫型別時把同一頂層型別的巢狀型別，或 `#Preview`、`PreviewProvider` 算成另一個呼叫型別；搬進巢狀型別的成員另開 `extension Outer.Nested`（`Destination.State` 的既有例外除外）；只被 Preview 引用的成員被刪除；正式程式碼裡只被一個非 View、能依賴 Core 的型別呼叫、只對 Apple 系統框架型別做通用運算的成員搬回呼叫端，而沒有改寫成 `Core/Extensions/` 的擴充，或擴充內含 App 的設定值；第三方型別或測試 target 的運算被搬進 `Core/Extensions/`；參數化測試資料型別放了測試本體直接使用的固定資料；測試 target 的工具型別被拆進測試型別或 `Support/`
 - [ ] 函式拆分：只在一處使用、只有幾行的邏輯抽成 helper（本規範或樣板明定要獨立宣告的方法除外，例如 `Destination` 的 alert 建構方法、UI 測試的 `launchApp()`；`init` 以 early return 算出初始值的 helper、View 為了不在 `body` 宣告區域變數而抽出的成員也不算）；本體達 15 行的獨立演算法沒有抽出，或抽成 local function；local function 沒有捕捉外層區域變數、本體達 15 行、巢狀或逃逸；同一函式內重複的一兩行運算式另抽 helper，或 3 行以上的邏輯既沒有抽成 private 方法，也不是符合條件的 local function；行數含宣告行、空行或註解，或排版換行的運算式只算一行
 - [ ] Optional：`if let` 用在該提早離開、nil 時又沒有業務邏輯的地方、`guard` 的 `else` 內有業務邏輯（離開前記錄 log 不算；`return` 會改變狀態或呼叫 Service 的呼叫也算業務邏輯，TCA 回傳 `.none`、`.delegate`、`dismiss` 三種結束流程的 Effect 不算）、optional chaining 超過兩層、`??` 掩蓋錯誤、`Bool?`、`Optional` 寫 `.none` 而非 `nil`（TCA 的 `Effect.none` 不算）
 - [ ] 強制解包：`!` 左側含變數、`try!`、`as!`、`IBOutlet` 以外的隱式解包、字面值 `!` 出現在一般方法內而非 `static let` 或測試 fixture、字面值 `!` 的成功與否取決於 App 打包內容或裝置資源（例如 `Bundle(identifier:)`）
