@@ -408,7 +408,8 @@ DesignSystem/
 │   ├── <Model>+Fixture.swift               # extension <Model> { static func fixture(...) }
 │   └── <model>.json                        # 只給解碼測試用
 └── Support/                                # 跨資料夾共用的 TestSupport，與沒有受測型別的主題命名空間，平放
-    └── <TypeUnderTest>TestSupport.swift
+    ├── <TypeUnderTest>TestSupport.swift
+    └── DependenciesTrait.swift             # 只限 TCA 的例外情況，tca/DependenciesTrait.swift
 ```
 
 ### 測什麼
@@ -421,7 +422,7 @@ DesignSystem/
 ### Mocks 與 Fixtures
 
 - **要**：Mock 一律放 `Mocks/` 平放，不依 Feature 分子資料夾；跨 Feature 測試共用，命名與內容依 `file-templates.md` 的 `tests/MockService.swift` 一節。
-- **要**：多個測試型別共用的 helper 不放 `Mocks/`、`Fixtures/`：同資料夾共用的放該資料夾的 `<TypeUnderTest>TestSupport.swift`，跨資料夾共用的放 `Support/`，平放、不分子資料夾；沒有對應受測型別的共用設定或 helper（例如固定時間環境）放 `Support/` 裡以主題命名的命名空間；規則見 `file-templates.md` 的 tests/Tests.swift 一節。
+- **要**：多個測試型別共用的 helper 不放 `Mocks/`、`Fixtures/`：同資料夾共用的放該資料夾的 `<TypeUnderTest>TestSupport.swift`，跨資料夾共用的放 `Support/`，平放、不分子資料夾；沒有對應受測型別的共用設定或 helper（例如固定時間環境）放 `Support/` 裡以主題命名的命名空間；規則見 `file-templates.md` 的 tests/Tests.swift 一節。TCA 專案連結 `DependenciesTestSupport` 會讓 `Dependencies` 出現兩份時，自寫的 `DependenciesTrait.swift` 也放 `Support/`，見 `tca-architecture.md` 的「測試」。
 - **要**：測試 target 專用、替非自己的型別加功能的 extension（例如只給測試用的 `View` 量測 helper），放在它依賴的 Support 檔或 `<TypeUnderTest>TestSupport.swift` 所在的資料夾，檔名 `<Type>+<Feature>.swift`（例如 `View+LayoutMeasurement.swift`）；不放 `Core/Extensions/`，那是主 target 的資料夾。規則見 `formatting.md` 的「Extension 的使用時機」。
 - **要**：Fixture 以 extension 形式提供，一個 Model 一檔 `<Model>+Fixture.swift`，放 `Fixtures/`：
 
